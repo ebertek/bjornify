@@ -266,9 +266,7 @@ async def skip_track(ctx):
 @bot.event
 async def on_message(message):
     """New message"""
-    await bot.process_commands(
-        message
-    )
+    await bot.process_commands(message)
 
 
 def player_add_item_to_playback_queue(query):
