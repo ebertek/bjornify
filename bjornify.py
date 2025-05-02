@@ -232,23 +232,13 @@ async def on_ready():
 async def sync(ctx):
     """Sync global slash commands with Discord."""
     _LOGGER.debug("User %s (%s) issued !sync command.", ctx.author.name, ctx.author.id)
-    await bot.tree.sync()
-    _LOGGER.info("Global slash commands synced.")
-    await ctx.send("✅ Slash commands synced globally.")
-
-
-@bot.command()
-@commands.is_owner()
-async def resync(ctx):
-    """Clear and resync all slash commands with Discord."""
-    _LOGGER.debug(
-        "User %s (%s) issued !resync command.", ctx.author.name, ctx.author.id
-    )
-    bot.tree.clear_commands()
-    _LOGGER.debug("Cleared all slash commands.")
-    await bot.tree.sync()
-    _LOGGER.info("Global slash commands resynced.")
-    await ctx.send("✅ Slash commands cleared and resynced.")
+    try:
+        bot.tree.copy_global_to(guild=None)  # Include all global commands
+        synced = await bot.tree.sync()
+        await ctx.send(f"✅ Synced {len(synced)} global slash commands.")
+    except discord.HTTPException as e:
+        _LOGGER.exception("Failed to sync global commands: %s", e)
+        await ctx.send("🚫 Sync failed.")
 
 
 @bot.event
