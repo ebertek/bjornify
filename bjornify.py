@@ -108,58 +108,45 @@ def refresh_spotify_token():
 
 
 def find_playing_speaker():
-    """Find and return the Sonos speaker currently playing Spotify."""
+    """Find and return the first Sonos speaker that is currently playing Spotify."""
     speakers = soco.discover()
 
     if not speakers:
         _LOGGER.info("No Sonos speakers found.")
         return None
 
-    for speaker in speakers:  # pylint: disable=too-many-nested-blocks
-        # Check if the speaker is playing
+    for speaker in speakers:
         try:
+            # Check if the speaker is playing
             state = speaker.get_current_transport_info()["current_transport_state"]
             if state != "PLAYING":
                 continue
         except Exception as e:  # pylint: disable=broad-exception-caught
             _LOGGER.warning(
-                "Failed to get transport state from %s: %s", speaker.player_name, e
+                "Failed to get transport state for %s: %s", speaker.player_name, e
             )
             continue
 
-        # Check current track URI
         try:
-            track_info = speaker.get_current_track_info()
-            uri = track_info.get("uri", "")
+            # Check current track URI
+            uri = speaker.get_current_track_info().get("uri", "")
             if "x-sonos-spotify:" in uri:
                 _LOGGER.info(
-                    "Speaker %s is playing Spotify (via URI)", speaker.player_name
+                    "Speaker %s playing Spotify (via URI)", speaker.player_name
                 )
                 return speaker
         except Exception as e:  # pylint: disable=broad-exception-caught
             _LOGGER.warning(
-                "Failed to get track info from %s: %s", speaker.player_name, e
+                "Failed to get track info for %s: %s", speaker.player_name, e
             )
 
-        # Check VirtualLineInSource
         try:
-            zgs = speaker.zone_group_state
-            if hasattr(zgs, "zone_groups"):
-                for group in zgs.zone_groups:
-                    for member in group.members:
-                        if (
-                            member == speaker
-                            and member.virtual_line_in_source == "spotify"
-                        ):
-                            _LOGGER.info(
-                                "Speaker %s is playing Spotify (via VirtualLineInSource)",
-                                member.player_name,
-                            )
-                            return member
-            else:
-                _LOGGER.warning(
-                    "ZoneGroupState for %s is missing zone_groups", speaker.player_name
+            # Check VirtualLineInSource for Spotify
+            if getattr(speaker, "virtual_line_in_source", None) == "spotify":
+                _LOGGER.info(
+                    "Speaker %s playing Spotify (via VirtualLineInSource)", speaker.player_name
                 )
+                return speaker
         except Exception as e:  # pylint: disable=broad-exception-caught
             _LOGGER.warning(
                 "Failed to check VirtualLineInSource for %s: %s", speaker.player_name, e
