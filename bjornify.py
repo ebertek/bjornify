@@ -477,14 +477,8 @@ async def main():
     """Initialize the bot, add cogs, and start it."""
     add_cog = AddTrackCog(bot)
     playback_cog = PlaybackControlCog(bot)
-
     await bot.add_cog(add_cog)
     await bot.add_cog(playback_cog)
-
-    # Register slash commands from the instances
-    bot.tree.add_command(add_cog.add_slash)
-    bot.tree.add_command(playback_cog.pause_slash)
-    bot.tree.add_command(playback_cog.next_slash)
 
     await bot.start(DISCORD_BOT_TOKEN)
 
