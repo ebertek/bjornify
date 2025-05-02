@@ -238,34 +238,36 @@ async def sync(ctx):
         await ctx.send("❌ An unexpected error occurred during sync.")
 
 
+@bot.command(name="add")
+async def add_track(ctx, *, query: str):
+    """Add a track to the Spotify playback queue."""
+    _LOGGER.debug("!add command by %s: %s", ctx.author.name, query)
+    response = player_add_item_to_playback_queue(query)
+    await ctx.send(response)
+
+
+@bot.command(name="pause")
+async def pause_track(ctx):
+    """Pause the current Spotify playback."""
+    _LOGGER.debug("!pause command by %s", ctx.author.name)
+    response = await bot.loop.run_in_executor(None, player_pause_playback)
+    await ctx.message.add_reaction(response)
+
+
+@bot.command(name="next")
+async def skip_track(ctx):
+    """Skip to the next Spotify track."""
+    _LOGGER.debug("!next command by %s", ctx.author.name)
+    response = await bot.loop.run_in_executor(None, player_skip_to_next)
+    await ctx.message.add_reaction(response)
+
+
 @bot.event
 async def on_message(message):
     """New message"""
-    _LOGGER.debug("New message in %s", message.channel.id)
-    # Ignore the bot's own messages
-    if message.author == bot.user or message.author.bot:
-        _LOGGER.debug("Message ignored from %s", message.author)
-        return
-
-    # Check if the message is in the correct channel
-    _LOGGER.debug("Check if it matches %s", CHANNEL_ID)
-    if int(message.channel.id) == int(CHANNEL_ID):
-        _LOGGER.debug("Channel matches")
-        query = message.content
-        _LOGGER.debug("Query: %s", query)
-        if query.startswith("!add "):
-            response = player_add_item_to_playback_queue(query.removeprefix("!add "))
-            await message.channel.send(response)
-        elif query.startswith("!next"):
-            response = await bot.loop.run_in_executor(None, player_skip_to_next)
-            await message.add_reaction(response)
-        elif query.startswith("!pause") or query.startswith("!stop"):
-            response = await bot.loop.run_in_executor(None, player_pause_playback)
-            await message.add_reaction(response)
-
     await bot.process_commands(
         message
-    )  # Ensure commands like !sync are still processed
+    )
 
 
 def player_add_item_to_playback_queue(query):
