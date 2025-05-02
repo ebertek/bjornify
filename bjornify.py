@@ -266,7 +266,7 @@ async def on_message(message):
             response = await bot.loop.run_in_executor(None, player_pause_playback)
             await message.add_reaction(response)
 
-    await bot.process_commands(message)
+    await bot.process_commands(message)  # Ensure commands like !sync are still processed
 
 
 def player_add_item_to_playback_queue(query):
@@ -334,7 +334,7 @@ def player_pause_playback():
     )
 
 
-class Add(commands.Cog):
+class AddTrackCog(commands.Cog):
     """Cog for handling slash command /add with autocomplete and fallback UI."""
 
     def __init__(self, discord_bot):
@@ -439,7 +439,7 @@ class Add(commands.Cog):
 
 async def main():
     """Initialize the bot, add cogs, and start it."""
-    await bot.add_cog(Add(bot))
+    await bot.add_cog(AddTrackCog(bot))
     await bot.start(DISCORD_BOT_TOKEN)
 
 
