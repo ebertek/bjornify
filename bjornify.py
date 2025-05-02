@@ -108,67 +108,63 @@ def refresh_spotify_token():
 
 
 def find_playing_speaker():
-    """Find and return the currently playing Sonos speaker using SoCo."""
+    """Find and return the Sonos speaker currently playing Spotify."""
     speakers = soco.discover()
 
     if not speakers:
         _LOGGER.info("No Sonos speakers found.")
         return None
 
-    checked_coordinators = set()
-
     for speaker in speakers:
-        coordinator = speaker.group.coordinator
-
-        if coordinator.uid in checked_coordinators:
-            continue
-
-        checked_coordinators.add(coordinator.uid)
-
-        # Check if the coordinator is playing
+        # Check if the speaker is playing
         try:
-            state = coordinator.get_current_transport_info()["current_transport_state"]
+            state = speaker.get_current_transport_info()["current_transport_state"]
             if state != "PLAYING":
                 continue
         except Exception as e:  # pylint: disable=W0718
             _LOGGER.warning(
-                "Failed to get transport state for %s: %s", coordinator.player_name, e
+                "Failed to get transport state from %s: %s", speaker.player_name, e
             )
             continue
 
         # Check current track URI
         try:
-            uri = coordinator.get_current_track_info().get("uri", "")
+            track_info = speaker.get_current_track_info()
+            uri = track_info.get("uri", "")
             if "x-sonos-spotify:" in uri:
                 _LOGGER.info(
-                    "Coordinator %s playing Spotify (via URI)", coordinator.player_name
+                    "Speaker %s is playing Spotify (via URI)", speaker.player_name
                 )
-                return coordinator
+                return speaker
         except Exception as e:  # pylint: disable=W0718
             _LOGGER.warning(
-                "Failed to get track info for %s: %s", coordinator.player_name, e
+                "Failed to get track info from %s: %s", speaker.player_name, e
             )
 
         # Check VirtualLineInSource
         try:
-            zgs = coordinator.zone_group_state
-            for group in zgs.zone_groups:
-                for member in group.members:
-                    if (
-                        member == coordinator
-                        and member.virtual_line_in_source == "spotify"
-                    ):
-                        _LOGGER.info(
-                            "Coordinator %s playing Spotify (via VirtualLineInSource)",
-                            member.player_name,
-                        )
-                        return member
+            zgs = speaker.zone_group_state
+            if hasattr(zgs, "zone_groups"):
+                for group in zgs.zone_groups:
+                    for member in group.members:
+                        if (
+                            member == speaker
+                            and member.virtual_line_in_source == "spotify"
+                        ):
+                            _LOGGER.info(
+                                "Speaker %s is playing Spotify (via VirtualLineInSource)", member.player_name
+                            )
+                            return member
+            else:
+                _LOGGER.warning(
+                    "ZoneGroupState for %s is missing zone_groups", speaker.player_name
+                )
         except Exception as e:  # pylint: disable=W0718
             _LOGGER.warning(
-                "Failed to parse ZoneGroupState for %s: %s", coordinator.player_name, e
+                "Failed to check VirtualLineInSource for %s: %s", speaker.player_name, e
             )
 
-    _LOGGER.info("No Sonos speakers are currently playing.")
+    _LOGGER.info("No currently playing Sonos speaker using Spotify was found.")
     return None
 
 
