@@ -125,23 +125,34 @@ def find_playing_speaker():
 
         checked_coordinators.add(coordinator.uid)
 
-        state = coordinator.get_current_transport_info()["current_transport_state"]
-        media_info = coordinator.get_current_media_info()
-        uri = media_info.get("uri", "")
+        # Check if the coordinator is playing
+        try:
+            state = coordinator.get_current_transport_info()["current_transport_state"]
+            if state != "PLAYING":
+                continue
+        except Exception as e:
+            _LOGGER.warning("Failed to get transport state for %s: %s", coordinator.player_name, e)
+            continue
 
-        if state == "PLAYING" and "x-sonos-spotify:" in uri:
-            _LOGGER.info(
-                "Currently playing coordinator: %s (%s)",
-                coordinator.player_name,
-                coordinator.ip_address,
-            )
-            members_info = "\n".join(
-                f" - {member.player_name} ({member.ip_address})"
-                for member in coordinator.group.members
-            )
-            _LOGGER.info("Group members:\n%s", members_info)
+        # Check current track URI
+        try:
+            uri = coordinator.get_current_track_info().get("uri", "")
+            if "x-sonos-spotify:" in uri:
+                _LOGGER.info("Coordinator %s playing Spotify (via URI)", coordinator.player_name)
+                return coordinator
+        except Exception as e:
+            _LOGGER.warning("Failed to get track info for %s: %s", coordinator.player_name, e)
 
-            return coordinator  # Return the playing coordinator speaker
+        # Check VirtualLineInSource
+        try:
+            zgs = coordinator.zone_group_state
+            for group in zgs.zone_groups:
+                for member in group.members:
+                    if member == coordinator and member.virtual_line_in_source == "spotify":
+                        _LOGGER.info("Coordinator %s playing Spotify (via VirtualLineInSource)", member.player_name)
+                        return member
+        except Exception as e:
+            _LOGGER.warning("Failed to parse ZoneGroupState for %s: %s", coordinator.player_name, e)
 
     _LOGGER.info("No Sonos speakers are currently playing.")
     return None
