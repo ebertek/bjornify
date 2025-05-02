@@ -13,7 +13,7 @@ Björnify is a Discord bot that adds requested tracks to the Spotify playback qu
 
 You must set these environment variables (via `.env` or Docker Compose):
 
-### Required for Björnify:
+### Required for Björnify
 
 - `SPOTIPY_CLIENT_ID`
 - `SPOTIPY_CLIENT_SECRET`
@@ -21,7 +21,7 @@ You must set these environment variables (via `.env` or Docker Compose):
 - `DISCORD_BOT_TOKEN`
 - `CHANNEL_ID`
 
-### (Optional) Required for HASS integration:
+### (Optional) Required for HASS integration
 
 - `HASS_DISCORD_BOT_TOKEN`
 - `HASS_CHANNEL_ID`
