@@ -68,6 +68,9 @@ HA_ACCESS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 | `HA_URL`                 | URL to your Home Assistant’s `/api/conversation/process` endpoint.      |
 | `HA_ACCESS_TOKEN`        | Long-lived Home Assistant access token for authenticating API requests. |
 
+To get your own Spotify Client ID and secret, please create a new app using the [Spotify for Developers](https://developer.spotify.com/dashboard) Dashboard. You can add `http://localhost:3000` to _Redirect URIs_, and select `Web API` for _APIs used_.
+To get your own Discord token, please create a new application using [Discord Developer Portal](https://discord.com/developers/applications). You will need the `bot` and the `applications.commands` scopes. Under _Bot permissions_, you will need to check `View Channels`, `Send Messages`, `Add Reactions`, `Read Message History`, and `Use External Emojis`.
+
 ### Persistent volumes
 
 | Volume         | Description                       |
