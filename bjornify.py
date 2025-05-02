@@ -144,7 +144,8 @@ def find_playing_speaker():
             # Check VirtualLineInSource for Spotify
             if getattr(speaker, "virtual_line_in_source", None) == "spotify":
                 _LOGGER.info(
-                    "Speaker %s playing Spotify (via VirtualLineInSource)", speaker.player_name
+                    "Speaker %s playing Spotify (via VirtualLineInSource)",
+                    speaker.player_name,
                 )
                 return speaker
         except Exception as e:  # pylint: disable=broad-exception-caught
