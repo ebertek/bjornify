@@ -255,7 +255,7 @@ async def add_track(ctx, *, query: str):
     await ctx.send(response)
 
 
-@bot.command(name="pause")
+@bot.command(name="pause", aliases=["stop"])
 async def pause_track(ctx):
     """Pause the current Spotify playback."""
     _LOGGER.debug("!pause command by %s", ctx.author.name)
@@ -263,7 +263,7 @@ async def pause_track(ctx):
     await ctx.message.add_reaction(response)
 
 
-@bot.command(name="next")
+@bot.command(name="next", aliases=["skip"])
 async def skip_track(ctx):
     """Skip to the next Spotify track."""
     _LOGGER.debug("!next command by %s", ctx.author.name)
