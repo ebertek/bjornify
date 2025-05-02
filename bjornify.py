@@ -205,7 +205,9 @@ async def on_ready():
 @commands.is_owner()
 async def sync(ctx):
     """Sync global slash commands with Discord."""
+    _LOGGER.debug("User %s (%s) issued !sync command.", ctx.author.name, ctx.author.id)
     await bot.tree.sync()
+    _LOGGER.info("Global slash commands synced.")
     await ctx.send("✅ Slash commands synced globally.")
 
 
@@ -213,8 +215,11 @@ async def sync(ctx):
 @commands.is_owner()
 async def resync(ctx):
     """Clear and resync all slash commands with Discord."""
+    _LOGGER.debug("User %s (%s) issued !resync command.", ctx.author.name, ctx.author.id)
     bot.tree.clear_commands()
+    _LOGGER.debug("Cleared all slash commands.")
     await bot.tree.sync()
+    _LOGGER.info("Global slash commands resynced.")
     await ctx.send("✅ Slash commands cleared and resynced.")
 
 
