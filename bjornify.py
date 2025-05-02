@@ -230,15 +230,28 @@ async def on_ready():
 @bot.command()
 @commands.is_owner()
 async def sync(ctx):
-    """Sync global slash commands with Discord."""
+    """Sync slash commands to the current guild."""
     _LOGGER.debug("User %s (%s) issued !sync command.", ctx.author.name, ctx.author.id)
+
+    if not ctx.guild:
+        await ctx.send("❌ This command must be used in a server.")
+        return
+
     try:
-        bot.tree.copy_global_to(guild=None)  # Include all global commands
-        synced = await bot.tree.sync()
-        await ctx.send(f"✅ Synced {len(synced)} global slash commands.")
+        synced = await bot.tree.sync(guild=ctx.guild)
+        _LOGGER.info(
+            "Successfully synced %d slash commands to guild %s (%s)",
+            len(synced),
+            ctx.guild.name,
+            ctx.guild.id,
+        )
+        await ctx.send(f"✅ Synced {len(synced)} slash commands to this guild.")
     except discord.HTTPException as e:
-        _LOGGER.exception("Failed to sync global commands: %s", e)
-        await ctx.send("🚫 Sync failed.")
+        _LOGGER.error("Failed to sync slash commands: %s", e)
+        await ctx.send(f"❌ Failed to sync commands: {e}")
+    except Exception as e:  # pylint: disable=W0718
+        _LOGGER.exception("Unexpected error during sync")
+        await ctx.send("❌ An unexpected error occurred during sync.")
 
 
 @bot.event
