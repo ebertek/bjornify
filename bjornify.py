@@ -1,7 +1,7 @@
 #!/usr/bin/python
 """Load Björnify Discord.py bot"""
 
-# pylint: disable=R0801
+# pylint: disable=duplicate-code
 
 import asyncio
 import logging
@@ -100,7 +100,7 @@ bot = commands.Bot(
 
 def refresh_spotify_token():
     """Force refresh Spotify access token."""
-    global spotify  # pylint: disable=W0603
+    global spotify  # pylint: disable=global-statement
     _LOGGER.info("Refreshing Spotify access token manually.")
 
     auth_manager.refresh_access_token(auth_manager.get_cached_token()["refresh_token"])
@@ -115,13 +115,13 @@ def find_playing_speaker():
         _LOGGER.info("No Sonos speakers found.")
         return None
 
-    for speaker in speakers:
+    for speaker in speakers:  # pylint: disable=too-many-nested-blocks
         # Check if the speaker is playing
         try:
             state = speaker.get_current_transport_info()["current_transport_state"]
             if state != "PLAYING":
                 continue
-        except Exception as e:  # pylint: disable=W0718
+        except Exception as e:  # pylint: disable=broad-exception-caught
             _LOGGER.warning(
                 "Failed to get transport state from %s: %s", speaker.player_name, e
             )
@@ -136,7 +136,7 @@ def find_playing_speaker():
                     "Speaker %s is playing Spotify (via URI)", speaker.player_name
                 )
                 return speaker
-        except Exception as e:  # pylint: disable=W0718
+        except Exception as e:  # pylint: disable=broad-exception-caught
             _LOGGER.warning(
                 "Failed to get track info from %s: %s", speaker.player_name, e
             )
@@ -152,14 +152,15 @@ def find_playing_speaker():
                             and member.virtual_line_in_source == "spotify"
                         ):
                             _LOGGER.info(
-                                "Speaker %s is playing Spotify (via VirtualLineInSource)", member.player_name
+                                "Speaker %s is playing Spotify (via VirtualLineInSource)",
+                                member.player_name,
                             )
                             return member
             else:
                 _LOGGER.warning(
                     "ZoneGroupState for %s is missing zone_groups", speaker.player_name
                 )
-        except Exception as e:  # pylint: disable=W0718
+        except Exception as e:  # pylint: disable=broad-exception-caught
             _LOGGER.warning(
                 "Failed to check VirtualLineInSource for %s: %s", speaker.player_name, e
             )
@@ -170,7 +171,7 @@ def find_playing_speaker():
 
 def spotify_action_with_soco_fallback(
     spotify_action, soco_action, action_name
-):  # pylint: disable=R0911
+):  # pylint: disable=too-many-return-statements
     """Try a Spotify action, fallback to a SoCo action if Spotify fails with 403."""
     # GET /me/player
     playback_results = spotify.current_playback()
@@ -188,7 +189,7 @@ def spotify_action_with_soco_fallback(
                     spotify_action()  # Retry once after refreshing
                     _LOGGER.debug("%s via Spotify (after refresh)", action_name)
                     return "✅"
-                except Exception as ex:  # pylint: disable=W0718
+                except Exception as ex:  # pylint: disable=broad-exception-caught
                     _LOGGER.error("Failed after token refresh: %s", ex)
                     return "🚫"
             if e.http_status == 403:
@@ -206,7 +207,7 @@ def spotify_action_with_soco_fallback(
                             playing_speaker.player_name,
                         )
                         return "✅"
-                    except Exception as ex:  # pylint: disable=W0718
+                    except Exception as ex:  # pylint: disable=broad-exception-caught
                         _LOGGER.error("Failed to %s via SoCo: %s", action_name, ex)
                         return "🚫"
                 _LOGGER.warning("No active speaker found via SoCo.")
@@ -245,7 +246,7 @@ async def sync(ctx):
     except discord.HTTPException as e:
         _LOGGER.error("Failed to sync slash commands: %s", e)
         await ctx.send(f"❌ Failed to sync commands: {e}")
-    except Exception as e:  # pylint: disable=W0718
+    except Exception as e:  # pylint: disable=broad-exception-caught
         _LOGGER.exception("Unexpected error during sync: %s", e)
         await ctx.send("❌ An unexpected error occurred during sync.")
 
@@ -322,7 +323,7 @@ def player_add_item_to_playback_queue(query):
     except spotipy.exceptions.SpotifyException as e:
         _LOGGER.error("Spotify error during add to queue: %s", e)
         return "Failed to add track to queue."
-    except Exception as e:  # pylint: disable=W0718
+    except Exception as e:  # pylint: disable=broad-exception-caught
         _LOGGER.error("Unexpected error during add to queue: %s", e)
         return "Failed to add track to queue."
 
