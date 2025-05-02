@@ -129,28 +129,36 @@ def find_playing_speaker():
 
         try:
             # Check current track URI
-            uri = speaker.get_current_track_info().get("uri", "")
+            track_info = speaker.get_current_track_info()
+            uri = track_info.get("uri", "")
+            metadata = track_info.get("metadata", "")
+            _LOGGER.debug("Checking speaker: %s | URI: %s", speaker.player_name, uri)
+
+            # Primary: Explicit x-sonos-spotify
             if "x-sonos-spotify:" in uri:
                 _LOGGER.info(
                     "Speaker %s playing Spotify (via URI)", speaker.player_name
                 )
                 return speaker
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            _LOGGER.warning(
-                "Failed to get track info for %s: %s", speaker.player_name, e
-            )
 
-        try:
-            # Check VirtualLineInSource for Spotify
-            if getattr(speaker, "virtual_line_in_source", None) == "spotify":
+            # Fallback: VirtualLineInSource pointing to Spotify
+            if uri.startswith("x-sonos-vli:") and "spotify:" in uri:
                 _LOGGER.info(
                     "Speaker %s playing Spotify (via VirtualLineInSource)",
                     speaker.player_name,
                 )
                 return speaker
+
+            # Optional fallback: metadata sniffing
+            if "x-sonos-spotify:" in metadata:
+                _LOGGER.info(
+                    "Speaker %s playing Spotify (via metadata)", speaker.player_name
+                )
+                return speaker
+
         except Exception as e:  # pylint: disable=broad-exception-caught
             _LOGGER.warning(
-                "Failed to check VirtualLineInSource for %s: %s", speaker.player_name, e
+                "Error while checking speaker %s: %s", speaker.player_name, e
             )
 
     _LOGGER.info("No currently playing Sonos speaker using Spotify was found.")
