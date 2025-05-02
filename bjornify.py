@@ -448,7 +448,9 @@ class AddTrackCog(commands.Cog):
 
 async def main():
     """Initialize the bot, add cogs, and start it."""
-    await bot.add_cog(AddTrackCog(bot))
+    add_cog = AddTrackCog(bot)
+    await bot.add_cog(add_cog)
+    bot.tree.add_command(add_cog.add)
     await bot.start(DISCORD_BOT_TOKEN)
 
 
