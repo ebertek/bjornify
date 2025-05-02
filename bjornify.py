@@ -349,6 +349,7 @@ def player_pause_playback():
     )
 
 
+@app_commands.guild_only()
 class AddTrackCog(commands.Cog):
     """Cog for handling slash command /add with autocomplete and fallback UI."""
 
