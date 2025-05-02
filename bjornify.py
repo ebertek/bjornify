@@ -372,7 +372,7 @@ class AddTrackCog(commands.Cog):
     @app_commands.command(name="add", description="Add a song to the Spotify queue")
     @app_commands.describe(query="Search for a song")
     @app_commands.autocomplete(query=autocomplete_tracks)
-    async def add(self, interaction: discord.Interaction, query: str):
+    async def add_slash(self, interaction: discord.Interaction, query: str):
         """Command that queues the selected song"""
         if not query.startswith("spotify:track:"):
             # fallback mode: query is not a URI, it's a search string
@@ -446,11 +446,39 @@ class AddTrackCog(commands.Cog):
             )
 
 
+@app_commands.guild_only()
+class PlaybackControlCog(commands.Cog):
+    """Cog for /pause and /next slash commands."""
+
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+
+    @app_commands.command(name="pause", description="Pause the current playback")
+    async def pause_slash(self, interaction: discord.Interaction):
+        _LOGGER.debug("/pause command by %s", interaction.user.name)
+        response = await self.bot.loop.run_in_executor(None, player_pause_playback)
+        await interaction.response.send_message(f"{response} Paused playback.", ephemeral=True)
+
+    @app_commands.command(name="next", description="Skip to the next track")
+    async def next_slash(self, interaction: discord.Interaction):
+        _LOGGER.debug("/next command by %s", interaction.user.name)
+        response = await self.bot.loop.run_in_executor(None, player_skip_to_next)
+        await interaction.response.send_message(f"{response} Skipped to next track.", ephemeral=True)
+
+
 async def main():
     """Initialize the bot, add cogs, and start it."""
     add_cog = AddTrackCog(bot)
+    playback_cog = PlaybackControlCog(bot)
+
     await bot.add_cog(add_cog)
-    bot.tree.add_command(add_cog.add)
+    await bot.add_cog(playback_cog)
+
+    # Register slash commands from the instances
+    bot.tree.add_command(add_cog.add_slash)
+    bot.tree.add_command(playback_cog.pause_slash)
+    bot.tree.add_command(playback_cog.next_slash)
+
     await bot.start(DISCORD_BOT_TOKEN)
 
 
