@@ -1,6 +1,6 @@
 # 🎵 Björnify
 
-Björnify is a Discord bot that adds requested tracks to the Spotify playback queue. It uses [discord.py](https://discordpy.readthedocs.io/), [Spotipy](https://spotipy.readthedocs.io/), and [SoCo](https://github.com/SoCo/SoCo) to manage playback across Spotify and Sonos speakers.
+Björnify is a Discord bot that adds requested tracks to the Spotify playback queue. It uses [discord.py](https://github.com/scarletcafe/discord.py-docker), [Spotipy](https://github.com/spotipy-dev/spotipy), and [SoCo](https://github.com/SoCo/SoCo) to manage playback across Spotify and Sonos speakers.
 
 ## 🚀 Usage examples
 
@@ -36,8 +36,8 @@ services:
     stop_signal: SIGINT
     user: "1028:100"
     volumes:
-      - "/volume1/docker/discordpy/logs:/app/logs"
-      - "/volume1/docker/discordpy/secrets:/app/secrets"
+      - "/mnt/docker/bjornify/logs:/app/logs"
+      - "/mnt/docker/bjornify/secrets:/app/secrets"
 ```
 
 ### `bjornify.txt`
@@ -70,7 +70,7 @@ HA_ACCESS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 ### Persistent volumes
 
-| Volume         | Description
+| Volume         | Description                       |
 | -------------- | --------------------------------- |
 | `/app/logs`    | Location of logs                  |
 | `/app/secrets` | Location of `spotipy_token.cache` |
