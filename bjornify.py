@@ -450,20 +450,27 @@ class AddTrackCog(commands.Cog):
 class PlaybackControlCog(commands.Cog):
     """Cog for /pause and /next slash commands."""
 
-    def __init__(self, bot: commands.Bot):
-        self.bot = bot
+    def __init__(self, discord_bot: commands.Bot):
+        """Initialize the playback control cog with a Discord bot instance."""
+        self.bot = discord_bot
 
     @app_commands.command(name="pause", description="Pause the current playback")
     async def pause_slash(self, interaction: discord.Interaction):
+        """Slash command to pause Spotify playback."""
         _LOGGER.debug("/pause command by %s", interaction.user.name)
         response = await self.bot.loop.run_in_executor(None, player_pause_playback)
-        await interaction.response.send_message(f"{response} Paused playback.", ephemeral=True)
+        await interaction.response.send_message(
+            f"{response} Paused playback.", ephemeral=True
+        )
 
     @app_commands.command(name="next", description="Skip to the next track")
     async def next_slash(self, interaction: discord.Interaction):
+        """Slash command to skip to the next track on Spotify."""
         _LOGGER.debug("/next command by %s", interaction.user.name)
         response = await self.bot.loop.run_in_executor(None, player_skip_to_next)
-        await interaction.response.send_message(f"{response} Skipped to next track.", ephemeral=True)
+        await interaction.response.send_message(
+            f"{response} Skipped to next track.", ephemeral=True
+        )
 
 
 async def main():
