@@ -159,7 +159,8 @@ def find_playing_speaker():
                         and member.virtual_line_in_source == "spotify"
                     ):
                         _LOGGER.info(
-                            "Coordinator %s playing Spotify (via VirtualLineInSource)", member.player_name
+                            "Coordinator %s playing Spotify (via VirtualLineInSource)",
+                            member.player_name,
                         )
                         return member
         except Exception as e:  # pylint: disable=W0718
@@ -230,9 +231,7 @@ async def on_ready():
 @commands.is_owner()
 async def sync(ctx):
     """Sync global slash commands with Discord."""
-    _LOGGER.debug(
-        "User %s (%s) issued !sync command.", ctx.author.name, ctx.author.id
-    )
+    _LOGGER.debug("User %s (%s) issued !sync command.", ctx.author.name, ctx.author.id)
     await bot.tree.sync()
     _LOGGER.info("Global slash commands synced.")
     await ctx.send("✅ Slash commands synced globally.")
