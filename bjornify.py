@@ -250,7 +250,7 @@ async def sync(ctx):
         _LOGGER.error("Failed to sync slash commands: %s", e)
         await ctx.send(f"❌ Failed to sync commands: {e}")
     except Exception as e:  # pylint: disable=W0718
-        _LOGGER.exception("Unexpected error during sync")
+        _LOGGER.exception("Unexpected error during sync: %s", e)
         await ctx.send("❌ An unexpected error occurred during sync.")
 
 
@@ -279,7 +279,9 @@ async def on_message(message):
             response = await bot.loop.run_in_executor(None, player_pause_playback)
             await message.add_reaction(response)
 
-    await bot.process_commands(message)  # Ensure commands like !sync are still processed
+    await bot.process_commands(
+        message
+    )  # Ensure commands like !sync are still processed
 
 
 def player_add_item_to_playback_queue(query):

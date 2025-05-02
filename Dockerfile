@@ -1,3 +1,5 @@
+# checkov:skip=CKV_DOCKER_3 Justification: UID is provided externally via Compose
+
 FROM docker.io/gorialis/discord.py:minimal
 
 # Set working directory
