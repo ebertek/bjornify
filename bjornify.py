@@ -130,29 +130,42 @@ def find_playing_speaker():
             state = coordinator.get_current_transport_info()["current_transport_state"]
             if state != "PLAYING":
                 continue
-        except Exception as e:
-            _LOGGER.warning("Failed to get transport state for %s: %s", coordinator.player_name, e)
+        except Exception as e:  # pylint: disable=W0718
+            _LOGGER.warning(
+                "Failed to get transport state for %s: %s", coordinator.player_name, e
+            )
             continue
 
         # Check current track URI
         try:
             uri = coordinator.get_current_track_info().get("uri", "")
             if "x-sonos-spotify:" in uri:
-                _LOGGER.info("Coordinator %s playing Spotify (via URI)", coordinator.player_name)
+                _LOGGER.info(
+                    "Coordinator %s playing Spotify (via URI)", coordinator.player_name
+                )
                 return coordinator
-        except Exception as e:
-            _LOGGER.warning("Failed to get track info for %s: %s", coordinator.player_name, e)
+        except Exception as e:  # pylint: disable=W0718
+            _LOGGER.warning(
+                "Failed to get track info for %s: %s", coordinator.player_name, e
+            )
 
         # Check VirtualLineInSource
         try:
             zgs = coordinator.zone_group_state
             for group in zgs.zone_groups:
                 for member in group.members:
-                    if member == coordinator and member.virtual_line_in_source == "spotify":
-                        _LOGGER.info("Coordinator %s playing Spotify (via VirtualLineInSource)", member.player_name)
+                    if (
+                        member == coordinator
+                        and member.virtual_line_in_source == "spotify"
+                    ):
+                        _LOGGER.info(
+                            "Coordinator %s playing Spotify (via VirtualLineInSource)", member.player_name
+                        )
                         return member
-        except Exception as e:
-            _LOGGER.warning("Failed to parse ZoneGroupState for %s: %s", coordinator.player_name, e)
+        except Exception as e:  # pylint: disable=W0718
+            _LOGGER.warning(
+                "Failed to parse ZoneGroupState for %s: %s", coordinator.player_name, e
+            )
 
     _LOGGER.info("No Sonos speakers are currently playing.")
     return None
@@ -217,7 +230,9 @@ async def on_ready():
 @commands.is_owner()
 async def sync(ctx):
     """Sync global slash commands with Discord."""
-    _LOGGER.debug("User %s (%s) issued !sync command.", ctx.author.name, ctx.author.id)
+    _LOGGER.debug(
+        "User %s (%s) issued !sync command.", ctx.author.name, ctx.author.id
+    )
     await bot.tree.sync()
     _LOGGER.info("Global slash commands synced.")
     await ctx.send("✅ Slash commands synced globally.")
@@ -227,7 +242,9 @@ async def sync(ctx):
 @commands.is_owner()
 async def resync(ctx):
     """Clear and resync all slash commands with Discord."""
-    _LOGGER.debug("User %s (%s) issued !resync command.", ctx.author.name, ctx.author.id)
+    _LOGGER.debug(
+        "User %s (%s) issued !resync command.", ctx.author.name, ctx.author.id
+    )
     bot.tree.clear_commands()
     _LOGGER.debug("Cleared all slash commands.")
     await bot.tree.sync()
@@ -261,6 +278,7 @@ async def on_message(message):
             await message.add_reaction(response)
 
     await bot.process_commands(message)
+
 
 def player_add_item_to_playback_queue(query):
     """Add the track to the playback queue if there are any search results"""
