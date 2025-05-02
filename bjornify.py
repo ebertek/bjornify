@@ -248,6 +248,7 @@ async def on_message(message):
             response = await bot.loop.run_in_executor(None, player_pause_playback)
             await message.add_reaction(response)
 
+    await bot.process_commands(message)
 
 def player_add_item_to_playback_queue(query):
     """Add the track to the playback queue if there are any search results"""
