@@ -20,6 +20,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Generate version.py
+        run: |
+          mkdir -p bjornify
+          python scripts/generate_version.py
+  
+      - name: Read generated version
+        id: get_version
+        run: |
+          VERSION=$(python -c 'from bjornify.version import __version__; print(__version__)')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -27,9 +43,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+      - name: Build Docker image
+        run: |
+          docker build . \
+            --build-arg VERSION=${{ steps.get_version.outputs.version }} \
+            --build-arg GITHUB_SHA=${{ github.sha }} \
+            --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+            -t ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.version }} \
+            -t ghcr.io/${{ github.repository }}:latest
+
+
+      - name: Push Docker image
+        run: |
+          docker push ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.version }}
+          docker push ghcr.io/${{ github.repository }}:latest

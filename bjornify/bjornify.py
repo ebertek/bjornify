@@ -512,6 +512,7 @@ class PlaybackControlCog(commands.Cog):
 
 async def main():
     """Initialize the bot, add cogs, and start it."""
+    _LOGGER.info("Björnify version: %s", __version__)
     await bot.start(DISCORD_BOT_TOKEN)
 
 

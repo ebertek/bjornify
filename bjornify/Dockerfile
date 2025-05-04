@@ -3,19 +3,21 @@
 FROM docker.io/gorialis/discord.py:minimal
 
 # Accept version as build argument
-ARG VERSION
+ARG VERSION=dev
+ARG GITHUB_SHA
+ARG BUILD_DATE
 ENV BJORNIFY_VERSION=$VERSION
 
 # Add version label
 LABEL org.opencontainers.image.version=$VERSION
+LABEL org.opencontainers.image.revision=$GITHUB_SHA
+LABEL org.opencontainers.image.created=$BUILD_DATE
 
 # Set working directory
 WORKDIR /app
 
 # Copy source files
-COPY requirements.txt ./
-COPY wrapper.sh ./
-COPY *.py ./
+COPY . .
 
 # Make script executable
 RUN chmod +x wrapper.sh
