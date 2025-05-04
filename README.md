@@ -48,6 +48,7 @@ SPOTIPY_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 SPOTIPY_REDIRECT_URI=http://localhost:3000
 DISCORD_BOT_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 CHANNEL_ID=xxxxxxxxxxxxxxxxxxx
+GUILD_ID=xxxxxxxxxxxxxxxxxxx
 HASS_DISCORD_BOT_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 HASS_CHANNEL_ID=xxxxxxxxxxxxxxxxxxx
 HA_URL=https://hass.local/api/conversation/process
@@ -63,6 +64,7 @@ HA_ACCESS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 | `SPOTIPY_REDIRECT_URI`   | Redirect URI registered with your Spotify app.                          |
 | `DISCORD_BOT_TOKEN`      | Token for Björnify to access the Discord API.                           |
 | `CHANNEL_ID`             | Discord channel ID where Björnify listens for `!add`, `!next`, etc.     |
+| `GUILD_ID`               | Discord guild ID where Björnify listens for `/add`, `/next`, etc.       |
 | `HASS_DISCORD_BOT_TOKEN` | Token for the Home Assistant conversation bot.                          |
 | `HASS_CHANNEL_ID`        | Discord channel ID for Home Assistant conversation bot commands.        |
 | `HA_URL`                 | URL to your Home Assistant’s `/api/conversation/process` endpoint.      |

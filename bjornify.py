@@ -87,11 +87,34 @@ auth_manager = SpotifyOAuth(
 spotify = spotipy.Spotify(auth_manager=auth_manager)
 
 # Set up Discord
+class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
+    """Custom bot class."""
+
+    async def setup_hook(self):
+        """Register cogs and slash commands to the guild."""
+        await self.add_cog(AddTrackCog(self))
+        await self.add_cog(PlaybackControlCog(self))
+
+        GUILD_ID = os.getenv("GUILD_ID")
+        if GUILD_ID:
+            try:
+                guild = discord.Object(id=int(GUILD_ID))
+                synced = await self.tree.sync(guild=guild)
+                _LOGGER.info(
+                    "Synced %d slash commands to guild ID %s", len(synced), GUILD_ID
+                )
+            except Exception as e:
+                _LOGGER.warning("Failed to sync commands to guild %s: %s", GUILD_ID, e)
+        else:
+            _LOGGER.info("GUILD_ID not set — slash commands will not be registered.")
+
+
 intents = discord.Intents.default()
 intents.members = True
 intents.messages = True
 intents.message_content = True
-bot = commands.Bot(
+
+bot = BjornifyBot(
     command_prefix="!",
     description="Björnify adds requested tracks to Björngrottan's Spotify playback queue",
     intents=intents,
@@ -475,11 +498,6 @@ class PlaybackControlCog(commands.Cog):
 
 async def main():
     """Initialize the bot, add cogs, and start it."""
-    add_cog = AddTrackCog(bot)
-    playback_cog = PlaybackControlCog(bot)
-    await bot.add_cog(add_cog)
-    await bot.add_cog(playback_cog)
-
     await bot.start(DISCORD_BOT_TOKEN)
 
 
