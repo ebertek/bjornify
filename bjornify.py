@@ -105,7 +105,9 @@ class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
                     "Synced %d slash commands to guild ID %s", len(synced), guild_id_str
                 )
             except Exception as e:  # pylint: disable=broad-exception-caught
-                _LOGGER.warning("Failed to sync commands to guild %s: %s", guild_id_str, e)
+                _LOGGER.warning(
+                    "Failed to sync commands to guild %s: %s", guild_id_str, e
+                )
         else:
             _LOGGER.info("GUILD_ID not set — slash commands will not be registered.")
 
