@@ -383,7 +383,7 @@ def player_pause_playback():
 class AddTrackCog(commands.Cog):
     """Cog for handling slash command /add with autocomplete and fallback UI."""
 
-    def __init__(self, discord_bot):
+    def __init__(self, discord_bot: commands.Bot):
         self.bot = discord_bot
 
     async def autocomplete_tracks(self, _: discord.Interaction, current: str):
@@ -406,6 +406,7 @@ class AddTrackCog(commands.Cog):
             for track in tracks
         ]
 
+    @bot.tree.command(name="add")
     @app_commands.command(name="add", description="Add a song to the Spotify queue")
     @app_commands.describe(query="Search for a song")
     @app_commands.autocomplete(query=autocomplete_tracks)
@@ -491,6 +492,7 @@ class PlaybackControlCog(commands.Cog):
         """Initialize the playback control cog with a Discord bot instance."""
         self.bot = discord_bot
 
+    @bot.tree.command(name="pause")
     @app_commands.command(name="pause", description="Pause the current playback")
     async def pause_slash(self, interaction: discord.Interaction):
         """Slash command to pause Spotify playback."""
@@ -500,6 +502,7 @@ class PlaybackControlCog(commands.Cog):
             f"{response} Paused playback.", ephemeral=True
         )
 
+    @bot.tree.command(name="next")
     @app_commands.command(name="next", description="Skip to the next track")
     async def next_slash(self, interaction: discord.Interaction):
         """Slash command to skip to the next track on Spotify."""
