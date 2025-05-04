@@ -24,23 +24,31 @@ for var in "${HASS_VARS[@]}"; do
 	fi
 done
 
+# Start processes conditionally and collect their PIDs
+pids=()
+
 if [ "$BJORNIFY_READY" = true ]; then
 	echo "Starting bjornify.py..."
 	python /app/bjornify.py &
+	pids+=($!)
 fi
 
-# Start processes conditionally
 if [ "$HASS_READY" = true ]; then
 	echo "Starting hass.py..."
 	python /app/hass.py &
+	pids+=($!)
 fi
 
-# Exit if neither are started
+# Exit if neither was started
 if [ "$BJORNIFY_READY" = false ] && [ "$HASS_READY" = false ]; then
 	echo "No services started due to missing environment variables."
 	exit 1
 fi
 
-# Keep container alive as long as any child process is running
-wait -n
-exit $?
+# Wait for all child processes and capture the last non-zero exit code
+exit_code=0
+for pid in "${pids[@]}"; do
+	wait "$pid" || exit_code=$?
+done
+
+exit $exit_code
