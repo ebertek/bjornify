@@ -14,6 +14,11 @@ from discord import app_commands
 from discord.ext import commands
 from spotipy.oauth2 import SpotifyOAuth
 
+try:
+    from version import __version__
+except ImportError:
+    __version__ = "dev"  # fallback for local dev without version.py
+
 LOG_PATH = "logs/bjornify.log"
 
 # Make sure log folder exists
@@ -295,6 +300,12 @@ async def skip_track(ctx):
     _LOGGER.debug("!next command by %s", ctx.author.name)
     response = await bot.loop.run_in_executor(None, player_skip_to_next)
     await ctx.message.add_reaction(response)
+
+
+@bot.command(name="version")
+async def version(ctx):
+    """Return version number."""
+    await ctx.send(f"Björnify version: {__version__}")
 
 
 @bot.event

@@ -2,6 +2,13 @@
 
 FROM docker.io/gorialis/discord.py:minimal
 
+# Accept version as build argument
+ARG VERSION
+ENV BJORNIFY_VERSION=$VERSION
+
+# Add version label
+LABEL org.opencontainers.image.version=$VERSION
+
 # Set working directory
 WORKDIR /app
 
