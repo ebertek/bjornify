@@ -424,8 +424,11 @@ async def add_slash(interaction: discord.Interaction, query: str):
             for track in tracks
         ]
 
-        class FallbackDropdown(discord.ui.Select):  # pylint: disable=too-few-public-methods
-            """Dropdown UI component for letting the user select one of the top Spotify track search results."""
+        class FallbackDropdown(
+            discord.ui.Select
+        ):  # pylint: disable=too-few-public-methods
+            """Dropdown UI component for letting the user select from search results."""
+
             def __init__(self):
                 super().__init__(
                     placeholder="Select a track to queue",
@@ -435,7 +438,7 @@ async def add_slash(interaction: discord.Interaction, query: str):
                 )
 
             async def callback(self, interaction_dropdown: discord.Interaction):
-                """Handle the user's selection from the dropdown and add the track to the Spotify queue."""
+                """Handle the user's selection from the dropdown."""
                 uri = self.values[0]
                 try:
                     spotify.add_to_queue(uri)
@@ -447,8 +450,11 @@ async def add_slash(interaction: discord.Interaction, query: str):
                         f"❌ Failed to add track: {e}", delete_after=10
                     )
 
-        class FallbackDropdownView(discord.ui.View):  # pylint: disable=too-few-public-methods
+        class FallbackDropdownView(
+            discord.ui.View
+        ):  # pylint: disable=too-few-public-methods
             """Encapsulates the fallback dropdown in a Discord UI view with timeout."""
+
             def __init__(self):
                 super().__init__(timeout=30)
                 self.add_item(FallbackDropdown())
