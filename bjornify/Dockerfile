@@ -41,7 +41,7 @@ RUN adduser \
 # into this layer.
 RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=bind,source=requirements.txt,target=requirements.txt \
-    python -m pip install -r requirements.txt
+    python -m pip install -r requirements.txt  # hadolint ignore=DL3042
 
 # Switch to the non-privileged user to run the application.
 USER appuser
@@ -49,11 +49,9 @@ USER appuser
 # Copy the source code into the container.
 COPY . .
 
-# Make entrypoint script executable.
-RUN chmod +x wrapper.sh
-
-# Create directory structure.
-RUN mkdir -p /app/logs /app/secrets
+# Make entrypoint script executable and create required directories.
+RUN chmod +x wrapper.sh && \
+    mkdir -p /app/logs /app/secrets
 
 # Healthcheck.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD pgrep -f wrapper.sh || exit 1
@@ -62,4 +60,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD pgrep
 VOLUME ["/app/secrets"]
 
 # Run the application.
-CMD ["./wrapper.sh"]
+ENTRYPOINT ["./wrapper.sh"]
