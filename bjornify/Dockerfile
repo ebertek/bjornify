@@ -44,15 +44,16 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=bind,source=requirements.txt,target=requirements.txt \
     python -m pip install -r requirements.txt
 
-# Switch to the non-privileged user to run the application.
-USER appuser
-
 # Copy the source code into the container.
 COPY . .
 
 # Make entrypoint script executable and create required directories.
 RUN chmod +x wrapper.sh && \
-    mkdir -p /app/logs /app/secrets
+    mkdir -p /app/logs /app/secrets && \
+    chown -R appuser:appuser /app
+
+# Switch to the non-privileged user to run the application.
+USER appuser
 
 # Healthcheck.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD pgrep -f wrapper.sh || exit 1
