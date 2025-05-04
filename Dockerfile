@@ -22,5 +22,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD pgrep -f wrapper.sh || exit 1
 
+# Declare persistent volume for secrets
+VOLUME ["/app/secrets"]
+
 # Entrypoint
 CMD ["./wrapper.sh"]
