@@ -86,6 +86,7 @@ auth_manager = SpotifyOAuth(
 )
 spotify = spotipy.Spotify(auth_manager=auth_manager)
 
+
 # Set up Discord
 class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
     """Custom bot class."""
@@ -95,16 +96,16 @@ class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
         await self.add_cog(AddTrackCog(self))
         await self.add_cog(PlaybackControlCog(self))
 
-        GUILD_ID = os.getenv("GUILD_ID")
-        if GUILD_ID:
+        guild_id_str = os.getenv("GUILD_ID")
+        if guild_id_str:
             try:
-                guild = discord.Object(id=int(GUILD_ID))
+                guild = discord.Object(id=int(guild_id_str))
                 synced = await self.tree.sync(guild=guild)
                 _LOGGER.info(
-                    "Synced %d slash commands to guild ID %s", len(synced), GUILD_ID
+                    "Synced %d slash commands to guild ID %s", len(synced), guild_id_str
                 )
-            except Exception as e:
-                _LOGGER.warning("Failed to sync commands to guild %s: %s", GUILD_ID, e)
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                _LOGGER.warning("Failed to sync commands to guild %s: %s", guild_id_str, e)
         else:
             _LOGGER.info("GUILD_ID not set — slash commands will not be registered.")
 
