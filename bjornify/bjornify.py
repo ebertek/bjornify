@@ -97,10 +97,7 @@ class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
     """Custom bot class."""
 
     async def setup_hook(self):
-        """Register cogs and slash commands to the guild."""
-        await self.add_cog(AddTrackCog(self))
-        await self.add_cog(PlaybackControlCog(self))
-
+        """Sync slash commands to the guild."""
         guild_id_str = os.getenv("GUILD_ID")
         if guild_id_str:
             try:
@@ -379,138 +376,117 @@ def player_pause_playback():
     )
 
 
-@app_commands.guild_only()
-class AddTrackCog(commands.Cog):
-    """Cog for handling slash command /add with autocomplete and fallback UI."""
+async def autocomplete_tracks(_: discord.Interaction, current: str):
+    """Fetch Spotify search suggestions based on current input"""
+    if not current:
+        return []
 
-    def __init__(self, discord_bot: commands.Bot):
-        self.bot = discord_bot
+    try:
+        results = spotify.search(q=current, limit=5, type="track")
+    except spotipy.exceptions.SpotifyException:
+        return []
 
-    async def autocomplete_tracks(self, _: discord.Interaction, current: str):
-        """Fetch Spotify search suggestions based on current input"""
-        if not current:
-            return []
+    tracks = results.get("tracks", {}).get("items", [])
 
-        try:
-            results = spotify.search(q=current, limit=5, type="track")
-        except spotipy.exceptions.SpotifyException:
-            return []
+    return [
+        app_commands.Choice(
+            name=f"{track['artists'][0]['name']} - {track['name']}",
+            value=track["uri"],
+        )
+        for track in tracks
+    ]
 
+
+@bot.tree.command(name="add", description="Add a song to the Spotify queue")
+@app_commands.describe(query="Search for a song")
+@app_commands.autocomplete(query=autocomplete_tracks)
+async def add_slash(interaction: discord.Interaction, query: str):
+    """Slash command to queue a Spotify track by URI or search string.
+
+    If the input is a Spotify URI, it will be queued directly.
+    If it's a plain search string, the bot will show a dropdown of top results.
+    """
+    if not query.startswith("spotify:track:"):
+        results = spotify.search(q=query, limit=5, type="track")
         tracks = results.get("tracks", {}).get("items", [])
 
-        return [
-            app_commands.Choice(
-                name=f"{track['artists'][0]['name']} - {track['name']}",
+        if not tracks:
+            await interaction.response.send_message(
+                "🚫 No results found.", ephemeral=True
+            )
+            return
+
+        options = [
+            discord.SelectOption(
+                label=f"{track['artists'][0]['name']} - {track['name']}",
                 value=track["uri"],
             )
             for track in tracks
         ]
 
-    @bot.tree.command(name="add")
-    @app_commands.command(name="add", description="Add a song to the Spotify queue")
-    @app_commands.describe(query="Search for a song")
-    @app_commands.autocomplete(query=autocomplete_tracks)
-    async def add_slash(self, interaction: discord.Interaction, query: str):
-        """Command that queues the selected song"""
-        if not query.startswith("spotify:track:"):
-            # fallback mode: query is not a URI, it's a search string
-            results = spotify.search(q=query, limit=5, type="track")
-            tracks = results.get("tracks", {}).get("items", [])
-
-            if not tracks:
-                await interaction.response.send_message(
-                    "🚫 No results found.", ephemeral=True
+        class FallbackDropdown(discord.ui.Select):  # pylint: disable=too-few-public-methods
+            """Dropdown UI component for letting the user select one of the top Spotify track search results."""
+            def __init__(self):
+                super().__init__(
+                    placeholder="Select a track to queue",
+                    min_values=1,
+                    max_values=1,
+                    options=options,
                 )
-                return
 
-            # Build fallback dropdown
-            options = [
-                discord.SelectOption(
-                    label=f"{track['artists'][0]['name']} - {track['name']}",
-                    value=track["uri"],
-                )
-                for track in tracks
-            ]
-
-            class FallbackDropdown(
-                discord.ui.Select
-            ):  # pylint: disable=too-few-public-methods
-                """Dropdown UI for selecting a fallback track from search results."""
-
-                def __init__(self):
-                    super().__init__(
-                        placeholder="Select a track to queue",
-                        min_values=1,
-                        max_values=1,
-                        options=options,
+            async def callback(self, interaction_dropdown: discord.Interaction):
+                """Handle the user's selection from the dropdown and add the track to the Spotify queue."""
+                uri = self.values[0]
+                try:
+                    spotify.add_to_queue(uri)
+                    await interaction_dropdown.response.send_message(
+                        "✅ Queued selected track!", delete_after=10
+                    )
+                except spotipy.exceptions.SpotifyException as e:
+                    await interaction_dropdown.response.send_message(
+                        f"❌ Failed to add track: {e}", delete_after=10
                     )
 
-                async def callback(self, interaction_dropdown: discord.Interaction):
-                    """Handle user selection and add the chosen track to the Spotify queue."""
-                    uri = self.values[0]
-                    try:
-                        spotify.add_to_queue(uri)
-                        await interaction_dropdown.response.send_message(
-                            "✅ Queued selected track!", delete_after=10
-                        )
-                    except spotipy.exceptions.SpotifyException as e:
-                        await interaction_dropdown.response.send_message(
-                            f"🚫 Failed to add track: {e}", delete_after=10
-                        )
+        class FallbackDropdownView(discord.ui.View):  # pylint: disable=too-few-public-methods
+            """Encapsulates the fallback dropdown in a Discord UI view with timeout."""
+            def __init__(self):
+                super().__init__(timeout=30)
+                self.add_item(FallbackDropdown())
 
-            class FallbackDropdownView(
-                discord.ui.View
-            ):  # pylint: disable=too-few-public-methods
-                """View that wraps the fallback dropdown for track selection."""
-
-                def __init__(self):
-                    super().__init__(timeout=30)
-                    self.add_item(FallbackDropdown())
-
-            await interaction.response.send_message(
-                "Select a track:", view=FallbackDropdownView()
-            )
-            return
-
-        # Normal case: user selected a real URI via autocomplete
-        try:
-            spotify.add_to_queue(query)
-            await interaction.response.send_message(
-                "✅ Queued selected track!", delete_after=10
-            )
-        except spotipy.exceptions.SpotifyException as e:
-            await interaction.response.send_message(
-                f"🚫 Failed to add track: {e}", delete_after=10
-            )
-
-
-@app_commands.guild_only()
-class PlaybackControlCog(commands.Cog):
-    """Cog for /pause and /next slash commands."""
-
-    def __init__(self, discord_bot: commands.Bot):
-        """Initialize the playback control cog with a Discord bot instance."""
-        self.bot = discord_bot
-
-    @bot.tree.command(name="pause")
-    @app_commands.command(name="pause", description="Pause the current playback")
-    async def pause_slash(self, interaction: discord.Interaction):
-        """Slash command to pause Spotify playback."""
-        _LOGGER.debug("/pause command by %s", interaction.user.name)
-        response = await self.bot.loop.run_in_executor(None, player_pause_playback)
         await interaction.response.send_message(
-            f"{response} Paused playback.", ephemeral=True
+            "Select a track:", view=FallbackDropdownView()
+        )
+        return
+
+    try:
+        spotify.add_to_queue(query)
+        await interaction.response.send_message(
+            "✅ Queued selected track!", delete_after=10
+        )
+    except spotipy.exceptions.SpotifyException as e:
+        await interaction.response.send_message(
+            f"❌ Failed to add track: {e}", delete_after=10
         )
 
-    @bot.tree.command(name="next")
-    @app_commands.command(name="next", description="Skip to the next track")
-    async def next_slash(self, interaction: discord.Interaction):
-        """Slash command to skip to the next track on Spotify."""
-        _LOGGER.debug("/next command by %s", interaction.user.name)
-        response = await self.bot.loop.run_in_executor(None, player_skip_to_next)
-        await interaction.response.send_message(
-            f"{response} Skipped to next track.", ephemeral=True
-        )
+
+@bot.tree.command(name="pause", description="Pause the current playback")
+async def pause_slash(interaction: discord.Interaction):
+    """Slash command to pause Spotify playback."""
+    _LOGGER.debug("/pause command by %s", interaction.user.name)
+    response = await bot.loop.run_in_executor(None, player_pause_playback)
+    await interaction.response.send_message(
+        f"{response} Paused playback.", ephemeral=True
+    )
+
+
+@bot.tree.command(name="next", description="Skip to the next track")
+async def next_slash(interaction: discord.Interaction):
+    """Slash command to skip to the next track on Spotify."""
+    _LOGGER.debug("/next command by %s", interaction.user.name)
+    response = await bot.loop.run_in_executor(None, player_skip_to_next)
+    await interaction.response.send_message(
+        f"{response} Skipped to next track.", ephemeral=True
+    )
 
 
 async def main():
