@@ -36,6 +36,10 @@ jobs:
           VERSION=$(python -c 'from bjornify.version import __version__; print(__version__)')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Set build date
+        id: set_build_date
+        run: echo "date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -45,10 +49,10 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build . \
+          docker build -f bjornify/Dockerfile bjornify \
             --build-arg VERSION="${{ steps.get_version.outputs.version }}" \
             --build-arg GITHUB_SHA="${{ github.sha }}" \
-            --build-arg BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --build-arg BUILD_DATE="${{ steps.set_build_date.outputs.date }}" \
             -t "ghcr.io/${{ github.repository }}:${{ steps.get_version.outputs.version }}" \
             -t "ghcr.io/${{ github.repository }}:latest"
 
