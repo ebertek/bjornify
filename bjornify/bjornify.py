@@ -96,6 +96,11 @@ spotify = spotipy.Spotify(auth_manager=auth_manager)
 class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
     """Custom bot class."""
 
+    def __init__(self, *, intents: discord.Intents):
+        super().__init__(intents=intents)
+        self.tree = app_commands.CommandTree(self)
+
+
     async def setup_hook(self):
         """Sync slash commands to the guild."""
         guild_id_str = os.getenv("GUILD_ID")
@@ -106,6 +111,7 @@ class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
                     _LOGGER.debug(
                         "Registered slash command before sync: %s", cmd.name
                     )
+                self.tree.copy_global_to(guild=guild)
                 synced = await self.tree.sync(guild=guild)
                 _LOGGER.info(
                     "Synced %d slash commands to guild ID %s", len(synced), guild_id_str
