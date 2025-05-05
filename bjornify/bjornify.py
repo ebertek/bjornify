@@ -102,6 +102,10 @@ class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
         if guild_id_str:
             try:
                 guild = discord.Object(id=int(guild_id_str))
+                for cmd in self.tree.get_commands(guild=guild):
+                    _LOGGER.debug(
+                        "Registered slash command before sync: %s", cmd.name
+                    )
                 synced = await self.tree.sync(guild=guild)
                 _LOGGER.info(
                     "Synced %d slash commands to guild ID %s", len(synced), guild_id_str
