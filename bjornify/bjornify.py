@@ -53,19 +53,10 @@ logging.getLogger("spotipy.client").setLevel(logging.INFO)
 logging.getLogger("spotipy.oauth2").setLevel(logging.INFO)
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
-# Load environment variables
-SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
-SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
-SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI")
-DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-CHANNEL_ID = os.getenv("CHANNEL_ID")
-DEFAULT_DEVICE = os.getenv("DEFAULT_DEVICE", "Everywhere")
-
-# Validate that all required env vars are set
+# Validate that all required environmental variables are set
 required_env_vars = [
     "SPOTIPY_CLIENT_ID",
     "SPOTIPY_CLIENT_SECRET",
-    "SPOTIPY_REDIRECT_URI",
     "DISCORD_BOT_TOKEN",
     "CHANNEL_ID",
 ]
@@ -73,6 +64,14 @@ required_env_vars = [
 for var in required_env_vars:
     if not os.getenv(var):
         raise EnvironmentError(f"Missing required environment variable: {var}")
+
+# Load environmental variables
+SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
+SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
+SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI", "http://localhost:3000")
+DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+CHANNEL_ID = os.getenv("CHANNEL_ID")
+DEFAULT_DEVICE = os.getenv("DEFAULT_DEVICE", "Everywhere")
 
 # Set up Spotify
 SCOPE = (
