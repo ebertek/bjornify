@@ -218,7 +218,7 @@ def spotify_action_with_soco_fallback(
                     return "✅"
                 except Exception as ex:  # pylint: disable=broad-exception-caught
                     _LOGGER.error("Failed after token refresh: %s", ex)
-                    return "🚫"
+                    return "❌"
             if e.http_status == 403:
                 _LOGGER.warning(
                     "Spotify refused to %s: Restricted device. Trying with SoCo.",
@@ -236,13 +236,13 @@ def spotify_action_with_soco_fallback(
                         return "✅"
                     except Exception as ex:  # pylint: disable=broad-exception-caught
                         _LOGGER.error("Failed to %s via SoCo: %s", action_name, ex)
-                        return "🚫"
+                        return "❌"
                 _LOGGER.warning("No active speaker found via SoCo.")
-                return "🚫"
+                return "❌"
             _LOGGER.error("Unexpected Spotify error during %s: %s", action_name, e)
-            return "🚫"
+            return "❌"
     _LOGGER.debug("%s failed: no playback found.", action_name.capitalize())
-    return "🚫"
+    return "❌"
 
 
 @bot.event
@@ -435,7 +435,7 @@ async def add_slash(interaction: discord.Interaction, query: str):
 
         if not tracks:
             await interaction.response.send_message(
-                "🚫 No results found.", ephemeral=True
+                "❌ No results found.", ephemeral=True
             )
             return
 
