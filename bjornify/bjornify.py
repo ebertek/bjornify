@@ -96,10 +96,6 @@ spotify = spotipy.Spotify(auth_manager=auth_manager)
 class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
     """Custom bot class."""
 
-    def __init__(self, *args, bot_intents: discord.Intents, **kwargs):
-        super().__init__(*args, intents=bot_intents, **kwargs)
-        self.tree = app_commands.CommandTree(self)
-
     async def setup_hook(self):
         """Sync slash commands to the guild."""
         guild_id_str = os.getenv("GUILD_ID")
@@ -129,7 +125,7 @@ intents.message_content = True
 bot = BjornifyBot(
     command_prefix="!",
     description="Björnify adds requested tracks to Björngrottan's Spotify playback queue",
-    bot_intents=intents,
+    intents=intents,
 )
 
 
