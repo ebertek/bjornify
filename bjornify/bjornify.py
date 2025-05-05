@@ -110,7 +110,7 @@ class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
                     "Synced %d slash commands to guild ID %s", len(synced), guild_id_str
                 )
             except Exception as e:  # pylint: disable=broad-exception-caught
-                _LOGGER.warning(
+                _LOGGER.exception(
                     "Failed to sync commands to guild %s: %s", guild_id_str, e
                 )
         else:
@@ -153,7 +153,7 @@ def find_playing_speaker():
             if state != "PLAYING":
                 continue
         except Exception as e:  # pylint: disable=broad-exception-caught
-            _LOGGER.warning(
+            _LOGGER.exception(
                 "Failed to get transport state for %s: %s", speaker.player_name, e
             )
             continue
@@ -167,14 +167,14 @@ def find_playing_speaker():
 
             # Primary: Explicit x-sonos-spotify
             if "x-sonos-spotify:" in uri:
-                _LOGGER.info(
+                _LOGGER.debug(
                     "Speaker %s playing Spotify (via URI)", speaker.player_name
                 )
                 return speaker
 
             # Fallback: VirtualLineInSource pointing to Spotify
             if uri.startswith("x-sonos-vli:") and "spotify:" in uri:
-                _LOGGER.info(
+                _LOGGER.debug(
                     "Speaker %s playing Spotify (via VirtualLineInSource)",
                     speaker.player_name,
                 )
@@ -182,13 +182,13 @@ def find_playing_speaker():
 
             # Optional fallback: metadata sniffing
             if "x-sonos-spotify:" in metadata:
-                _LOGGER.info(
+                _LOGGER.debug(
                     "Speaker %s playing Spotify (via metadata)", speaker.player_name
                 )
                 return speaker
 
         except Exception as e:  # pylint: disable=broad-exception-caught
-            _LOGGER.warning(
+            _LOGGER.exception(
                 "Error while checking speaker %s: %s", speaker.player_name, e
             )
 
@@ -206,7 +206,7 @@ def spotify_action_with_soco_fallback(
         try:
             # POST /me/player/next or PUT /me/player/pause
             spotify_action()
-            _LOGGER.debug("%s via Spotify", action_name)
+            _LOGGER.info("%s via Spotify", action_name)
             return "✅"
         except spotipy.exceptions.SpotifyException as e:
             if e.http_status == 401:
@@ -214,13 +214,13 @@ def spotify_action_with_soco_fallback(
                 refresh_spotify_token()
                 try:
                     spotify_action()  # Retry once after refreshing
-                    _LOGGER.debug("%s via Spotify (after refresh)", action_name)
+                    _LOGGER.info("%s via Spotify (after refresh)", action_name)
                     return "✅"
                 except Exception as ex:  # pylint: disable=broad-exception-caught
-                    _LOGGER.error("Failed after token refresh: %s", ex)
+                    _LOGGER.exception("Failed after token refresh: %s", ex)
                     return "❌"
             if e.http_status == 403:
-                _LOGGER.warning(
+                _LOGGER.exception(
                     "Spotify refused to %s: Restricted device. Trying with SoCo.",
                     action_name,
                 )
@@ -235,11 +235,11 @@ def spotify_action_with_soco_fallback(
                         )
                         return "✅"
                     except Exception as ex:  # pylint: disable=broad-exception-caught
-                        _LOGGER.error("Failed to %s via SoCo: %s", action_name, ex)
+                        _LOGGER.exception("Failed to %s via SoCo: %s", action_name, ex)
                         return "❌"
-                _LOGGER.warning("No active speaker found via SoCo.")
+                _LOGGER.info("No active speaker found via SoCo.")
                 return "❌"
-            _LOGGER.error("Unexpected Spotify error during %s: %s", action_name, e)
+            _LOGGER.exception("Unexpected Spotify error during %s: %s", action_name, e)
             return "❌"
     _LOGGER.debug("%s failed: no playback found.", action_name.capitalize())
     return "❌"
@@ -271,7 +271,7 @@ async def sync(ctx):
         )
         await ctx.send(f"✅ Synced {len(synced)} slash commands to this guild.")
     except discord.HTTPException as e:
-        _LOGGER.error("Failed to sync slash commands: %s", e)
+        _LOGGER.exception("Failed to sync slash commands: %s", e)
         await ctx.send(f"❌ Failed to sync commands: {e}")
     except Exception as e:  # pylint: disable=broad-exception-caught
         _LOGGER.exception("Unexpected error during sync: %s", e)
@@ -323,10 +323,10 @@ def player_add_track(uri, artist=None, name=None):
             # POST /me/player/queue
             spotify.add_to_queue(uri)
             if artist and name:
-                _LOGGER.debug("Queued: %s - %s", artist, name)
+                _LOGGER.info("Queued: %s - %s", artist, name)
                 return f"Queued: {artist} - {name}"
             else:
-                _LOGGER.debug("Queued.")
+                _LOGGER.info("Queued: %s", uri)
                 return f"Queued: {uri}"
 
         # GET /me/player/devices
@@ -344,17 +344,17 @@ def player_add_track(uri, artist=None, name=None):
             # PUT /me/player/play
             spotify.start_playback(device_id=device_id, uris=[uri])
             if artist and name:
-                _LOGGER.debug("Started playback: %s - %s", artist, name)
+                _LOGGER.info("Started playback: %s - %s", artist, name)
                 return f"Started playback: {artist} - {name}"
             else:
-                _LOGGER.debug("Started playback: %s", uri)
+                _LOGGER.info("Started playback: %s", uri)
                 return f"Started playback: {uri}"
         _LOGGER.warning("No available devices to start playback.")
     except spotipy.exceptions.SpotifyException as e:
-        _LOGGER.error("Spotify error during add to queue: %s", e)
+        _LOGGER.exception("Spotify error during add to queue: %s", e)
         return "Failed to add track to queue."
     except Exception as e:  # pylint: disable=broad-exception-caught
-        _LOGGER.error("Unexpected error during add to queue: %s", e)
+        _LOGGER.exception("Unexpected error during add to queue: %s", e)
         return "Failed to add track to queue."
 
 
@@ -375,10 +375,10 @@ def player_add_item_to_playback_queue(query):
         _LOGGER.debug("No search results.")
         return "No search results."
     except spotipy.exceptions.SpotifyException as e:
-        _LOGGER.error("Spotify error during add to queue: %s", e)
+        _LOGGER.exception("Spotify error during add to queue: %s", e)
         return "Failed to add track to queue."
     except Exception as e:  # pylint: disable=broad-exception-caught
-        _LOGGER.error("Unexpected error during add to queue: %s", e)
+        _LOGGER.exception("Unexpected error during add to queue: %s", e)
         return "Failed to add track to queue."
 
 
