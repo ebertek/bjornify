@@ -491,7 +491,7 @@ async def add_slash(interaction: discord.Interaction, query: str):
         return
 
     try:
-        spotify.add_to_queue(query)
+        player_add_track(query)
         await interaction.response.send_message(
             "✅ Queued selected track!", delete_after=10
         )
