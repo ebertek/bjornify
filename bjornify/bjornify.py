@@ -325,9 +325,8 @@ def player_add_track(uri, artist=None, name=None):
             if artist and name:
                 _LOGGER.info("Queued: %s - %s", artist, name)
                 return f"Queued: {artist} - {name}"
-            else:
-                _LOGGER.info("Queued: %s", uri)
-                return f"Queued: {uri}"
+            _LOGGER.info("Queued: %s", uri)
+            return f"Queued: {uri}"
 
         # GET /me/player/devices
         devices = spotify.devices()
@@ -346,10 +345,10 @@ def player_add_track(uri, artist=None, name=None):
             if artist and name:
                 _LOGGER.info("Started playback: %s - %s", artist, name)
                 return f"Started playback: {artist} - {name}"
-            else:
-                _LOGGER.info("Started playback: %s", uri)
-                return f"Started playback: {uri}"
+            _LOGGER.info("Started playback: %s", uri)
+            return f"Started playback: {uri}"
         _LOGGER.warning("No available devices to start playback.")
+        return "No available devices to start playback."
     except spotipy.exceptions.SpotifyException as e:
         _LOGGER.exception("Spotify error during add to queue: %s", e)
         return "Failed to add track to queue."
