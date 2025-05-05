@@ -314,7 +314,7 @@ async def on_message(message):
     await bot.process_commands(message)
 
 
-def player_add_track(uri, artist=None, name=None):
+def player_add_track(uri, artist=None, name=None):  # pylint: disable=too-many-return-statements
     """Add the track to the playback queue."""
     try:
         # GET /me/player
