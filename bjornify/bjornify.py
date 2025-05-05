@@ -314,6 +314,49 @@ async def on_message(message):
     await bot.process_commands(message)
 
 
+def player_add_track(uri, artist=None, name=None):
+    """Add the track to the playback queue."""
+    try:
+        # GET /me/player
+        playback_results = spotify.current_playback()
+        if playback_results is not None:
+            # POST /me/player/queue
+            spotify.add_to_queue(uri)
+            if artist and name:
+                _LOGGER.debug("Queued: %s - %s", artist, name)
+                return f"Queued: {artist} - {name}"
+            else:
+                _LOGGER.debug("Queued.")
+                return f"Queued: {uri}"
+
+        # GET /me/player/devices
+        devices = spotify.devices()
+        device_id = None
+        for device in devices["devices"]:
+            if device["name"] == "Everywhere":
+                device_id = device["id"]
+                break
+        if device_id is None and devices["devices"]:
+            device_id = devices["devices"][0]["id"]
+        if device_id:
+            _LOGGER.debug("device_id: %s", device_id)
+            # PUT /me/player/play
+            spotify.start_playback(device_id=device_id, uris=[uri])
+            if artist and name:
+                _LOGGER.debug("Started playback: %s - %s", artist, name)
+                return f"Started playback: {artist} - {name}"
+            else:
+                _LOGGER.debug("Started playback: %s", uri)
+                return f"Started playback: {uri}"
+        _LOGGER.warning("No available devices to start playback.")
+    except spotipy.exceptions.SpotifyException as e:
+        _LOGGER.error("Spotify error during add to queue: %s", e)
+        return "Failed to add track to queue."
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        _LOGGER.error("Unexpected error during add to queue: %s", e)
+        return "Failed to add track to queue."
+
+
 def player_add_item_to_playback_queue(query):
     """Add the track to the playback queue if there are any search results"""
     try:
@@ -326,33 +369,10 @@ def player_add_item_to_playback_queue(query):
             name = search_items[0]["name"]
             uri = search_items[0]["uri"]
             _LOGGER.debug("Artist: %s, name: %s, uri: %s", artist, name, uri)
+            return player_add_track(uri, artist, name)
 
-            # GET /me/player
-            playback_results = spotify.current_playback()
-            if playback_results is not None:
-                # POST /me/player/queue
-                spotify.add_to_queue(uri)
-                _LOGGER.debug("Queued: %s - %s", artist, name)
-                return f"Queued: {artist} - {name}"
-
-            # GET /me/player/devices
-            devices = spotify.devices()
-            device_id = None
-            for device in devices["devices"]:
-                if device["name"] == "Everywhere":
-                    device_id = device["id"]
-                    break
-            if device_id is None and devices["devices"]:
-                device_id = devices["devices"][0]["id"]
-            if device_id:
-                _LOGGER.debug("device_id: %s", device_id)
-                # PUT /me/player/play
-                spotify.start_playback(device_id=device_id, uris=[uri])
-                _LOGGER.debug("Started playback: %s - %s", artist, name)
-                return f"Started playback: {artist} - {name}"
-            _LOGGER.warning("No available devices to start playback.")
-
-        return "No results"
+        _LOGGER.debug("No search results.")
+        return "No search results."
     except spotipy.exceptions.SpotifyException as e:
         _LOGGER.error("Spotify error during add to queue: %s", e)
         return "Failed to add track to queue."
@@ -444,7 +464,7 @@ async def add_slash(interaction: discord.Interaction, query: str):
                 """Handle the user's selection from the dropdown."""
                 uri = self.values[0]
                 try:
-                    spotify.add_to_queue(uri)
+                    player_add_track(uri)
                     await interaction_dropdown.response.send_message(
                         "✅ Queued selected track!", delete_after=10
                     )
