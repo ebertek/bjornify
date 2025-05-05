@@ -319,6 +319,7 @@ def player_add_track(
     uri, artist=None, name=None
 ):  # pylint: disable=too-many-return-statements
     """Add the track to the playback queue."""
+    _LOGGER.debug("Adding %s (%s - %s)", uri, artist, name)
     try:
         # GET /me/player
         playback_results = spotify.current_playback()
@@ -335,6 +336,7 @@ def player_add_track(
         devices = spotify.devices()
         device_id = None
         for device in devices["devices"]:
+            _LOGGER.debug("Found device: %s", device["name"])
             if device["name"] == DEFAULT_DEVICE:
                 device_id = device["id"]
                 break
@@ -432,6 +434,7 @@ async def add_slash(interaction: discord.Interaction, query: str):
     If the input is a Spotify URI, it will be queued directly.
     If it's a plain search string, the bot will show a dropdown of top results.
     """
+    _LOGGER.debug("/add command by %s", interaction.user.name)
     if not query.startswith("spotify:track:"):
         results = spotify.search(q=query, limit=5, type="track")
         tracks = results.get("tracks", {}).get("items", [])
