@@ -49,6 +49,7 @@ SPOTIPY_REDIRECT_URI=http://localhost:3000
 DISCORD_BOT_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 CHANNEL_ID=xxxxxxxxxxxxxxxxxxx
 GUILD_ID=xxxxxxxxxxxxxxxxxxx
+DEFAULT_DEVICE=Everywhere
 HASS_DISCORD_BOT_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 HASS_CHANNEL_ID=xxxxxxxxxxxxxxxxxxx
 HA_URL=https://hass.local/api/conversation/process
@@ -57,14 +58,15 @@ HA_ACCESS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 ### Environmental variables
 
-| Variable Name           | Description                                                         |
-| ----------------------- | ------------------------------------------------------------------- |
-| `SPOTIPY_CLIENT_ID`     | Your Spotify app’s client ID used for API authentication.           |
-| `SPOTIPY_CLIENT_SECRET` | Your Spotify app’s client secret.                                   |
-| `SPOTIPY_REDIRECT_URI`  | Redirect URI registered with your Spotify app.                      |
-| `DISCORD_BOT_TOKEN`     | Token for Björnify to access the Discord API.                       |
-| `CHANNEL_ID`            | Discord channel ID where Björnify listens for `!add`, `!next`, etc. |
-| `GUILD_ID`              | Discord guild ID where Björnify listens for `/add`, `/next`, etc.   |
+| Variable Name           | Description                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------- |
+| `SPOTIPY_CLIENT_ID`     | Your Spotify app’s client ID used for API authentication.                    |
+| `SPOTIPY_CLIENT_SECRET` | Your Spotify app’s client secret.                                            |
+| `SPOTIPY_REDIRECT_URI`  | Redirect URI registered with your Spotify app.                               |
+| `DISCORD_BOT_TOKEN`     | Token for Björnify to access the Discord API.                                |
+| `CHANNEL_ID`            | Discord channel ID where Björnify listens for `!add`, `!next`, etc.          |
+| `GUILD_ID`              | Optional: Discord guild ID where Björnify listens for `/add`, `/next`, etc.  |
+| `DEFAULT_DEVICE`        | Optional: Device used to start playback if no devices are currently playing. |
 
 To get your own Spotify Client ID and secret, please create a new app using the [Spotify for Developers](https://developer.spotify.com/dashboard) Dashboard. You can add `http://localhost:3000` to _Redirect URIs_, and select `Web API` for _APIs used_.
 

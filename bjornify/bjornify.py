@@ -59,6 +59,7 @@ SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
 SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI")
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
+DEFAULT_DEVICE = os.getenv("DEFAULT_DEVICE", "Everywhere")
 
 # Validate that all required env vars are set
 required_env_vars = [
@@ -333,9 +334,10 @@ def player_add_track(uri, artist=None, name=None):
         devices = spotify.devices()
         device_id = None
         for device in devices["devices"]:
-            if device["name"] == "Everywhere":
+            if device["name"] == DEFAULT_DEVICE:
                 device_id = device["id"]
                 break
+        # Fall back to the first device found
         if device_id is None and devices["devices"]:
             device_id = devices["devices"][0]["id"]
         if device_id:
