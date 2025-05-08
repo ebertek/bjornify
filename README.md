@@ -92,7 +92,7 @@ To get your own Discord token, please create a new application using the [Discor
 
 ### 🤖 Home Assistant conversation bot
 
-A second bot, `hass.py` is also included in this image. If you want to use it, please create a second application using the [Discord Developer Portal](https://discord.com/developers/applications). You will also need to configure the following environmental variables in `bjornify.txt`:
+A second bot, `hass.py` is also included in this image. It sends text to Home Assistant’s conversation API. If you want to use it, please create a second application using the [Discord Developer Portal](https://discord.com/developers/applications). You will also need to configure the following environmental variables in `bjornify.txt`:
 
 | Variable Name            | Description                                                             |
 | ------------------------ | ----------------------------------------------------------------------- |
