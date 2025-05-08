@@ -100,3 +100,33 @@ A second bot, `hass.py` is also included in this image. It sends text to Home As
 | `HASS_CHANNEL_ID`        | Discord channel ID for Home Assistant conversation bot commands.        |
 | `HA_URL`                 | URL to your Home Assistant’s `/api/conversation/process` endpoint.      |
 | `HA_ACCESS_TOKEN`        | Long-lived Home Assistant access token for authenticating API requests. |
+
+## 🐳 Docker
+
+As an alternative to Docker Compose, you can simply run the container using `docker run`:
+
+```shell
+docker run --name bjornify \
+  --cpus="1.0" \
+  --memory="250m" \
+  -e SPOTIPY_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+  -e SPOTIPY_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+  -e SPOTIPY_REDIRECT_URI=http://localhost:3000 \
+  -e DISCORD_BOT_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+  -e CHANNEL_ID=xxxxxxxxxxxxxxxxxxx \
+  -e GUILD_ID=xxxxxxxxxxxxxxxxxxx \
+  -e DEFAULT_DEVICE=Everywhere \
+  -e HASS_DISCORD_BOT_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+  -e HASS_CHANNEL_ID=xxxxxxxxxxxxxxxxxxx \
+  -e HA_URL=https://hass.local/api/conversation/process \
+  -e HA_ACCESS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
+  -e TZ=Europe/Stockholm \
+  --hostname bjornify \
+  --restart=no \
+  --stop-timeout=180 \
+  --stop-signal=SIGINT \
+  --user 1028:100 \
+  -v /mnt/docker/bjornify/logs:/app/logs \
+  -v /mnt/docker/bjornify/secrets:/app/secrets \
+  ghcr.io/ebertek/bjornify:latest
+```
