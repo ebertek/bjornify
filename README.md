@@ -137,3 +137,13 @@ docker run --name bjornify \
   -v /mnt/docker/bjornify/secrets:/app/secrets \
   ghcr.io/ebertek/bjornify:latest
 ```
+
+## 🐞 Submitting Issues
+
+If you encounter a problem, feel free to [open an issue](https://github.com/ebertek/bjornify/issues). Please include the following to help us investigate:
+
+- A description of the issue and how to reproduce it
+- What command you used (e.g. `/add` or `!next`)
+- The relevant section of the debug logs from `/app/logs/bjornify.log`
+
+Logs help tremendously with diagnosing errors. If possible, redact any personal information (like tokens or private names).
