@@ -15,7 +15,7 @@ You can also use slash commands — these will only be visible to you.
 - ⏭️ `/next` — Skip to the next track
 - ⏸️ `/pause` — Pause playback
 
-## 🐳 Docker Compose
+## 🧩 Docker Compose
 
 ### `compose.yaml`
 
@@ -62,7 +62,7 @@ HA_URL=https://hass.local/api/conversation/process
 HA_ACCESS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-### Environmental variables
+### 🔐 Environmental variables
 
 | Variable Name           | Description                                                                  |
 | ----------------------- | ---------------------------------------------------------------------------- |
@@ -78,14 +78,14 @@ To get your own Spotify Client ID and secret, please create a new app using the 
 
 To get your own Discord token, please create a new application using the [Discord Developer Portal](https://discord.com/developers/applications). You will need the `bot` and the `applications.commands` scopes. Under _Bot permissions_, you will need to check `View Channels`, `Send Messages`, `Add Reactions`, `Read Message History`, and `Use External Emojis`.
 
-### Persistent volumes
+### 💾 Persistent volumes
 
 | Volume         | Description                       |
 | -------------- | --------------------------------- |
 | `/app/logs`    | Location of logs                  |
 | `/app/secrets` | Location of `spotipy_token.cache` |
 
-### Home Assistant conversation bot
+### 🤖 Home Assistant conversation bot
 
 A second bot, `hass.py` is also included in this image. If you want to use it, please create a second application using the [Discord Developer Portal](https://discord.com/developers/applications). You will also need to configure the following environmental variables in `bjornify.txt`:
 
