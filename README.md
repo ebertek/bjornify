@@ -9,6 +9,12 @@ Björnify is a Discord bot that adds requested tracks to the Spotify playback qu
 - ⏭️ `!next` — Skip to the next track
 - ⏸️ `!pause` — Pause playback
 
+You can also use slash commands — these will only be visible to you.
+
+- 🔍 `/add` — Search for tracks and add the selected one to the queue
+- ⏭️ `/next` — Skip to the next track
+- ⏸️ `/pause` — Pause playback
+
 ## 🐳 Docker Compose
 
 ### `compose.yaml`
