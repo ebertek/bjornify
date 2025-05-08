@@ -1,6 +1,14 @@
 # 🎵 Björnify
 
-Björnify is a Discord bot that adds requested tracks to the Spotify playback queue. It uses [discord.py](https://github.com/scarletcafe/discord.py-docker), [Spotipy](https://github.com/spotipy-dev/spotipy), and [SoCo](https://github.com/SoCo/SoCo) to manage playback across Spotify and Sonos speakers.
+Björnify is a Discord bot based on [discord.py](https://github.com/scarletcafe/discord.py-docker) that adds requested tracks to your Spotify playback queue.
+
+## 🧠 How It Works
+
+- Listens for `!add`, `!next`, and `!pause` commands.
+- Uses [Spotipy](https://github.com/spotipy-dev/spotipy) to search tracks and manage playback via Spotify Web API.
+- Queues tracks or starts playback if nothing is playing.
+- Falls back to controlling Sonos speakers via [SoCo](https://github.com/SoCo/SoCo) if Spotify playback fails due to device restrictions.
+- Uses autocomplete and dropdown UI for enhanced slash command experience (`/add`).
 
 ## 🚀 Usage examples
 
