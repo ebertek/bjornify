@@ -4,9 +4,9 @@ Björnify is a Discord bot that adds requested tracks to the Spotify playback qu
 
 ## 🚀 Usage examples
 
-- 🎶 `!add Souvlaki Space Station` — Add a song by name
+- 🎶 `!add Souvlaki Space Station` — Add the first track that matches your query
 - 🧩 `!add track:Anti-Hero album:Midnights artist:Taylor Swift year:2022` — Add a track using detailed filters
-- ⏭️ `!next` — Skip to the next song
+- ⏭️ `!next` — Skip to the next track
 - ⏸️ `!pause` — Pause playback
 
 ## 🐳 Docker Compose
