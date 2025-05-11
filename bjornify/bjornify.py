@@ -33,26 +33,30 @@ file_handler.setFormatter(
     )
 )
 
+# Define valid log levels
+VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+
+# Get and validate configured log levels
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+if LOG_LEVEL not in VALID_LOG_LEVELS:
+    LOG_LEVEL = "INFO"  # fallback to default
+LIB_LOG_LEVEL = os.getenv("LIB_LOG_LEVEL", "WARNING").upper()
+if LIB_LOG_LEVEL not in VALID_LOG_LEVELS:
+    LIB_LOG_LEVEL = "WARNING"  # fallback to default
+
 # Apply to root logger
 root_logger = logging.getLogger()
-root_logger.setLevel(logging.DEBUG)  # Log everything
+root_logger.setLevel(LOG_LEVEL)
 root_logger.addHandler(file_handler)
 
 # Create app-specific logger
 _LOGGER = logging.getLogger("bjornify")
-_LOGGER.setLevel(logging.DEBUG)
+_LOGGER.setLevel(LOG_LEVEL)
 _LOGGER.propagate = True  # Let messages bubble up to root
 
-# Reduce verbosity
-logging.getLogger("asyncio").setLevel(logging.WARNING)
-logging.getLogger("discord.client").setLevel(logging.WARNING)
-logging.getLogger("discord.gateway").setLevel(logging.WARNING)
-logging.getLogger("discord.http").setLevel(logging.WARNING)
-logging.getLogger("discord.state").setLevel(logging.WARNING)
-logging.getLogger("discord.webhook.async_").setLevel(logging.WARNING)
-logging.getLogger("spotipy.client").setLevel(logging.INFO)
-logging.getLogger("spotipy.oauth2").setLevel(logging.INFO)
-logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+# Apply lib log level to third-party modules
+for lib in ("asyncio", "discord", "soco", "spotipy", "urllib3"):
+    logging.getLogger(lib).setLevel(LIB_LOG_LEVEL)
 
 # Validate that all required environmental variables are set
 required_env_vars = [
