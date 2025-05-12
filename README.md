@@ -51,7 +51,6 @@ services:
     image: "ghcr.io/ebertek/bjornify:latest"
     restart: "no"
     stop_grace_period: 3m
-    stop_signal: SIGINT
     user: "1028:100"
     volumes:
       - "/mnt/docker/bjornify/logs:/app/logs"
@@ -135,7 +134,6 @@ docker run --name bjornify \
   --hostname bjornify \
   --restart=no \
   --stop-timeout=180 \
-  --stop-signal=SIGINT \
   --user 1028:100 \
   -v /mnt/docker/bjornify/logs:/app/logs \
   -v /mnt/docker/bjornify/secrets:/app/secrets \
