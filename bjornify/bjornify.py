@@ -6,6 +6,8 @@
 import asyncio
 import logging
 import os
+import signal
+import sys
 
 import discord
 import soco
@@ -529,9 +531,35 @@ async def next_slash(interaction: discord.Interaction):
 
 
 async def main():
-    """Initialize the bot, add cogs, and start it."""
+    """Initialize and start the bot."""
     _LOGGER.info("Björnify version: %s", __version__)
     await bot.start(DISCORD_BOT_TOKEN)
 
 
-asyncio.run(main())
+async def shutdown():
+    """Handle graceful shutdown of the bot."""
+    _LOGGER.info("Received stop signal. Shutting down gracefully...")
+    await bot.close()
+    _LOGGER.info("Shutdown complete.")
+    sys.exit(0)
+
+
+def handle_signal(*_):
+    """Signal handler that initiates bot shutdown."""
+    asyncio.create_task(shutdown())
+
+
+def run_bot():
+    """Run the bot and set up signal handlers."""
+    loop = asyncio.get_event_loop()
+    for s in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(s, handle_signal)
+    try:
+        loop.run_until_complete(main())
+    finally:
+        _LOGGER.info("Cleaning up asyncio loop.")
+        loop.close()
+
+
+if __name__ == "__main__":
+    run_bot()

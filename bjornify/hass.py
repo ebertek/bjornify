@@ -5,8 +5,12 @@
 
 # Based on:
 #  https://www.reddit.com/r/homeassistant/comments/1fcjypt/discord_assist_via_conversation_api/
+
+import asyncio
 import logging
 import os
+import signal
+import sys
 
 import discord
 import requests
@@ -128,5 +132,36 @@ def send_query_to_ha_assist(query):
     return "Error communicating with Home Assistant."
 
 
-# Run the bot
-bot.run(DISCORD_BOT_TOKEN)
+async def main():
+    """Initialize and start the bot."""
+    _LOGGER.info("HASS bot starting.")
+    await bot.start(DISCORD_BOT_TOKEN)
+
+
+async def shutdown():
+    """Handle graceful shutdown of the bot."""
+    _LOGGER.info("Received stop signal. Shutting down gracefully...")
+    await bot.close()
+    _LOGGER.info("Shutdown complete.")
+    sys.exit(0)
+
+
+def handle_signal(*_):
+    """Signal handler that initiates bot shutdown."""
+    asyncio.create_task(shutdown())
+
+
+def run_bot():
+    """Run the bot and set up signal handlers."""
+    loop = asyncio.get_event_loop()
+    for s in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(s, handle_signal)
+    try:
+        loop.run_until_complete(main())
+    finally:
+        _LOGGER.info("Cleaning up asyncio loop.")
+        loop.close()
+
+
+if __name__ == "__main__":
+    run_bot()

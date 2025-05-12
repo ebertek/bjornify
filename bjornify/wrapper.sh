@@ -2,6 +2,10 @@
 
 set -e
 
+# Forward signals to child processes
+trap 'echo "Received SIGINT"; kill -SIGINT "${pids[@]}"' SIGINT
+trap 'echo "Received SIGTERM"; kill -SIGTERM "${pids[@]}"' SIGTERM
+
 # Check required env vars for bjornify
 BJORNIFY_VARS=(SPOTIPY_CLIENT_ID SPOTIPY_CLIENT_SECRET DISCORD_BOT_TOKEN CHANNEL_ID)
 BJORNIFY_READY=true
