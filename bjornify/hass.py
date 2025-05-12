@@ -153,7 +153,8 @@ def handle_signal(*_):
 
 def run_bot():
     """Run the bot and set up signal handlers."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     for s in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(s, handle_signal)
     try:
