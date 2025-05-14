@@ -611,7 +611,10 @@ async def add_slash(interaction: discord.Interaction, query: str):
                 """Handle the user's selection from the dropdown."""
                 uri = self.values[0]
                 try:
-                    player_add_track(uri)
+                    track = spotify.track(uri)
+                    name = track["name"]
+                    artist = ", ".join(a["name"] for a in track["artists"])
+                    player_add_track(uri, artist, name)
                     await interaction_dropdown.response.send_message(
                         "✅ Queued selected track!", delete_after=10
                     )
