@@ -316,6 +316,14 @@ async def skip_track(ctx):
     await ctx.message.add_reaction(response)
 
 
+@bot.command(name="np", help="Show the currently playing track")
+async def now_playing(ctx):
+    """Show the currently playing track."""
+    _LOGGER.debug("!np command by %s", ctx.author.name)
+    embed = get_now_playing_embed()
+    await ctx.send(embed=embed or "❌ Nothing is playing.")
+
+
 @bot.command(name="version")
 async def version(ctx):
     """Return version number."""
@@ -415,6 +423,79 @@ def player_pause_playback():
         soco_action=lambda speaker: speaker.pause(),
         action_name="pause playback",
     )
+
+
+def get_now_playing_embed():
+    """Try to get now playing info from Spotify, fall back to SoCo."""
+    # Try Spotify first
+    try:
+        playback = spotify.current_playback()
+        if playback and playback.get("item"):
+            item = playback["item"]
+            artist = ", ".join(a["name"] for a in item["artists"])
+            title = item["name"]
+            album = item["album"]["name"]
+            url = item["external_urls"]["spotify"]
+            image_url = item["album"]["images"][0]["url"]
+            progress_ms = playback["progress_ms"]
+            duration_ms = item["duration_ms"]
+            device = playback.get("device", {}).get("name", "Unknown Device")
+            is_playing = playback.get("is_playing", False)
+
+            # Compute progress
+            progress_min = int(progress_ms / 60000)
+            progress_sec = int((progress_ms % 60000) / 1000)
+            duration_min = int(duration_ms / 60000)
+            duration_sec = int((duration_ms % 60000) / 1000)
+
+            status_emoji = "▶️" if is_playing else "⏸️"
+
+            # Best-effort queue position via context
+            context_type = playback.get("context", {}).get("type", "")
+            queue_info = f"📦 Context: *{context_type}*" if context_type else ""
+
+            description = (
+                f"{status_emoji} **Now Playing on {device}:** [{artist} – {title}]({url})\n"
+                f"💿 Album: *{album}*\n"
+                f"⏱️ {progress_min}:{progress_sec:02d} / {duration_min}:{duration_sec:02d}\n"
+                f"{queue_info}"
+            )
+
+            embed = discord.Embed(description=description)
+            embed.set_thumbnail(url=image_url)
+            return embed
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        _LOGGER.warning("Spotify now playing lookup failed: %s", e)
+
+    # Try SoCo fallback
+    speaker = find_playing_speaker()
+    if speaker:
+        try:
+            track_info = speaker.get_current_track_info()
+            title = track_info.get("title", "Unknown Title")
+            artist = track_info.get("artist", "Unknown Artist")
+            album = track_info.get("album", "Unknown Album")
+            duration = track_info.get("duration", 0)
+            position = speaker.get_current_transport_info().get("current_position", "0:00")
+            album_art_uri = track_info.get("album_art_uri", "")
+            album_art_url = speaker.get_album_art_full_uri(album_art_uri) if album_art_uri else None
+
+            device = speaker.player_name
+
+            description = (
+                f"📡 **Sonos Playback on {device}:** {artist} – {title}\n"
+                f"💿 Album: *{album}*\n"
+                f"⏱️ {position} / {duration}"
+            )
+
+            embed = discord.Embed(description=description)
+            if album_art_url:
+                embed.set_thumbnail(url=album_art_url)
+            return embed
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            _LOGGER.warning("SoCo now playing fallback failed: %s", e)
+
+    return None
 
 
 async def autocomplete_tracks(_: discord.Interaction, current: str):
@@ -534,6 +615,16 @@ async def next_slash(interaction: discord.Interaction):
     response = await bot.loop.run_in_executor(None, player_skip_to_next)
     await interaction.response.send_message(
         f"{response} Skipped to next track.", ephemeral=True
+    )
+
+
+@bot.tree.command(name="np", description="Show the currently playing track")
+async def np_slash(interaction: discord.Interaction):
+    """Slash command to show the currently playing track."""
+    _LOGGER.debug("/np command by %s", interaction.user.name)
+    embed = get_now_playing_embed()
+    await interaction.response.send_message(
+        embed=embed or "❌ Nothing is playing.", ephemeral=True
     )
 
 

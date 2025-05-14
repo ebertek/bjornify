@@ -4,7 +4,7 @@ Björnify is a Discord bot based on [discord.py](https://github.com/scarletcafe/
 
 ## 🧠 How It Works
 
-- Listens for `!add`, `!next`, and `!pause` commands.
+- Listens for `!add`, `!next`, `!pause`, and `!np` commands.
 - Uses [Spotipy](https://github.com/spotipy-dev/spotipy) to search tracks and manage playback via Spotify Web API.
 - Queues tracks or starts playback if nothing is playing.
 - Falls back to controlling Sonos speakers via [SoCo](https://github.com/SoCo/SoCo) if Spotify playback fails due to device restrictions.
@@ -18,6 +18,7 @@ Björnify is a Discord bot based on [discord.py](https://github.com/scarletcafe/
 - 🧩 `!add track:Anti-Hero album:Midnights artist:Taylor Swift year:2022` — Add a track using detailed filters
 - ⏭️ `!next` — Skip to the next track
 - ⏸️ `!pause` — Pause playback
+- 🎧 `!np` — Show the currently playing track
 
 ### 🧵 Slash commands
 
@@ -26,6 +27,7 @@ These are visible only to you and provide autocomplete support:
 - 🔍 `/add` — Search for tracks and add the selected one to the queue
 - ⏭️ `/next` — Skip to the next track
 - ⏸️ `/pause` — Pause playback
+- 🎧 `/np` — Show the currently playing track
 
 ## 🧩 Docker Compose
 
@@ -83,8 +85,8 @@ HA_ACCESS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 | `SPOTIPY_CLIENT_SECRET` | Your Spotify app’s client secret.                                                      |
 | `SPOTIPY_REDIRECT_URI`  | Redirect URI registered with your Spotify app.                                         |
 | `DISCORD_BOT_TOKEN`     | Token for Björnify to access the Discord API.                                          |
-| `CHANNEL_ID`            | Discord channel ID where Björnify listens for `!add`, `!next`, and `!pause`.           |
-| `GUILD_ID`              | Optional: Discord guild ID where Björnify listens for `/add`, `/next`, and `/pause`.   |
+| `CHANNEL_ID`            | Discord channel ID where Björnify listens for `!` commands.                            |
+| `GUILD_ID`              | Optional: Discord guild ID where Björnify listens for `/` commands.                    |
 | `DEFAULT_DEVICE`        | Optional: Device used to start playback if no devices are currently playing.           |
 | `LOG_LEVEL`             | Optional: Log level for Björnify: `DEBUG` > `INFO` > `WARNING` > `ERROR` > `CRITICAL`. |
 | `LIB_LOG_LEVEL`         | Optional: Log level for `asyncio`, `discord`, `soco`, `spotipy`, and `urllib3`.        |
