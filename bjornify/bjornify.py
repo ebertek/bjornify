@@ -597,7 +597,9 @@ async def add_slash(interaction: discord.Interaction, query: str):
         tracks = results.get("tracks", {}).get("items", [])
 
         if not tracks:
-            await interaction.response.send_message("❌ No results found.", ephemeral=True)
+            await interaction.response.send_message(
+                "❌ No results found.", ephemeral=True
+            )
             return
 
         def truncate(text, max_length=100):
@@ -611,7 +613,9 @@ async def add_slash(interaction: discord.Interaction, query: str):
             for track in tracks
         ]
 
-        class FallbackDropdown(discord.ui.Select):  # pylint: disable=too-few-public-methods
+        class FallbackDropdown(
+            discord.ui.Select
+        ):  # pylint: disable=too-few-public-methods
             """Dropdown UI component for letting the user select from search results."""
 
             def __init__(self):
@@ -652,7 +656,9 @@ async def add_slash(interaction: discord.Interaction, query: str):
             async def on_timeout(self):
                 """Disable menu when timeout expires."""
                 _LOGGER.debug("FallbackDropdownView timed out, disabling menu")
-                self.select_menu.disabled = True  # pylint: disable=attribute-defined-outside-init
+                self.select_menu.disabled = (
+                    True  # pylint: disable=attribute-defined-outside-init
+                )
                 try:
                     if self.message:
                         await self.message.edit(view=self)
