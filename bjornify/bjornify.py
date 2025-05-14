@@ -425,7 +425,7 @@ def player_pause_playback():
     )
 
 
-def get_now_playing_embed():
+def get_now_playing_embed():  # pylint: disable=too-many-locals
     """Try to get now playing info from Spotify, fall back to SoCo."""
     # Try Spotify first
     try:
@@ -476,9 +476,13 @@ def get_now_playing_embed():
             artist = track_info.get("artist", "Unknown Artist")
             album = track_info.get("album", "Unknown Album")
             duration = track_info.get("duration", 0)
-            position = speaker.get_current_transport_info().get("current_position", "0:00")
+            position = speaker.get_current_transport_info().get(
+                "current_position", "0:00"
+            )
             album_art_uri = track_info.get("album_art_uri", "")
-            album_art_url = speaker.get_album_art_full_uri(album_art_uri) if album_art_uri else None
+            album_art_url = (
+                speaker.get_album_art_full_uri(album_art_uri) if album_art_uri else None
+            )
 
             device = speaker.player_name
 
