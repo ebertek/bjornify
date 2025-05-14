@@ -656,8 +656,8 @@ async def add_slash(interaction: discord.Interaction, query: str):
             async def on_timeout(self):
                 """Disable menu when timeout expires."""
                 _LOGGER.debug("FallbackDropdownView timed out, disabling menu")
-                self.select_menu.disabled = (
-                    True  # pylint: disable=attribute-defined-outside-init
+                self.select_menu.disabled = (  # pylint: disable=attribute-defined-outside-init
+                    True
                 )
                 try:
                     if self.message:
