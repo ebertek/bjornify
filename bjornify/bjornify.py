@@ -517,7 +517,7 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statem
             album,
             device,
             position,
-            duration
+            duration,
         )
 
         description = (
