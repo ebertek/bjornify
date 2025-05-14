@@ -646,6 +646,7 @@ async def add_slash(interaction: discord.Interaction, query: str):
                     await interaction_dropdown.response.send_message(
                         f"✅ Queued: {artist} – {title}", delete_after=10
                     )
+                    await interaction_dropdown.message.delete(delay=10)
                 except spotipy.exceptions.SpotifyException as e:
                     await interaction_dropdown.response.send_message(
                         f"❌ Failed to add track: {e}", delete_after=10
