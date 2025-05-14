@@ -614,7 +614,9 @@ async def add_slash(interaction: discord.Interaction, query: str):
             def __init__(self, parent_view: discord.ui.View):
                 options = [
                     discord.SelectOption(
-                        label=truncate(f"{track['artists'][0]['name']} - {track['name']}"),
+                        label=truncate(
+                            f"{track['artists'][0]['name']} - {track['name']}"
+                        ),
                         value=track["uri"],
                     )
                     for track in tracks
@@ -636,7 +638,9 @@ async def add_slash(interaction: discord.Interaction, query: str):
                     artist = ", ".join(a["name"] for a in track["artists"])
                     player_add_track(uri, artist, title)
 
-                    self.disabled = True  # pylint: disable=attribute-defined-outside-init
+                    self.disabled = (  # pylint: disable=attribute-defined-outside-init
+                        True
+                    )
                     await interaction_dropdown.message.edit(view=self.parent_view)
 
                     await interaction_dropdown.response.send_message(
