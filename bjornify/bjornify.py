@@ -553,9 +553,13 @@ async def autocomplete_tracks(_: discord.Interaction, current: str):
 
     tracks = results.get("tracks", {}).get("items", [])
 
+    def truncate(text, max_length=100):
+        """data.choices.i.name: Must be between 1 and 100 in length."""
+        return text if len(text) <= max_length else text[:97] + "..."
+
     return [
         app_commands.Choice(
-            name=f"{track['artists'][0]['name']} - {track['name']}",
+            name=truncate(f"{track['artists'][0]['name']} - {track['name']}"),
             value=track["uri"],
         )
         for track in tracks
