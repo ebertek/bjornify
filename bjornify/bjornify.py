@@ -121,7 +121,7 @@ class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
                     "Failed to sync commands to guild %s: %s", guild_id_str, e
                 )
         else:
-            _LOGGER.debug("GUILD_ID not set — slash commands will not be registered.")
+            _LOGGER.debug("GUILD_ID not set — slash commands will not be registered")
 
 
 intents = discord.Intents.default()
@@ -143,13 +143,13 @@ def refresh_spotify_token(force: bool = False):
 
     if force or auth_manager.is_token_expired(token_info):
         _LOGGER.info(
-            "Refreshing Spotify token %s.",
+            "Refreshing Spotify token %s",
             "forcefully" if force else "because it expired",
         )
         auth_manager.refresh_access_token(token_info["refresh_token"])
         spotify = spotipy.Spotify(auth_manager=auth_manager)
     else:
-        _LOGGER.debug("Spotify token still valid — no refresh needed.")
+        _LOGGER.debug("Spotify token still valid — no refresh needed")
 
 
 def find_playing_speaker():
@@ -157,7 +157,7 @@ def find_playing_speaker():
     speakers = soco.discover()
 
     if not speakers:
-        _LOGGER.info("No Sonos speakers found.")
+        _LOGGER.info("No Sonos speakers found")
         return None
 
     for speaker in speakers:
@@ -206,7 +206,7 @@ def find_playing_speaker():
                 "Error while checking speaker %s: %s", speaker.player_name, e
             )
 
-    _LOGGER.debug("No currently playing Sonos speaker using Spotify was found.")
+    _LOGGER.debug("No currently playing Sonos speaker using Spotify was found")
     return None
 
 
@@ -224,7 +224,7 @@ def spotify_action_with_soco_fallback(
             return "✅"
         except spotipy.exceptions.SpotifyException as e:
             if e.http_status == 401:
-                _LOGGER.warning("Spotify token expired, refreshing token.")
+                _LOGGER.warning("Spotify token expired, refreshing token")
                 refresh_spotify_token(force=True)
                 try:
                     spotify_action()  # Retry once after refreshing
@@ -235,7 +235,7 @@ def spotify_action_with_soco_fallback(
                     return "❌"
             if e.http_status == 403:
                 _LOGGER.exception(
-                    "Spotify refused to %s: Restricted device. Trying with SoCo.",
+                    "Spotify refused to %s: Restricted device. Trying with SoCo...",
                     action_name,
                 )
                 playing_speaker = find_playing_speaker()
@@ -251,11 +251,11 @@ def spotify_action_with_soco_fallback(
                     except Exception as ex:  # pylint: disable=broad-exception-caught
                         _LOGGER.exception("Failed to %s via SoCo: %s", action_name, ex)
                         return "❌"
-                _LOGGER.info("No active speaker found via SoCo.")
+                _LOGGER.info("No active speaker found via SoCo")
                 return "❌"
             _LOGGER.exception("Unexpected Spotify error during %s: %s", action_name, e)
             return "❌"
-    _LOGGER.debug("%s failed: no playback found.", action_name.capitalize())
+    _LOGGER.debug("%s failed: no playback found", action_name.capitalize())
     return "❌"
 
 
@@ -269,7 +269,7 @@ async def on_ready():
 @commands.is_owner()
 async def sync(ctx):
     """Sync slash commands to the current guild."""
-    _LOGGER.debug("User %s (%s) issued !sync command.", ctx.author.name, ctx.author.id)
+    _LOGGER.debug("User %s (%s) issued !sync command", ctx.author.name, ctx.author.id)
 
     if not ctx.guild:
         await ctx.send("❌ This command must be used in a server.")
@@ -380,7 +380,7 @@ def player_add_track(
                 return f"Started playback: {artist} - {name}"
             _LOGGER.info("Started playback: %s", uri)
             return f"Started playback: {uri}"
-        _LOGGER.warning("No available devices to start playback.")
+        _LOGGER.warning("No available devices to start playback")
         return "No available devices to start playback."
     except spotipy.exceptions.SpotifyException as e:
         _LOGGER.exception("Spotify error during add to queue: %s", e)
@@ -404,7 +404,7 @@ def player_add_item_to_playback_queue(query):
             _LOGGER.debug("Artist: %s, name: %s, uri: %s", artist, name, uri)
             return player_add_track(uri, artist, name)
 
-        _LOGGER.debug("No search results.")
+        _LOGGER.debug("No search results")
         return "No search results."
     except spotipy.exceptions.SpotifyException as e:
         _LOGGER.exception("Spotify error during add to queue: %s", e)
@@ -439,12 +439,12 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statem
     try:
         playback = spotify.current_playback()
         if playback is None:
-            _LOGGER.debug("Spotify returned no playback (None).")
-            raise ValueError("No active Spotify playback.")
+            _LOGGER.debug("Spotify returned no playback (None)")
+            raise ValueError("No active Spotify playback")
 
         item = playback.get("item")
         if not item:
-            _LOGGER.debug("Spotify playback has no 'item' field.")
+            _LOGGER.debug("Spotify playback has no 'item' field")
             raise ValueError("Spotify playback item missing.")
 
         artist = ", ".join(a["name"] for a in item["artists"])
@@ -499,7 +499,7 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statem
     try:
         speaker = find_playing_speaker()
         if not speaker:
-            _LOGGER.debug("No Sonos speaker found.")
+            _LOGGER.debug("No Sonos speaker found")
             return None
 
         track_info = speaker.get_current_track_info()
@@ -690,8 +690,10 @@ async def shutdown():
     """Handle graceful shutdown of the bot."""
     _LOGGER.info("Received stop signal. Shutting down gracefully...")
     await bot.close()
-    _LOGGER.info("Shutdown complete.")
-    sys.exit(0)
+    _LOGGER.info("Shutdown complete")
+    for handler in logging.getLogger().handlers:
+        handler.flush()
+    # sys.exit(0)
 
 
 def handle_signal(*_):
@@ -708,7 +710,7 @@ def run_bot():
     try:
         loop.run_until_complete(main())
     finally:
-        _LOGGER.info("Cleaning up asyncio loop.")
+        _LOGGER.debug("Cleaning up asyncio loop")
         loop.close()
 
 
