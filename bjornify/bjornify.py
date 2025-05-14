@@ -577,6 +577,10 @@ async def add_slash(interaction: discord.Interaction, query: str):
     """
     _LOGGER.debug("/add command by %s", interaction.user.name)
 
+    def truncate(text: str, max_length: int = 100) -> str:
+        return text if len(text) <= max_length else text[:97] + "..."
+
+    # If input is already a URI, queue directly
     if query.startswith("spotify:track:"):
         try:
             track = spotify.track(query)
@@ -602,38 +606,39 @@ async def add_slash(interaction: discord.Interaction, query: str):
             )
             return
 
-        def truncate(text, max_length=100):
-            return text if len(text) <= max_length else text[:97] + "..."
-
-        options = [
-            discord.SelectOption(
-                label=truncate(f"{track['artists'][0]['name']} - {track['name']}"),
-                value=track["uri"],
-            )
-            for track in tracks
-        ]
-
         class FallbackDropdown(
             discord.ui.Select
         ):  # pylint: disable=too-few-public-methods
             """Dropdown UI component for letting the user select from search results."""
 
-            def __init__(self):
+            def __init__(self, parent_view: discord.ui.View):
+                options = [
+                    discord.SelectOption(
+                        label=truncate(f"{track['artists'][0]['name']} - {track['name']}"),
+                        value=track["uri"],
+                    )
+                    for track in tracks
+                ]
                 super().__init__(
                     placeholder="Select a track to queue",
                     min_values=1,
                     max_values=1,
                     options=options,
                 )
+                self.parent_view = parent_view
 
             async def callback(self, interaction_dropdown: discord.Interaction):
-                """Handle the user's selection from the dropdown."""
+                """Disable menu and queue selected track."""
                 uri = self.values[0]
                 try:
                     track = spotify.track(uri)
                     title = track["name"]
                     artist = ", ".join(a["name"] for a in track["artists"])
                     player_add_track(uri, artist, title)
+
+                    self.disabled = True  # pylint: disable=attribute-defined-outside-init
+                    await interaction_dropdown.message.edit(view=self.parent_view)
+
                     await interaction_dropdown.response.send_message(
                         f"✅ Queued: {artist} – {title}", delete_after=10
                     )
@@ -645,27 +650,14 @@ async def add_slash(interaction: discord.Interaction, query: str):
         class FallbackDropdownView(
             discord.ui.View
         ):  # pylint: disable=too-few-public-methods
-            """Encapsulates the fallback dropdown in a Discord UI view with timeout."""
+            """Encapsulates the fallback dropdown in a Discord UI view."""
 
             def __init__(self):
-                super().__init__(timeout=30)
-                self.select_menu: discord.ui.Select = FallbackDropdown()
-                self.add_item(self.select_menu)
-                self.message = None
-
-            async def on_timeout(self):
-                """Disable menu when timeout expires."""
-                _LOGGER.debug("FallbackDropdownView timed out, disabling menu")
-                self.select_menu.disabled = (  # pylint: disable=attribute-defined-outside-init
-                    True
-                )
-                try:
-                    if self.message:
-                        await self.message.edit(view=self)
-                except Exception as e:  # pylint: disable=broad-exception-caught
-                    _LOGGER.debug("Failed to disable view after timeout: %s", e)
+                super().__init__()
+                self.message: discord.Message | None = None
 
         view = FallbackDropdownView()
+        view.add_item(FallbackDropdown(parent_view=view))
         await interaction.response.send_message("Select a track:", view=view)
         view.message = await interaction.original_response()
 
