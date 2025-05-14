@@ -7,7 +7,6 @@ import asyncio
 import logging
 import os
 import signal
-import sys
 
 import discord
 import soco
@@ -693,7 +692,6 @@ async def shutdown():
     _LOGGER.info("Shutdown complete")
     for handler in logging.getLogger().handlers:
         handler.flush()
-    # sys.exit(0)
 
 
 def handle_signal(*_):

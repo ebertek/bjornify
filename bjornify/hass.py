@@ -10,11 +10,15 @@ import asyncio
 import logging
 import os
 import signal
-import sys
 
 import discord
 import requests
 from discord.ext import commands
+
+try:
+    from version import __version__
+except ImportError:
+    __version__ = "dev"  # fallback for local dev without version.py
 
 LOG_PATH = "logs/hass.log"
 
@@ -128,13 +132,13 @@ def send_query_to_ha_assist(query):
             "speech"
         ]  # Extract the response text
 
-    _LOGGER.info("Error communicating with Home Assistant.")
+    _LOGGER.info("Error communicating with Home Assistant")
     return "Error communicating with Home Assistant."
 
 
 async def main():
     """Initialize and start the bot."""
-    _LOGGER.info("HASS bot starting.")
+    _LOGGER.info("HASS bot version: %s", __version__)
     await bot.start(DISCORD_BOT_TOKEN)
 
 
@@ -142,8 +146,9 @@ async def shutdown():
     """Handle graceful shutdown of the bot."""
     _LOGGER.info("Received stop signal. Shutting down gracefully...")
     await bot.close()
-    _LOGGER.info("Shutdown complete.")
-    sys.exit(0)
+    _LOGGER.info("Shutdown complete")
+    for handler in logging.getLogger().handlers:
+        handler.flush()
 
 
 def handle_signal(*_):
@@ -160,7 +165,7 @@ def run_bot():
     try:
         loop.run_until_complete(main())
     finally:
-        _LOGGER.info("Cleaning up asyncio loop.")
+        _LOGGER.debug("Cleaning up asyncio loop")
         loop.close()
 
 
