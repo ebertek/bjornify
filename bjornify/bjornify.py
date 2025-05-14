@@ -430,77 +430,98 @@ def player_pause_playback():
 
 def get_now_playing_embed():  # pylint: disable=too-many-locals
     """Try to get now playing info from Spotify, fall back to SoCo."""
+    _LOGGER.debug("Checking Spotify current playback...")
     # Try Spotify first
     try:
         playback = spotify.current_playback()
-        if playback and playback.get("item"):
-            item = playback["item"]
-            artist = ", ".join(a["name"] for a in item["artists"])
-            title = item["name"]
-            album = item["album"]["name"]
-            url = item["external_urls"]["spotify"]
-            image_url = item["album"]["images"][0]["url"]
-            progress_ms = playback["progress_ms"]
-            duration_ms = item["duration_ms"]
-            device = playback.get("device", {}).get("name", "Unknown Device")
-            is_playing = playback.get("is_playing", False)
+        if playback is None:
+            _LOGGER.debug("Spotify returned no playback (None).")
+            raise ValueError("No active Spotify playback.")
 
-            # Compute progress
-            progress_min = int(progress_ms / 60000)
-            progress_sec = int((progress_ms % 60000) / 1000)
-            duration_min = int(duration_ms / 60000)
-            duration_sec = int((duration_ms % 60000) / 1000)
+        item = playback.get("item")
+        if not item:
+            _LOGGER.debug("Spotify playback has no 'item' field.")
+            raise ValueError("Spotify playback item missing.")
 
-            status_emoji = "▶️" if is_playing else "⏸️"
+        artist = ", ".join(a["name"] for a in item["artists"])
+        title = item["name"]
+        album = item["album"]["name"]
+        url = item["external_urls"]["spotify"]
+        image_url = item["album"]["images"][0]["url"]
+        progress_ms = playback["progress_ms"]
+        duration_ms = item["duration_ms"]
+        device = playback.get("device", {}).get("name", "Unknown Device")
+        is_playing = playback.get("is_playing", False)
 
-            # Best-effort queue position via context
-            context_type = playback.get("context", {}).get("type", "")
-            queue_info = f"📦 Context: *{context_type}*" if context_type else ""
+        _LOGGER.debug(
+            "Spotify: '%s' by %s [%s] on %s — %d ms into %d ms",
+            title, artist, album, device, progress_ms, duration_ms,
+        )
 
-            description = (
-                f"{status_emoji} **Now Playing on {device}:** [{artist} – {title}]({url})\n"
-                f"💿 Album: *{album}*\n"
-                f"⏱️ {progress_min}:{progress_sec:02d} / {duration_min}:{duration_sec:02d}\n"
-                f"{queue_info}"
-            )
+        # Compute progress
+        progress_min = int(progress_ms / 60000)
+        progress_sec = int((progress_ms % 60000) / 1000)
+        duration_min = int(duration_ms / 60000)
+        duration_sec = int((duration_ms % 60000) / 1000)
 
-            embed = discord.Embed(description=description)
-            embed.set_thumbnail(url=image_url)
-            return embed
+        status_emoji = "▶️" if is_playing else "⏸️"
+
+        # Best-effort queue position via context
+        context_type = playback.get("context", {}).get("type", "")
+        queue_info = f"📦 Context: *{context_type}*" if context_type else ""
+
+        description = (
+            f"{status_emoji} **Now Playing on {device}:** [{artist} – {title}]({url})\n"
+            f"💿 Album: *{album}*\n"
+            f"⏱️ {progress_min}:{progress_sec:02d} / {duration_min}:{duration_sec:02d}\n"
+            f"{queue_info}"
+        )
+
+        embed = discord.Embed(description=description)
+        embed.set_thumbnail(url=image_url)
+        return embed
+
     except Exception as e:  # pylint: disable=broad-exception-caught
         _LOGGER.warning("Spotify now playing lookup failed: %s", e)
 
     # Try SoCo fallback
-    speaker = find_playing_speaker()
-    if speaker:
-        try:
-            track_info = speaker.get_current_track_info()
-            title = track_info.get("title", "Unknown Title")
-            artist = track_info.get("artist", "Unknown Artist")
-            album = track_info.get("album", "Unknown Album")
-            duration = track_info.get("duration", 0)
-            position = speaker.get_current_transport_info().get(
-                "current_position", "0:00"
-            )
-            album_art_uri = track_info.get("album_art_uri", "")
-            album_art_url = (
-                speaker.get_album_art_full_uri(album_art_uri) if album_art_uri else None
-            )
+    _LOGGER.debug("Trying Sonos fallback...")
+    try:
+        speaker = find_playing_speaker()
+        if not speaker:
+            _LOGGER.debug("No Sonos speaker found.")
+            return None
 
-            device = speaker.player_name
+        track_info = speaker.get_current_track_info()
+        title = track_info.get("title", "Unknown Title")
+        artist = track_info.get("artist", "Unknown Artist")
+        album = track_info.get("album", "Unknown Album")
+        duration = track_info.get("duration", 0)
+        position = speaker.get_current_transport_info().get(
+            "current_position", "0:00"
+        )
+        album_art_uri = track_info.get("album_art_uri", "")
+        album_art_url = (
+            speaker.get_album_art_full_uri(album_art_uri) if album_art_uri else None
+        )
 
-            description = (
-                f"📡 **Sonos Playback on {device}:** {artist} – {title}\n"
-                f"💿 Album: *{album}*\n"
-                f"⏱️ {position} / {duration}"
-            )
+        device = speaker.player_name
 
-            embed = discord.Embed(description=description)
-            if album_art_url:
-                embed.set_thumbnail(url=album_art_url)
-            return embed
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            _LOGGER.warning("SoCo now playing fallback failed: %s", e)
+        _LOGGER.debug("Sonos: '%s' by %s [%s] on %s (%s / %s)", title, artist, album, device, position, duration)
+
+        description = (
+            f"📡 **Sonos Playback on {device}:** {artist} – {title}\n"
+            f"💿 Album: *{album}*\n"
+            f"⏱️ {position} / {duration}"
+        )
+
+        embed = discord.Embed(description=description)
+        if album_art_url:
+            embed.set_thumbnail(url=album_art_url)
+        return embed
+
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        _LOGGER.warning("SoCo now playing fallback failed: %s", e)
 
     return None
 
