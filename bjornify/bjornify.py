@@ -472,7 +472,8 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statem
         status_emoji = "▶️" if is_playing else "⏸️"
 
         # Best-effort queue position via context
-        context_type = playback.get("context", {}).get("type", "")
+        context = playback.get("context")
+        context_type = context.get("type") if isinstance(context, dict) else ""
         queue_info = f"📦 Context: *{context_type}*" if context_type else ""
 
         description = (
