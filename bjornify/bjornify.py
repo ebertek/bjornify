@@ -321,7 +321,10 @@ async def now_playing(ctx):
     """Show the currently playing track."""
     _LOGGER.debug("!np command by %s", ctx.author.name)
     embed = get_now_playing_embed()
-    await ctx.send(embed=embed or "❌ Nothing is playing.")
+    if embed:
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("❌ Nothing is playing.")
 
 
 @bot.command(name="version")
@@ -626,10 +629,12 @@ async def next_slash(interaction: discord.Interaction):
 async def np_slash(interaction: discord.Interaction):
     """Slash command to show the currently playing track."""
     _LOGGER.debug("/np command by %s", interaction.user.name)
+    await interaction.response.defer(ephemeral=True)
     embed = get_now_playing_embed()
-    await interaction.response.send_message(
-        embed=embed or "❌ Nothing is playing.", ephemeral=True
-    )
+    if embed:
+        await interaction.followup.send(embed=embed)
+    else:
+        await interaction.followup.send("❌ Nothing is playing.")
 
 
 async def main():
