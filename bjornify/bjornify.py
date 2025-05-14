@@ -136,13 +136,20 @@ bot = BjornifyBot(
 )
 
 
-def refresh_spotify_token():
-    """Force refresh Spotify access token."""
+def refresh_spotify_token(force: bool = False):
+    """Refresh Spotify access token if expired, or always if force=True."""
     global spotify  # pylint: disable=global-statement
-    _LOGGER.info("Refreshing Spotify access token manually.")
+    token_info = auth_manager.get_cached_token()
 
-    auth_manager.refresh_access_token(auth_manager.get_cached_token()["refresh_token"])
-    spotify = spotipy.Spotify(auth_manager=auth_manager)
+    if force or auth_manager.is_token_expired(token_info):
+        _LOGGER.info(
+            "Refreshing Spotify token %s.",
+            "forcefully" if force else "because it expired",
+        )
+        auth_manager.refresh_access_token(token_info["refresh_token"])
+        spotify = spotipy.Spotify(auth_manager=auth_manager)
+    else:
+        _LOGGER.debug("Spotify token still valid — no refresh needed.")
 
 
 def find_playing_speaker():
@@ -218,7 +225,7 @@ def spotify_action_with_soco_fallback(
         except spotipy.exceptions.SpotifyException as e:
             if e.http_status == 401:
                 _LOGGER.warning("Spotify token expired, refreshing token.")
-                refresh_spotify_token()
+                refresh_spotify_token(force=True)
                 try:
                     spotify_action()  # Retry once after refreshing
                     _LOGGER.info("%s via Spotify (after refresh)", action_name)
