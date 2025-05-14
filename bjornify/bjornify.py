@@ -113,7 +113,7 @@ class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
                     _LOGGER.debug("Registered slash command before sync: %s", cmd.name)
                 self.tree.copy_global_to(guild=guild)
                 synced = await self.tree.sync(guild=guild)
-                _LOGGER.info(
+                _LOGGER.debug(
                     "Synced %d slash commands to guild ID %s", len(synced), guild_id_str
                 )
             except Exception as e:  # pylint: disable=broad-exception-caught
@@ -121,7 +121,7 @@ class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
                     "Failed to sync commands to guild %s: %s", guild_id_str, e
                 )
         else:
-            _LOGGER.info("GUILD_ID not set — slash commands will not be registered.")
+            _LOGGER.debug("GUILD_ID not set — slash commands will not be registered.")
 
 
 intents = discord.Intents.default()
@@ -206,7 +206,7 @@ def find_playing_speaker():
                 "Error while checking speaker %s: %s", speaker.player_name, e
             )
 
-    _LOGGER.info("No currently playing Sonos speaker using Spotify was found.")
+    _LOGGER.debug("No currently playing Sonos speaker using Spotify was found.")
     return None
 
 
@@ -343,7 +343,11 @@ def player_add_track(
     uri, artist=None, name=None
 ):  # pylint: disable=too-many-return-statements
     """Add the track to the playback queue."""
-    _LOGGER.debug("Adding %s (%s - %s)", uri, artist, name)
+    if artist and name:
+        _LOGGER.debug("Adding: %s - %s (%s)", artist, name, uri)
+    else:
+        _LOGGER.debug("Adding: %s", uri)
+
     try:
         # GET /me/player
         playback_results = spotify.current_playback()
@@ -488,7 +492,7 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statem
         return embed
 
     except Exception as e:  # pylint: disable=broad-exception-caught
-        _LOGGER.warning("Spotify now playing lookup failed: %s", e)
+        _LOGGER.debug("Spotify now playing lookup failed: %s", e)
 
     # Try SoCo fallback
     _LOGGER.debug("Trying Sonos fallback...")
@@ -533,7 +537,7 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statem
         return embed
 
     except Exception as e:  # pylint: disable=broad-exception-caught
-        _LOGGER.warning("SoCo now playing fallback failed: %s", e)
+        _LOGGER.debug("SoCo now playing fallback failed: %s", e)
 
     return None
 
@@ -628,7 +632,13 @@ async def add_slash(interaction: discord.Interaction, query: str):
         return
 
     try:
-        player_add_track(query)
+        if query.startswith("spotify:track:"):
+            track = spotify.track(query)
+            name = track["name"]
+            artist = ", ".join(a["name"] for a in track["artists"])
+            player_add_track(query, artist, name)
+        else:
+            player_add_track(query)  # fallback, should not happen
         await interaction.response.send_message(
             "✅ Queued selected track!", delete_after=10
         )
