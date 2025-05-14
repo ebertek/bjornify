@@ -29,7 +29,7 @@ os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
 file_handler.setFormatter(
     logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(name)-20s | %(message)s",
+        "%(asctime)s | %(levelname)-8s | %(name)-30s | %(message)s",
         "%Y-%m-%d - %H:%M:%S",
     )
 )
@@ -456,7 +456,7 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statem
         device = playback.get("device", {}).get("name", "Unknown Device")
         is_playing = playback.get("is_playing", False)
 
-        _LOGGER.debug(
+        _LOGGER.info(
             "Spotify: '%s' by %s [%s] on %s — %d ms into %d ms",
             title,
             artist,
@@ -514,7 +514,7 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statem
 
         device = speaker.player_name
 
-        _LOGGER.debug(
+        _LOGGER.info(
             "Sonos: '%s' by %s [%s] on %s (%s / %s)",
             title,
             artist,

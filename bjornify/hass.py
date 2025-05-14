@@ -29,7 +29,7 @@ os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
 file_handler.setFormatter(
     logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(name)-20s | %(message)s",
+        "%(asctime)s | %(levelname)-8s | %(name)-30s | %(message)s",
         "%Y-%m-%d - %H:%M:%S",
     )
 )
