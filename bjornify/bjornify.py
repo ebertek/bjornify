@@ -428,7 +428,7 @@ def player_pause_playback():
     )
 
 
-def get_now_playing_embed():  # pylint: disable=too-many-locals
+def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statements
     """Try to get now playing info from Spotify, fall back to SoCo."""
     _LOGGER.debug("Checking Spotify current playback...")
     # Try Spotify first
@@ -455,7 +455,12 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals
 
         _LOGGER.debug(
             "Spotify: '%s' by %s [%s] on %s — %d ms into %d ms",
-            title, artist, album, device, progress_ms, duration_ms,
+            title,
+            artist,
+            album,
+            device,
+            progress_ms,
+            duration_ms,
         )
 
         # Compute progress
@@ -497,9 +502,7 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals
         artist = track_info.get("artist", "Unknown Artist")
         album = track_info.get("album", "Unknown Album")
         duration = track_info.get("duration", 0)
-        position = speaker.get_current_transport_info().get(
-            "current_position", "0:00"
-        )
+        position = speaker.get_current_transport_info().get("current_position", "0:00")
         album_art_uri = track_info.get("album_art_uri", "")
         album_art_url = (
             speaker.get_album_art_full_uri(album_art_uri) if album_art_uri else None
@@ -507,7 +510,15 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals
 
         device = speaker.player_name
 
-        _LOGGER.debug("Sonos: '%s' by %s [%s] on %s (%s / %s)", title, artist, album, device, position, duration)
+        _LOGGER.debug(
+            "Sonos: '%s' by %s [%s] on %s (%s / %s)",
+            title,
+            artist,
+            album,
+            device,
+            position,
+            duration
+        )
 
         description = (
             f"📡 **Sonos Playback on {device}:** {artist} – {title}\n"
