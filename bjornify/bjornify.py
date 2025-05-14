@@ -576,27 +576,42 @@ async def add_slash(interaction: discord.Interaction, query: str):
     If it's a plain search string, the bot will show a dropdown of top results.
     """
     _LOGGER.debug("/add command by %s", interaction.user.name)
-    if not query.startswith("spotify:track:"):
+
+    if query.startswith("spotify:track:"):
+        try:
+            track = spotify.track(query)
+            title = track["name"]
+            artist = ", ".join(a["name"] for a in track["artists"])
+            player_add_track(query, artist, title)
+            await interaction.response.send_message(
+                f"✅ Queued: {artist} – {title}", delete_after=10
+            )
+        except spotipy.exceptions.SpotifyException as e:
+            await interaction.response.send_message(
+                f"❌ Failed to add track: {e}", ephemeral=True
+            )
+        return
+
+    try:
         results = spotify.search(q=query, limit=5, type="track")
         tracks = results.get("tracks", {}).get("items", [])
 
         if not tracks:
-            await interaction.response.send_message(
-                "❌ No results found.", ephemeral=True
-            )
+            await interaction.response.send_message("❌ No results found.", ephemeral=True)
             return
+
+        def truncate(text, max_length=100):
+            return text if len(text) <= max_length else text[:97] + "..."
 
         options = [
             discord.SelectOption(
-                label=f"{track['artists'][0]['name']} - {track['name']}",
+                label=truncate(f"{track['artists'][0]['name']} - {track['name']}"),
                 value=track["uri"],
             )
             for track in tracks
         ]
 
-        class FallbackDropdown(
-            discord.ui.Select
-        ):  # pylint: disable=too-few-public-methods
+        class FallbackDropdown(discord.ui.Select):  # pylint: disable=too-few-public-methods
             """Dropdown UI component for letting the user select from search results."""
 
             def __init__(self):
@@ -612,11 +627,11 @@ async def add_slash(interaction: discord.Interaction, query: str):
                 uri = self.values[0]
                 try:
                     track = spotify.track(uri)
-                    name = track["name"]
+                    title = track["name"]
                     artist = ", ".join(a["name"] for a in track["artists"])
-                    player_add_track(uri, artist, name)
+                    player_add_track(uri, artist, title)
                     await interaction_dropdown.response.send_message(
-                        "✅ Queued selected track!", delete_after=10
+                        f"✅ Queued: {artist} – {title}", delete_after=10
                     )
                 except spotipy.exceptions.SpotifyException as e:
                     await interaction_dropdown.response.send_message(
@@ -630,27 +645,28 @@ async def add_slash(interaction: discord.Interaction, query: str):
 
             def __init__(self):
                 super().__init__(timeout=30)
-                self.add_item(FallbackDropdown())
+                self.select_menu: discord.ui.Select = FallbackDropdown()
+                self.add_item(self.select_menu)
+                self.message = None
 
-        await interaction.response.send_message(
-            "Select a track:", view=FallbackDropdownView()
-        )
-        return
+            async def on_timeout(self):
+                """Disable menu when timeout expires."""
+                _LOGGER.debug("FallbackDropdownView timed out, disabling menu")
+                self.select_menu.disabled = True  # pylint: disable=attribute-defined-outside-init
+                try:
+                    if self.message:
+                        await self.message.edit(view=self)
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    _LOGGER.debug("Failed to disable view after timeout: %s", e)
 
-    try:
-        if query.startswith("spotify:track:"):
-            track = spotify.track(query)
-            name = track["name"]
-            artist = ", ".join(a["name"] for a in track["artists"])
-            player_add_track(query, artist, name)
-        else:
-            player_add_track(query)  # fallback, should not happen
-        await interaction.response.send_message(
-            "✅ Queued selected track!", delete_after=10
-        )
+        view = FallbackDropdownView()
+        await interaction.response.send_message("Select a track:", view=view)
+        view.message = await interaction.original_response()
+
     except spotipy.exceptions.SpotifyException as e:
+        _LOGGER.exception("Spotify error in /add: %s", e)
         await interaction.response.send_message(
-            f"❌ Failed to add track: {e}", delete_after=10
+            f"❌ Failed to add track: {e}", ephemeral=True
         )
 
 
