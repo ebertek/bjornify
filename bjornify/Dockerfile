@@ -9,10 +9,19 @@ ARG GITHUB_SHA
 ARG BUILD_DATE
 ENV BJORNIFY_VERSION=$VERSION
 
+# Add OCI labels.
+LABEL org.opencontainers.image.description="Discord bot based on discord.py that adds requested tracks to your Spotify playback queue."
+LABEL org.opencontainers.image.documentation="https://github.com/ebertek/bjornify#readme"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.source="https://github.com/ebertek/bjornify"
+LABEL org.opencontainers.image.title="Björnify"
+LABEL org.opencontainers.image.url="https://github.com/ebertek/bjornify"
+LABEL org.opencontainers.image.vendor="ebertek"
+
 # Add version labels.
-LABEL org.opencontainers.image.version=$VERSION
-LABEL org.opencontainers.image.revision=$GITHUB_SHA
 LABEL org.opencontainers.image.created=$BUILD_DATE
+LABEL org.opencontainers.image.revision=$GITHUB_SHA
+LABEL org.opencontainers.image.version=$VERSION
 
 # Prevent Python from writing pyc files.
 ENV PYTHONDONTWRITEBYTECODE=1
