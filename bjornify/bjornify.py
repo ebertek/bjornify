@@ -7,6 +7,7 @@ import asyncio
 import logging
 import os
 import signal
+import sys
 
 import discord
 import soco
@@ -25,14 +26,19 @@ LOG_PATH = "logs/bjornify.log"
 # Make sure log folder exists
 os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 
+# Common formatter
+log_formatter = logging.Formatter(
+    "%(asctime)s | %(levelname)-8s | %(name)-30s | %(message)s",
+    "%Y-%m-%d - %H:%M:%S",
+)
+
 # Create and configure file handler
 file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
-file_handler.setFormatter(
-    logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(name)-30s | %(message)s",
-        "%Y-%m-%d - %H:%M:%S",
-    )
-)
+file_handler.setFormatter(log_formatter)
+
+# Create and configure console (stdout) handler
+console_handler = logging.StreamHandler(stream=sys.stdout)
+console_handler.setFormatter(log_formatter)
 
 # Define valid log levels
 VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
@@ -49,6 +55,7 @@ if LIB_LOG_LEVEL not in VALID_LOG_LEVELS:
 root_logger = logging.getLogger()
 root_logger.setLevel(LOG_LEVEL)
 root_logger.addHandler(file_handler)
+root_logger.addHandler(console_handler)
 
 # Create app-specific logger
 _LOGGER = logging.getLogger("bjornify")
