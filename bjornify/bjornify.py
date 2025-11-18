@@ -8,6 +8,7 @@ import logging
 import os
 import signal
 import sys
+from typing import List
 
 import discord
 import soco
@@ -27,9 +28,7 @@ if LOG_OUTPUT_RAW.strip() == "":
     LOG_OUTPUT = set()
 else:
     LOG_OUTPUT = {
-        entry.strip().lower()
-        for entry in LOG_OUTPUT_RAW.split(",")
-        if entry.strip()
+        entry.strip().lower() for entry in LOG_OUTPUT_RAW.split(",") if entry.strip()
     }
 
 LOG_PATH = "logs/bjornify.log"
@@ -43,7 +42,7 @@ log_formatter = logging.Formatter(
     "%Y-%m-%d - %H:%M:%S",
 )
 
-handlers = []
+handlers: List[logging.Handler] = []
 
 # Create and configure file handler
 if "file" in LOG_OUTPUT:
@@ -72,8 +71,8 @@ if LIB_LOG_LEVEL not in VALID_LOG_LEVELS:
 root_logger = logging.getLogger()
 if handlers:
     root_logger.setLevel(LOG_LEVEL)
-    for handler in handlers:
-        root_logger.addHandler(handler)
+    for log_handler in handlers:
+        root_logger.addHandler(log_handler)
 else:
     root_logger.handlers.clear()
     logging.disable(logging.CRITICAL)
@@ -744,8 +743,8 @@ async def shutdown():
     _LOGGER.info("Received stop signal. Shutting down gracefully...")
     await bot.close()
     _LOGGER.info("Shutdown complete")
-    for handler in logging.getLogger().handlers:
-        handler.flush()
+    for log_handler in logging.getLogger().handlers:
+        log_handler.flush()
 
 
 def handle_signal(*_):
