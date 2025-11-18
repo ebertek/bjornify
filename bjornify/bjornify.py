@@ -21,6 +21,17 @@ try:
 except ImportError:
     __version__ = "dev"  # fallback for local dev without version.py
 
+# Get and validate configured log output
+LOG_OUTPUT_RAW = os.getenv("LOG_OUTPUT", "console")
+if LOG_OUTPUT_RAW.strip() == "":
+    LOG_OUTPUT = set()
+else:
+    LOG_OUTPUT = {
+        entry.strip().lower()
+        for entry in LOG_OUTPUT_RAW.split(",")
+        if entry.strip()
+    }
+
 LOG_PATH = "logs/bjornify.log"
 
 # Make sure log folder exists
@@ -32,13 +43,19 @@ log_formatter = logging.Formatter(
     "%Y-%m-%d - %H:%M:%S",
 )
 
+handlers = []
+
 # Create and configure file handler
-file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
-file_handler.setFormatter(log_formatter)
+if "file" in LOG_OUTPUT:
+    file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
+    file_handler.setFormatter(log_formatter)
+    handlers.append(file_handler)
 
 # Create and configure console (stdout) handler
-console_handler = logging.StreamHandler(stream=sys.stdout)
-console_handler.setFormatter(log_formatter)
+if "console" in LOG_OUTPUT:
+    console_handler = logging.StreamHandler(stream=sys.stdout)
+    console_handler.setFormatter(log_formatter)
+    handlers.append(console_handler)
 
 # Define valid log levels
 VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
@@ -53,9 +70,13 @@ if LIB_LOG_LEVEL not in VALID_LOG_LEVELS:
 
 # Apply to root logger
 root_logger = logging.getLogger()
-root_logger.setLevel(LOG_LEVEL)
-root_logger.addHandler(file_handler)
-root_logger.addHandler(console_handler)
+if handlers:
+    root_logger.setLevel(LOG_LEVEL)
+    for handler in handlers:
+        root_logger.addHandler(handler)
+else:
+    root_logger.handlers.clear()
+    logging.disable(logging.CRITICAL)
 
 # Create app-specific logger
 _LOGGER = logging.getLogger("bjornify")

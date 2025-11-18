@@ -69,6 +69,7 @@ DISCORD_BOT_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 CHANNEL_ID=xxxxxxxxxxxxxxxxxxx
 GUILD_ID=xxxxxxxxxxxxxxxxxxx
 DEFAULT_DEVICE=Everywhere
+LOG_OUTPUT=console
 LOG_LEVEL=INFO
 LIB_LOG_LEVEL=WARNING
 HASS_DISCORD_BOT_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -88,6 +89,7 @@ HA_ACCESS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 | `CHANNEL_ID`            | Discord channel ID where Björnify listens for `!` commands.                            |
 | `GUILD_ID`              | Optional: Discord guild ID where Björnify listens for `/` commands.                    |
 | `DEFAULT_DEVICE`        | Optional: Device used to start playback if no devices are currently playing.           |
+| `LOG_OUTPUT`            | Optional: Comma-separated list to configure logging: `console, file`                   |
 | `LOG_LEVEL`             | Optional: Log level for Björnify: `DEBUG` > `INFO` > `WARNING` > `ERROR` > `CRITICAL`. |
 | `LIB_LOG_LEVEL`         | Optional: Log level for `asyncio`, `discord`, `soco`, `spotipy`, and `urllib3`.        |
 
@@ -148,6 +150,6 @@ If you encounter a problem, feel free to [open an issue](https://github.com/eber
 
 - A description of the issue and how to reproduce it
 - What command you used (e.g. `/add` or `!next`)
-- The relevant section of the debug logs from `/app/logs/bjornify.log`
+- The relevant section of the debug logs from `/app/logs/bjornify.log` (set `LOG_OUTPUT` to `file`, and `LOG_LEVEL` and `LIB_LOG_LEVEL` to `DEBUG`)
 
 Logs help tremendously with diagnosing errors. If possible, redact any personal information (like tokens or private names).
