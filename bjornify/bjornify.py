@@ -71,8 +71,8 @@ if LIB_LOG_LEVEL not in VALID_LOG_LEVELS:
 root_logger = logging.getLogger()
 if LOG_HANDLERS:
     root_logger.setLevel(LOG_LEVEL)
-    for log_handler in LOG_HANDLERS:
-        root_logger.addHandler(log_handler)
+    for handler in LOG_HANDLERS:
+        root_logger.addHandler(handler)
 else:
     root_logger.handlers.clear()
     logging.disable(logging.CRITICAL)
