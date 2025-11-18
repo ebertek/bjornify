@@ -10,6 +10,8 @@ import asyncio
 import logging
 import os
 import signal
+import sys
+from typing import List
 
 import discord
 import requests
@@ -20,19 +22,39 @@ try:
 except ImportError:
     __version__ = "dev"  # fallback for local dev without version.py
 
+# Get and validate configured log output
+LOG_OUTPUT_RAW = os.getenv("LOG_OUTPUT", "console")
+if LOG_OUTPUT_RAW.strip() == "":
+    LOG_OUTPUT = set()
+else:
+    LOG_OUTPUT = {
+        entry.strip().lower() for entry in LOG_OUTPUT_RAW.split(",") if entry.strip()
+    }
+
 LOG_PATH = "logs/hass.log"
 
 # Make sure log folder exists
 os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 
-# Create and configure file handler
-file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
-file_handler.setFormatter(
-    logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(name)-30s | %(message)s",
-        "%Y-%m-%d - %H:%M:%S",
-    )
+# Common formatter
+log_formatter = logging.Formatter(
+    "%(asctime)s | %(levelname)-8s | %(name)-30s | %(message)s",
+    "%Y-%m-%d - %H:%M:%S",
 )
+
+LOG_HANDLERS: List[logging.Handler] = []
+
+# Create and configure file handler
+if "file" in LOG_OUTPUT:
+    file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
+    file_handler.setFormatter(log_formatter)
+    LOG_HANDLERS.append(file_handler)
+
+# Create and configure console (stdout) handler
+if "console" in LOG_OUTPUT:
+    console_handler = logging.StreamHandler(stream=sys.stdout)
+    console_handler.setFormatter(log_formatter)
+    LOG_HANDLERS.append(console_handler)
 
 # Define valid log levels
 VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
@@ -47,8 +69,13 @@ if LIB_LOG_LEVEL not in VALID_LOG_LEVELS:
 
 # Apply to root logger
 root_logger = logging.getLogger()
-root_logger.setLevel(LOG_LEVEL)
-root_logger.addHandler(file_handler)
+if LOG_HANDLERS:
+    root_logger.setLevel(LOG_LEVEL)
+    for handler in LOG_HANDLERS:
+        root_logger.addHandler(handler)
+else:
+    root_logger.handlers.clear()
+    logging.disable(logging.CRITICAL)
 
 # Create app-specific logger
 _LOGGER = logging.getLogger("hass")
@@ -147,8 +174,8 @@ async def shutdown():
     _LOGGER.info("Received stop signal. Shutting down gracefully...")
     await bot.close()
     _LOGGER.info("Shutdown complete")
-    for handler in logging.getLogger().handlers:
-        handler.flush()
+    for log_handler in logging.getLogger().handlers:
+        log_handler.flush()
 
 
 def handle_signal(*_):
