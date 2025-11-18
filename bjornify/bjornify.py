@@ -42,19 +42,19 @@ log_formatter = logging.Formatter(
     "%Y-%m-%d - %H:%M:%S",
 )
 
-handlers: List[logging.Handler] = []
+LOG_HANDLERS: List[logging.Handler] = []
 
 # Create and configure file handler
 if "file" in LOG_OUTPUT:
     file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
     file_handler.setFormatter(log_formatter)
-    handlers.append(file_handler)
+    LOG_HANDLERS.append(file_handler)
 
 # Create and configure console (stdout) handler
 if "console" in LOG_OUTPUT:
     console_handler = logging.StreamHandler(stream=sys.stdout)
     console_handler.setFormatter(log_formatter)
-    handlers.append(console_handler)
+    LOG_HANDLERS.append(console_handler)
 
 # Define valid log levels
 VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
@@ -69,9 +69,9 @@ if LIB_LOG_LEVEL not in VALID_LOG_LEVELS:
 
 # Apply to root logger
 root_logger = logging.getLogger()
-if handlers:
+if LOG_HANDLERS:
     root_logger.setLevel(LOG_LEVEL)
-    for log_handler in handlers:
+    for log_handler in LOG_HANDLERS:
         root_logger.addHandler(log_handler)
 else:
     root_logger.handlers.clear()
