@@ -3,7 +3,7 @@
 
 ARG PYTHON_VERSION=3.14.0-slim
 ARG DEBIAN=trixie
-FROM --platform=$TARGETPLATFORM python:${PYTHON_VERSION}-${DEBIAN}
+FROM python:${PYTHON_VERSION}-${DEBIAN}
 
 # Accept version as build argument.
 ARG VERSION=dev
