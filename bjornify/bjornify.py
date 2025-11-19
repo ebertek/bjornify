@@ -50,8 +50,10 @@ LOG_PATH = "logs/bjornify.log"
 # Make sure log folder exists
 os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 
+
 # Common formatters
 class JsonFormatter(logging.Formatter):
+    """Custom log formatter."""
     def format(self, record: logging.LogRecord) -> str:
         log = {
             "timestamp": datetime.fromtimestamp(record.created).isoformat(),
@@ -62,10 +64,12 @@ class JsonFormatter(logging.Formatter):
         if DEBUG_ENABLED:
             log["module"] = record.module
             log["func"] = record.funcName
-            log["line"] = record.lineno
+            log["line"] = str(record.lineno)
 
         return json.dumps(log)
-json_formatter = JsonFormatter()
+
+
+json_formatter: logging.Formatter = JsonFormatter()
 
 plain_formatter = logging.Formatter(
     "%(asctime)s | %(levelname)-8s | %(name)-30s | %(message)s",
@@ -73,6 +77,8 @@ plain_formatter = logging.Formatter(
 )
 
 LOG_FORMAT = os.getenv("LOG_FORMAT", "plain").strip().lower()
+
+log_formatter: logging.Formatter
 if LOG_FORMAT == "json":
     log_formatter = json_formatter
 else:
@@ -709,9 +715,11 @@ async def add_slash(interaction: discord.Interaction, query: str):
         ):  # pylint: disable=too-few-public-methods
             """Encapsulates the fallback dropdown in a Discord UI view."""
 
+            message: discord.Message | None
+
             def __init__(self):
                 super().__init__()
-                self.message: discord.Message | None = None
+                self.message = None
 
         view = FallbackDropdownView()
         view.add_item(FallbackDropdown(parent_view=view))
