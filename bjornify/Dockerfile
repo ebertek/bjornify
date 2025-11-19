@@ -32,6 +32,9 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # the application crashes without emitting any logs due to buffering.
 ENV PYTHONUNBUFFERED=1
 
+# Disable pip cache.
+ENV PIP_NO_CACHE_DIR=1
+
 # Set working directory.
 WORKDIR /app
 
