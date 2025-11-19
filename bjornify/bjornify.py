@@ -31,9 +31,9 @@ VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 if LOG_LEVEL not in VALID_LOG_LEVELS:
     LOG_LEVEL = "INFO"  # fallback to default
-LIB_LOG_LEVEL = os.getenv("LIB_LOG_LEVEL", "WARNING").upper()
+LIB_LOG_LEVEL = os.getenv("LIB_LOG_LEVEL", "ERROR").upper()
 if LIB_LOG_LEVEL not in VALID_LOG_LEVELS:
-    LIB_LOG_LEVEL = "WARNING"  # fallback to default
+    LIB_LOG_LEVEL = "ERROR"  # fallback to default
 DEBUG_ENABLED = LOG_LEVEL == "DEBUG" or LIB_LOG_LEVEL == "DEBUG"
 
 # Get and validate configured log output
