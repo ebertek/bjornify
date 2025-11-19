@@ -1,8 +1,9 @@
 # syntax=docker/dockerfile:1
 # checkov:skip=CKV_DOCKER_3 Justification: UID is provided externally via Compose
 
-ARG PYTHON_VERSION=3.12.6
-FROM --platform=$TARGETPLATFORM python:${PYTHON_VERSION}-bookworm
+ARG PYTHON_VERSION=3.14.0-slim
+ARG DEBIAN=trixie
+FROM --platform=$TARGETPLATFORM python:${PYTHON_VERSION}-${DEBIAN}
 
 # Accept version as build argument.
 ARG VERSION=dev
