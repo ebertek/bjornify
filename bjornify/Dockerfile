@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 # checkov:skip=CKV_DOCKER_3 Justification: UID is provided externally via Compose
 
-FROM docker.io/gorialis/discord.py:minimal
+ARG PYTHON_VERSION=3.12.6
+FROM --platform=$TARGETPLATFORM python:${PYTHON_VERSION}-bookworm
 
 # Accept version as build argument.
 ARG VERSION=dev
