@@ -72,8 +72,8 @@ class JsonFormatter(logging.Formatter):
 json_formatter: logging.Formatter = JsonFormatter()
 
 plain_formatter = logging.Formatter(
-    "%(asctime)s | %(levelname)-8s | %(name)-30s | %(message)s",
-    "%Y-%m-%d - %H:%M:%S",
+    "%(asctime)s | %(levelname)-8s | hass     | %(name)-30s | %(message)s",
+    "%Y-%m-%d %H:%M:%S.%f",
 )
 
 LOG_FORMAT = os.getenv("LOG_FORMAT", "plain").strip().lower()
