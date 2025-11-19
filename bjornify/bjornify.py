@@ -54,6 +54,7 @@ os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 # Common formatters
 class JsonFormatter(logging.Formatter):
     """Custom log formatter."""
+
     def format(self, record: logging.LogRecord) -> str:
         log = {
             "timestamp": datetime.fromtimestamp(record.created).isoformat(),
