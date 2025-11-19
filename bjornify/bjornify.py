@@ -4,10 +4,12 @@
 # pylint: disable=duplicate-code
 
 import asyncio
+import json
 import logging
 import os
 import signal
 import sys
+from datetime import datetime
 from typing import List
 
 import discord
@@ -21,6 +23,18 @@ try:
     from version import __version__
 except ImportError:
     __version__ = "dev"  # fallback for local dev without version.py
+
+# Define valid log levels
+VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+
+# Get and validate configured log levels
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+if LOG_LEVEL not in VALID_LOG_LEVELS:
+    LOG_LEVEL = "INFO"  # fallback to default
+LIB_LOG_LEVEL = os.getenv("LIB_LOG_LEVEL", "WARNING").upper()
+if LIB_LOG_LEVEL not in VALID_LOG_LEVELS:
+    LIB_LOG_LEVEL = "WARNING"  # fallback to default
+DEBUG_ENABLED = LOG_LEVEL == "DEBUG" or LIB_LOG_LEVEL == "DEBUG"
 
 # Get and validate configured log output
 LOG_OUTPUT_RAW = os.getenv("LOG_OUTPUT", "console")
@@ -36,15 +50,37 @@ LOG_PATH = "logs/bjornify.log"
 # Make sure log folder exists
 os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 
-# Common formatter
-log_formatter = logging.Formatter(
+# Common formatters
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        log = {
+            "timestamp": datetime.fromtimestamp(record.created).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if DEBUG_ENABLED:
+            log["module"] = record.module
+            log["func"] = record.funcName
+            log["line"] = record.lineno
+
+        return json.dumps(log)
+json_formatter = JsonFormatter()
+
+plain_formatter = logging.Formatter(
     "%(asctime)s | %(levelname)-8s | %(name)-30s | %(message)s",
     "%Y-%m-%d - %H:%M:%S",
 )
 
-LOG_HANDLERS: List[logging.Handler] = []
+LOG_FORMAT = os.getenv("LOG_FORMAT", "plain").strip().lower()
+if LOG_FORMAT == "json":
+    log_formatter = json_formatter
+else:
+    log_formatter = plain_formatter
 
 # Create and configure file handler
+LOG_HANDLERS: List[logging.Handler] = []
+
 if "file" in LOG_OUTPUT:
     file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
     file_handler.setFormatter(log_formatter)
@@ -56,18 +92,7 @@ if "console" in LOG_OUTPUT:
     console_handler.setFormatter(log_formatter)
     LOG_HANDLERS.append(console_handler)
 
-# Define valid log levels
-VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
-
-# Get and validate configured log levels
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-if LOG_LEVEL not in VALID_LOG_LEVELS:
-    LOG_LEVEL = "INFO"  # fallback to default
-LIB_LOG_LEVEL = os.getenv("LIB_LOG_LEVEL", "WARNING").upper()
-if LIB_LOG_LEVEL not in VALID_LOG_LEVELS:
-    LIB_LOG_LEVEL = "WARNING"  # fallback to default
-
-# Apply to root logger
+# Apply log level to root logger
 root_logger = logging.getLogger()
 if LOG_HANDLERS:
     root_logger.setLevel(LOG_LEVEL)

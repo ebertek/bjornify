@@ -89,7 +89,8 @@ HA_ACCESS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 | `CHANNEL_ID`            | Discord channel ID where Björnify listens for `!` commands.                            |
 | `GUILD_ID`              | Optional: Discord guild ID where Björnify listens for `/` commands.                    |
 | `DEFAULT_DEVICE`        | Optional: Device used to start playback if no devices are currently playing.           |
-| `LOG_OUTPUT`            | Optional: Comma-separated list to configure logging: `console, file`                   |
+| `LOG_OUTPUT`            | Optional: Comma-separated list to configure logging destinations: `console, file`.     |
+| `LOG_FORMAT`            | Optional: `plain` for human-readable, `json` for JSON.                                 |
 | `LOG_LEVEL`             | Optional: Log level for Björnify: `DEBUG` > `INFO` > `WARNING` > `ERROR` > `CRITICAL`. |
 | `LIB_LOG_LEVEL`         | Optional: Log level for `asyncio`, `discord`, `soco`, `spotipy`, and `urllib3`.        |
 
