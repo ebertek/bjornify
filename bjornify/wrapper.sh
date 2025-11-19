@@ -3,8 +3,8 @@
 set -e
 
 # Forward signals to child processes
-trap 'echo "Received SIGINT"; kill -SIGINT "${pids[@]}"' SIGINT
-trap 'echo "Received SIGTERM"; kill -SIGTERM "${pids[@]}"' SIGTERM
+trap 'echo "[INFO] Received SIGINT"; kill -SIGINT "${pids[@]}"' SIGINT
+trap 'echo "[INFO] Received SIGTERM"; kill -SIGTERM "${pids[@]}"' SIGTERM
 
 # Check required env vars for bjornify
 BJORNIFY_VARS=(SPOTIPY_CLIENT_ID SPOTIPY_CLIENT_SECRET DISCORD_BOT_TOKEN CHANNEL_ID)
@@ -12,7 +12,7 @@ BJORNIFY_READY=true
 
 for var in "${BJORNIFY_VARS[@]}"; do
 	if [ -z "${!var}" ]; then
-		echo "Missing required env var for bjornify: $var"
+		echo "[INFO] Missing required env var for bjornify: $var"
 		BJORNIFY_READY=false
 	fi
 done
@@ -23,7 +23,7 @@ HASS_READY=true
 
 for var in "${HASS_VARS[@]}"; do
 	if [ -z "${!var}" ]; then
-		echo "Missing required env var for hass: $var"
+		echo "[INFO] Missing required env var for hass: $var"
 		HASS_READY=false
 	fi
 done
@@ -32,20 +32,20 @@ done
 pids=()
 
 if [ "$BJORNIFY_READY" = true ]; then
-	echo "Starting bjornify.py..."
+	echo "[INFO] Starting bjornify.py..."
 	python /app/bjornify.py &
 	pids+=($!)
 fi
 
 if [ "$HASS_READY" = true ]; then
-	echo "Starting hass.py..."
+	echo "[INFO] Starting hass.py..."
 	python /app/hass.py &
 	pids+=($!)
 fi
 
 # Exit if neither was started
 if [ "$BJORNIFY_READY" = false ] && [ "$HASS_READY" = false ]; then
-	echo "No services started due to missing environment variables."
+	echo "[CRITICAL] No services started due to missing environment variables."
 	exit 1
 fi
 
