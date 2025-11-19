@@ -1,6 +1,6 @@
 # 🎵 Björnify
 
-Björnify is a Discord bot based on [discord.py](https://github.com/scarletcafe/discord.py-docker) that adds requested tracks to your Spotify playback queue.
+Björnify is a Discord bot based on [discord.py](https://github.com/Rapptz/discord.py) that adds requested tracks to your Spotify playback queue.
 
 ## 🧠 How It Works
 
