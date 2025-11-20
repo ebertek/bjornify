@@ -4,16 +4,15 @@ set -e
 
 LOG_LEVEL="${LOG_LEVEL:-INFO}"
 
-
 # Map log levels to numeric values
 log_level_value() {
 	case "$1" in
-		DEBUG) echo 10 ;;
-		INFO) echo 20 ;;
-		WARNING) echo 30 ;;
-		ERROR) echo 40 ;;
-		CRITICAL) echo 50 ;;
-		*) echo 20 ;; # default = INFO
+	DEBUG) echo 10 ;;
+	INFO) echo 20 ;;
+	WARNING) echo 30 ;;
+	ERROR) echo 40 ;;
+	CRITICAL) echo 50 ;;
+	*) echo 20 ;; # default = INFO
 	esac
 }
 
