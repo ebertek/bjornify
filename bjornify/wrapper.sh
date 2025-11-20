@@ -45,7 +45,7 @@ fi
 
 # Exit if neither was started
 if [ "$BJORNIFY_READY" = false ] && [ "$HASS_READY" = false ]; then
-	echo "[CRITICAL] No services started due to missing environment variables."
+	echo "[CRITICAL] No services started due to missing environment variables"
 	exit 1
 fi
 
