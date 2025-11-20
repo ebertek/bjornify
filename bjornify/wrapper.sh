@@ -2,12 +2,47 @@
 
 set -e
 
+LOG_LEVEL="${LOG_LEVEL:-INFO}"
+
+
+# Map log levels to numeric values
+log_level_value() {
+	case "$1" in
+		DEBUG) echo 10 ;;
+		INFO) echo 20 ;;
+		WARNING) echo 30 ;;
+		ERROR) echo 40 ;;
+		CRITICAL) echo 50 ;;
+		*) echo 20 ;; # default = INFO
+	esac
+}
+
+log() {
+	local level="$1"
+	shift
+
+	local msg="$*"
+
+	local level_val
+	local threshold_val
+
+	level_val=$(log_level_value "$level")
+	threshold_val=$(log_level_value "$LOG_LEVEL")
+
+	# Only print if level >= LOG_LEVEL
+	if [ "$level_val" -lt "$threshold_val" ]; then
+		return 0
+	fi
+
+	printf "[%s] %s\n" "$level" "$msg"
+}
+
 PID_FILE="/tmp/bjornify.pid"
 
 # Healthcheck: verify that at least one child PID is still alive
 if [ "$1" = "healthcheck" ]; then
 	if [ ! -f "$PID_FILE" ]; then
-		echo "[CRITICAL] PID file not found"
+		log CRITICAL "PID file not found"
 		exit 1
 	fi
 
@@ -18,23 +53,24 @@ if [ "$1" = "healthcheck" ]; then
 	done <"$PID_FILE"
 
 	if [ "${#hc_pids[@]}" -eq 0 ]; then
-		echo "[CRITICAL] PID file is empty"
+		log CRITICAL "PID file is empty"
 		exit 1
 	fi
 
 	for pid in "${hc_pids[@]}"; do
 		if kill -0 "$pid" 2>/dev/null; then
+			log DEBUG "Healthcheck successful"
 			exit 0
 		fi
 	done
 
-	echo "[CRITICAL] No tracked processes are running"
+	log CRITICAL "No tracked processes are running"
 	exit 1
 fi
 
 # Forward signals to child processes
-trap 'echo "[INFO] Received SIGINT"; kill -SIGINT "${pids[@]}"' SIGINT
-trap 'echo "[INFO] Received SIGTERM"; kill -SIGTERM "${pids[@]}"' SIGTERM
+trap 'log INFO "Received SIGINT"; kill -SIGINT "${pids[@]}"' SIGINT
+trap 'log INFO "Received SIGTERM"; kill -SIGTERM "${pids[@]}"' SIGTERM
 
 # Check required env vars for bjornify
 BJORNIFY_VARS=(SPOTIPY_CLIENT_ID SPOTIPY_CLIENT_SECRET DISCORD_BOT_TOKEN CHANNEL_ID)
@@ -42,7 +78,7 @@ BJORNIFY_READY=true
 
 for var in "${BJORNIFY_VARS[@]}"; do
 	if [ -z "${!var}" ]; then
-		echo "[INFO] Missing required env var for bjornify: $var"
+		log INFO "Missing required env var for bjornify: $var"
 		BJORNIFY_READY=false
 	fi
 done
@@ -53,7 +89,7 @@ HASS_READY=true
 
 for var in "${HASS_VARS[@]}"; do
 	if [ -z "${!var}" ]; then
-		echo "[INFO] Missing required env var for hass: $var"
+		log INFO "Missing required env var for hass: $var"
 		HASS_READY=false
 	fi
 done
@@ -62,20 +98,20 @@ done
 pids=()
 
 if [ "$BJORNIFY_READY" = true ]; then
-	echo "[INFO] Starting bjornify.py..."
+	log INFO "Starting bjornify.py..."
 	python /app/bjornify.py &
 	pids+=($!)
 fi
 
 if [ "$HASS_READY" = true ]; then
-	echo "[INFO] Starting hass.py..."
+	log INFO "Starting hass.py..."
 	python /app/hass.py &
 	pids+=($!)
 fi
 
 # Exit if neither was started
 if [ "$BJORNIFY_READY" = false ] && [ "$HASS_READY" = false ]; then
-	echo "[CRITICAL] No services started due to missing environment variables"
+	log CRITICAL "No services started due to missing environment variables"
 	exit 1
 fi
 
