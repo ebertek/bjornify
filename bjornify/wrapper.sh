@@ -3,6 +3,9 @@
 set -e
 
 LOG_LEVEL="${LOG_LEVEL:-INFO}"
+LOG_LEVEL="${LOG_LEVEL^^}" # normalize to uppercase
+LOG_FORMAT="${LOG_FORMAT:-plain}"
+LOG_FORMAT="${LOG_FORMAT,,}" # normalize to lowercase
 
 # Map log levels to numeric values
 log_level_value() {
@@ -14,6 +17,16 @@ log_level_value() {
 	CRITICAL) echo 50 ;;
 	*) echo 20 ;; # default = INFO
 	esac
+}
+
+# Escape JSON string
+json_escape() {
+	printf '%s' "$1" | sed \
+		-e 's/\\/\\\\/g' \
+		-e 's/"/\\"/g' \
+		-e 's/\t/\\t/g' \
+		-e 's/\r/\\r/g' \
+		-e 's/\n/\\n/g'
 }
 
 log() {
@@ -30,6 +43,18 @@ log() {
 
 	# Only print if level >= LOG_LEVEL
 	if [ "$level_val" -lt "$threshold_val" ]; then
+		return 0
+	fi
+
+	if [ "$LOG_FORMAT" = "json" ]; then
+		local ts
+		ts=$(date +"%Y-%m-%dT%H:%M:%S.%6N")
+
+		local esc_msg
+		esc_msg=$(json_escape "$msg")
+
+		printf '{"timestamp":"%s","level":"%s","logger":"wrapper.sh","message":"%s"}\n' \
+			"$ts" "$level" "$esc_msg"
 		return 0
 	fi
 
