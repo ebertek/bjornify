@@ -15,7 +15,7 @@ if [ "$1" = "healthcheck" ]; then
 	# Read PIDs from file
 	while IFS= read -r line; do
 		[ -n "$line" ] && hc_pids+=("$line")
-	done < "$PID_FILE"
+	done <"$PID_FILE"
 
 	if [ "${#hc_pids[@]}" -eq 0 ]; then
 		echo "[CRITICAL] PID file is empty"
@@ -81,7 +81,7 @@ fi
 
 # Persist PIDs for healthcheck
 if [ "${#pids[@]}" -gt 0 ]; then
-	printf "%s\n" "${pids[@]}" > "$PID_FILE"
+	printf "%s\n" "${pids[@]}" >"$PID_FILE"
 fi
 
 # Wait for all child processes and capture the last non-zero exit code
