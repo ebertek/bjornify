@@ -53,7 +53,7 @@ log() {
 		local esc_msg
 		esc_msg=$(json_escape "$msg")
 
-		printf '{"timestamp":"%s","level":"%s","logger":"wrapper.sh","message":"%s"}\n' \
+		printf '{"timestamp": "%s", "level": "%s", "logger": "wrapper.sh", "message": "%s"}\n' \
 			"$ts" "$level" "$esc_msg"
 		return 0
 	fi
