@@ -70,7 +70,7 @@ RUN chmod +x wrapper.sh && \
 USER appuser
 
 # Healthcheck.
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD pgrep -f wrapper.sh || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD /app/wrapper.sh healthcheck
 
 # Declare persistent volume for secrets.
 VOLUME ["/app/secrets"]
