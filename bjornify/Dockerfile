@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # checkov:skip=CKV_DOCKER_3 Justification: UID is provided externally via Compose
 
-ARG PYTHON_VERSION=3.14.0-slim
+ARG PYTHON_VERSION=3.14-slim
 ARG DEBIAN=trixie
 FROM python:${PYTHON_VERSION}-${DEBIAN}
 
