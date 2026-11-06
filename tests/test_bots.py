@@ -95,6 +95,45 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         self.spotify.add_to_queue.assert_called_once_with("spotify:track:123")
         self.spotify.start_playback.assert_not_called()
 
+    def test_restricted_sonos_queue_failure_is_explicit(self):
+        """Sonos Spotify Connect 403 must not be reported as an OAuth failure."""
+        self.spotify.current_playback.return_value = {
+            "is_playing": True,
+            "device": {
+                "name": "Family room",
+                "id": None,
+                "is_restricted": True,
+            },
+        }
+        self.spotify.add_to_queue.side_effect = SpotifyException(
+            403, -1, "Restricted device"
+        )
+
+        with patch.object(self.bjornify, "find_playing_speaker") as find:
+            result = self.bjornify.player_add_track(
+                "spotify:track:requested", "Slowdive", "Souvlaki Space Station"
+            )
+
+        self.assertIn("restricted device", result)
+        self.assertIn("NOT queued", result)
+        self.assertIn("Spotify app", result)
+        self.assertNotIn("Premium", result)
+        self.spotify.start_playback.assert_not_called()
+        self.spotify.devices.assert_not_called()
+        find.assert_not_called()
+
+    def test_unrelated_queue_403_still_reports_permission_errors(self):
+        """A scope or allowlist error should not be called a device restriction."""
+        self.spotify.current_playback.return_value = {"is_playing": True}
+        self.spotify.add_to_queue.side_effect = SpotifyException(
+            403, -1, "Insufficient client scope"
+        )
+
+        result = self.bjornify.player_add_track("spotify:track:requested")
+
+        self.assertIn("Premium", result)
+        self.assertNotIn("NOT queued", result)
+
     def test_paused_playback_resumes_original_song_then_queues_next(self):
         """Keep the paused track and target device; never play the new URI now."""
         self.spotify.current_playback.return_value = {
@@ -157,7 +196,8 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
 
         result = self.bjornify.player_add_track("spotify:track:requested")
 
-        self.assertIn("Spotify denied access (403)", result)
+        self.assertIn("restricted device", result)
+        self.assertIn("NOT queued", result)
         self.spotify.add_to_queue.assert_not_called()
         self.spotify.devices.assert_not_called()
         self.spotify.start_playback.assert_called_once_with(device_id="restricted")
