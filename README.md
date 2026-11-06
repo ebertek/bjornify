@@ -145,6 +145,25 @@ docker run --name bjornify \
   ghcr.io/ebertek/bjornify:latest
 ```
 
+## 🛠️ Python formatting
+
+Pull requests from branches in this repository are automatically fixed by the
+[Lint workflow](.github/workflows/lint.yml): Ruff applies safe lint fixes,
+Black formats the Python files, and any changes are committed back to the PR
+branch before Super-Linter runs. Fork PRs are checked but not rewritten, and
+pushes to `main` remain check-only.
+
+To run the same fixes locally:
+
+```shell
+python -m pip install -r requirements-lint.txt
+ruff check --fix-only bjornify scripts
+black bjornify scripts
+```
+
+The formatter versions are pinned to those bundled with Super-Linter to avoid
+differences between auto-fixes and CI checks.
+
 ## 🐞 Submitting Issues
 
 If you encounter a problem, feel free to [open an issue](https://github.com/ebertek/bjornify/issues). Please include the following to help us investigate:
