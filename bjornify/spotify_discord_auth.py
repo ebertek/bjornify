@@ -122,7 +122,9 @@ def start_spotify_callback(authorizations):
                 return
             params = parse_qs(parsed.query)
             if len(params.get("state", [])) != 1:
-                _LOGGER.warning("Spotify OAuth callback rejected: missing or ambiguous state")
+                _LOGGER.warning(
+                    "Spotify OAuth callback rejected: missing or ambiguous state"
+                )
                 self._send_page(
                     400, "Invalid Spotify login. Use /spotify connect again."
                 )
