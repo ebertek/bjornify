@@ -36,6 +36,7 @@ class PrivateTokenCache(CacheFileHandler):  # pylint: disable=too-few-public-met
     """Restrict saved access and refresh tokens to their container owner."""
 
     def save_token_to_cache(self, token_info):
+        """Save credentials and restrict token file permissions."""
         super().save_token_to_cache(token_info)
         os.chmod(self.cache_path, 0o600)
 
