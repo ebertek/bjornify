@@ -26,13 +26,13 @@ class DiscordSpotifyLoginTests(unittest.TestCase):
         self.manager = MagicMock()
         self.manager.get_authorize_url.return_value = "https://spotify.test/authorize"
 
-    def begin(self, owner_id=123):
+    def begin(self, owner_id=123, on_complete=None):
         """Start a mocked Spotify authorization session for an owner."""
         with (
             patch.object(login, "make_auth_manager", return_value=self.manager),
             patch.object(login.secrets, "token_urlsafe", return_value="secure-state"),
         ):
-            return self.sessions.begin(owner_id)
+            return self.sessions.begin(owner_id, on_complete=on_complete)
 
     def test_authorization_link_is_created_for_the_owner(self):
         """A fresh login link is generated with the session owner's state."""
@@ -49,6 +49,42 @@ class DiscordSpotifyLoginTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             self.sessions.finish("secure-state", "one-time-code", owner_id=123)
+
+    def test_success_notifies_owner_exactly_once(self):
+        """Successful authorization sends only a status boolean to Discord."""
+        notify = MagicMock()
+        self.begin(on_complete=notify)
+        self.sessions.finish("secure-state", "one-time-code", owner_id=123)
+        notify.assert_called_once_with(True)
+        with self.assertRaises(ValueError):
+            self.sessions.finish("secure-state", "one-time-code", owner_id=123)
+        notify.assert_called_once_with(True)
+
+    def test_refused_authorization_notifies_owner(self):
+        """Spotify refusal updates Discord even though the browser receives 400."""
+        notify = MagicMock()
+        self.begin(on_complete=notify)
+        with self.assertRaises(ValueError):
+            self.sessions.finish("secure-state", error="access_denied")
+        notify.assert_called_once_with(False)
+        self.manager.get_access_token.assert_not_called()
+
+    def test_token_exchange_failure_notifies_owner(self):
+        """Token exchange errors remove the stale button and report failure."""
+        notify = MagicMock()
+        self.begin(on_complete=notify)
+        self.manager.get_access_token.side_effect = RuntimeError("exchange failure")
+        with self.assertRaises(RuntimeError):
+            self.sessions.finish("secure-state", "one-time-code")
+        notify.assert_called_once_with(False)
+
+    def test_discord_notification_failure_does_not_undo_login(self):
+        """Discord outages cannot turn a completed Spotify login into HTTP 502."""
+        notify = MagicMock(side_effect=RuntimeError("Discord unavailable"))
+        self.begin(on_complete=notify)
+        self.sessions.finish("secure-state", "one-time-code")
+        self.manager.get_access_token.assert_called_once()
+        notify.assert_called_once_with(True)
 
     def test_other_discord_users_cannot_finish_login(self):
         """The session is tied to the initiating Discord application owner."""
@@ -203,6 +239,64 @@ class DiscordSpotifyCommandTests(unittest.TestCase):
         begin.assert_not_called()
         self.assertTrue(
             interaction.response.send_message.await_args.kwargs["ephemeral"]
+        )
+
+    def test_success_edits_private_message_and_removes_connect_button(self):
+        """The HTTP callback thread updates the existing ephemeral interaction."""
+        self._assert_completion_updates_message(
+            success=True, expected="✅ Spotify connected!"
+        )
+
+    def test_failure_edits_private_message_and_removes_connect_button(self):
+        """A failed OAuth exchange also replaces the stale authorization link."""
+        self._assert_completion_updates_message(
+            success=False, expected="❌ Spotify authorization failed."
+        )
+
+    def _assert_completion_updates_message(self, *, success, expected):
+        """Exercise thread-safe Discord editing while its event loop is alive."""
+        interaction = MagicMock()
+        interaction.user.id = 123
+        interaction.response.send_message = AsyncMock()
+        interaction.edit_original_response = AsyncMock()
+        event = asyncio.Event()
+
+        async def perform_edit(**kwargs):
+            event.set()
+
+        interaction.edit_original_response.side_effect = perform_edit
+        with (
+            patch.object(
+                self.bot_module.bot, "is_owner", new=AsyncMock(return_value=True)
+            ),
+            patch.object(
+                self.bot_module.auth_manager,
+                "redirect_uri",
+                "https://spotify.example.com/spotify/callback",
+            ),
+            patch.object(
+                self.bot_module.spotify_authorizations,
+                "begin",
+                return_value="https://accounts.spotify.com/authorize?state=test",
+            ) as begin,
+        ):
+
+            async def connect_then_complete():
+                await self.bot_module.spotify_connect.callback(interaction)
+                notifier = begin.call_args.kwargs["on_complete"]
+                await asyncio.to_thread(notifier, success)
+                await asyncio.wait_for(event.wait(), timeout=2)
+
+            asyncio.run(connect_then_complete())
+
+        interaction.response.send_message.assert_awaited_once()
+        interaction.edit_original_response.assert_awaited_once_with(
+            content=expected + (
+                " You can now use Björnify."
+                if success
+                else " Use /spotify connect to retry."
+            ),
+            view=None,
         )
 
     def test_owner_gets_private_login_button(self):
