@@ -19,8 +19,7 @@ DEFAULT_REDIRECT_URI = "http://127.0.0.1:3000"
 TOKEN_CACHE_PATH = Path("/app/secrets/spotipy_token.cache")
 # Björnify controls playback; it does not need access to saved libraries.
 SCOPE = (
-    "user-read-currently-playing,user-read-playback-state,"
-    "user-modify-playback-state"
+    "user-read-currently-playing,user-read-playback-state," "user-modify-playback-state"
 )
 AUTHORIZE_COMMAND = "docker exec -it bjornify python /app/spotify_auth.py authorize"
 REAUTH_MESSAGE = "Spotify authorization required; the bot owner must reconnect Spotify."
