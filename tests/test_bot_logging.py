@@ -58,7 +58,11 @@ class BotLoggingTests(unittest.TestCase):
             ("discord.client", logging.WARNING, "Discord connection interrupted"),
             ("discord.client", logging.ERROR, "Failed to log in"),
             ("discord.gateway", logging.WARNING, "Gateway reconnecting"),
-            ("bjornify", logging.WARNING, "PyNaCl is not installed, voice will NOT be supported"),
+            (
+                "bjornify",
+                logging.WARNING,
+                "PyNaCl is not installed, voice will NOT be supported",
+            ),
         ):
             with self.subTest(message=msg):
                 self.assertTrue(
