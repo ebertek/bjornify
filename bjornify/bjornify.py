@@ -163,7 +163,7 @@ class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
 
     async def setup_hook(self):
         """Start the Spotify callback and sync slash commands to the guild."""
-        self.spotify_callback_server = start_spotify_callback(spotify_authorizations)
+        self.spotify_callback_server = start_spotify_callback(spotify_authorizations)  # pylint: disable=attribute-defined-outside-init
         guild_id_str = os.getenv("GUILD_ID")
         if guild_id_str:
             try:
