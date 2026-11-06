@@ -261,7 +261,7 @@ class DiscordSpotifyCommandTests(unittest.TestCase):
         interaction.edit_original_response = AsyncMock()
         event = asyncio.Event()
 
-        async def perform_edit(**kwargs):
+        async def perform_edit(**_kwargs):
             event.set()
 
         interaction.edit_original_response.side_effect = perform_edit
