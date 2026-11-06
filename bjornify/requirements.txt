@@ -1,3 +1,3 @@
-discord.py>=2.6.4
-spotipy>=2.25.2
-soco>=0.30.14
+discord.py>=2.7.1
+spotipy>=2.26.0
+soco>=0.32.1
