@@ -91,7 +91,7 @@ class SpotifyAuthTests(unittest.TestCase):
             cache = Path(temporary) / "token"
             cache.write_text("{}")
             with (
-                patch.object(spotify_auth.sys.stdin, "isatty", return_value=True),
+                patch.object(spotify_auth.sys, "stdin", MagicMock(isatty=lambda: True)),
                 patch.object(spotify_auth.secrets, "token_urlsafe", return_value=state),
                 patch.object(spotify_auth, "make_auth_manager", return_value=manager),
                 patch.object(spotify_auth.getpass, "getpass", return_value=url),
@@ -108,7 +108,7 @@ class SpotifyAuthTests(unittest.TestCase):
         manager = MagicMock(redirect_uri="http://127.0.0.1:3000")
         manager.parse_auth_response_url.return_value = ("wrong-state", "code")
         with (
-            patch.object(spotify_auth.sys.stdin, "isatty", return_value=True),
+            patch.object(spotify_auth.sys, "stdin", MagicMock(isatty=lambda: True)),
             patch.object(
                 spotify_auth.secrets, "token_urlsafe", return_value="expected-state"
             ),
@@ -127,7 +127,7 @@ class SpotifyAuthTests(unittest.TestCase):
         """A foreign domain or port cannot be used as the callback URL."""
         manager = MagicMock(redirect_uri="http://127.0.0.1:3000")
         with (
-            patch.object(spotify_auth.sys.stdin, "isatty", return_value=True),
+            patch.object(spotify_auth.sys, "stdin", MagicMock(isatty=lambda: True)),
             patch.object(spotify_auth, "make_auth_manager", return_value=manager),
             patch.object(
                 spotify_auth.getpass,
