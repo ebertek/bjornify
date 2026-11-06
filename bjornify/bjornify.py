@@ -570,11 +570,7 @@ def player_add_track(
         target = select_fallback_device(devices, DEFAULT_DEVICE)
         if target:
             device_id = target["id"]
-            _LOGGER.info(
-                "Starting playback on Spotify device: %s (%s)",
-                target.get("name", "Unknown"),
-                target.get("type", "Unknown"),
-            )
+            _LOGGER.info("Starting on Spotify device: %s", target.get("name"))
             # PUT /me/player/play
             spotify_request(spotify.start_playback, device_id=device_id, uris=[uri])
             if artist and name:
