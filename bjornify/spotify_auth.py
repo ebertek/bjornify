@@ -32,6 +32,14 @@ class SpotifyAuthorizationRequired(RuntimeError):
     """The saved authorization is missing, revoked, or expired."""
 
 
+class PrivateTokenCache(CacheFileHandler):  # pylint: disable=too-few-public-methods
+    """Restrict saved access and refresh tokens to their container owner."""
+
+    def save_token_to_cache(self, token_info):
+        super().save_token_to_cache(token_info)
+        os.chmod(self.cache_path, 0o600)
+
+
 class HeadlessSpotifyOAuth(SpotifyOAuth):
     """Never try to read from a bot's non-interactive standard input."""
 
@@ -92,7 +100,7 @@ def make_auth_manager(state=None):
         scope=SCOPE,
         state=state,
         open_browser=False,
-        cache_handler=CacheFileHandler(cache_path=str(TOKEN_CACHE_PATH)),
+        cache_handler=PrivateTokenCache(cache_path=str(TOKEN_CACHE_PATH)),
     )
 
 
