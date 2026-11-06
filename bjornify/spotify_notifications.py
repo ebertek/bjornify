@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 
 import discord
+import requests
 from spotify_auth import SpotifyAuthorizationRequired
 from spotipy.exceptions import SpotifyOauthError
 
@@ -64,7 +65,7 @@ class SpotifyAuthNotifier:
             await asyncio.to_thread(self._check_cached_authorization)
         except SpotifyAuthorizationRequired:
             await self.send_alert()
-        except (SpotifyOauthError, OSError) as error:
+        except (SpotifyOauthError, requests.RequestException, OSError) as error:
             # Do not mistake a temporary Spotify outage for expired authorization.
             _LOGGER.warning(
                 "Could not verify Spotify authorization (%s); will retry",
@@ -108,8 +109,15 @@ class SpotifyAuthNotifier:
         if override:
             owner_id = int(override)
         else:
-            info = await self.bot.application_info()
-            owner_id = getattr(info.owner, "id", None)
+            try:
+                info = await self.bot.application_info()
+            except discord.DiscordException:
+                _LOGGER.warning(
+                    "Spotify notification owner lookup failed; trying channel"
+                )
+                owner_id = None
+            else:
+                owner_id = getattr(info.owner, "id", None)
 
         if owner_id is not None:
             try:
