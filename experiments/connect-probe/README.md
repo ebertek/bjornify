@@ -24,13 +24,13 @@ This builds a standalone read-only command. The running Björnify container stay
 
 ```bash
 docker cp experiments/connect-probe/oauth_probe.py \
-  bjornify:/tmp/bjornify-oauth-probe.py
+  bjornify:/app/spotify_connect_probe.py
 ```
 
 ### 3. Approve streaming for the existing Spotify application
 
 ```bash
-docker exec -it bjornify python /tmp/bjornify-oauth-probe.py authorize
+docker exec -it bjornify python /app/spotify_connect_probe.py authorize
 ```
 
 Open the displayed Spotify authorization URL. Spotify may redirect to the running Björnify callback, which can show an expected **400 error** because it does not recognize the probe's OAuth state. Copy the **full redirected URL** from the browser address bar, then paste it into the hidden terminal prompt. Do not share this URL, which contains a one-time authorization code.
@@ -38,14 +38,14 @@ Open the displayed Spotify authorization URL. Spotify may redirect to the runnin
 Inspect only the granted scopes (no secrets are displayed):
 
 ```bash
-docker exec bjornify python /tmp/bjornify-oauth-probe.py status
+docker exec bjornify python /app/spotify_connect_probe.py status
 ```
 
 ### 4. Test the Connect login without playback
 
 ```bash
 set -o pipefail
-docker exec -i bjornify python /tmp/bjornify-oauth-probe.py pipe-token | \
+docker exec -i bjornify python /app/spotify_connect_probe.py pipe-token | \
   docker run --rm -i bjornify-connect-auth-probe \
     "$(docker exec bjornify printenv SPOTIPY_CLIENT_ID)"
 ```
@@ -62,10 +62,10 @@ Spotify's published `streaming` scope is intended for its Web Playback SDK, so a
 
 ```bash
 docker exec bjornify rm -f /tmp/bjornify-connect-probe.cache \
-  /tmp/bjornify-oauth-probe.py
+  /app/spotify_connect_probe.py
 docker image rm bjornify-connect-auth-probe
 ```
 
-The test cache lives in the running container's `/tmp`, not in the persisted secrets volume. This experiment requires no Docker Compose modifications or changes to `/add`.
+The test token cache lives in the running container's `/tmp` (not the secrets volume); the temporary helper is under `/app` in that container only. This experiment requires no Docker Compose modifications or changes to `/add`.
 
 Do not use the Sonos local queue as a workaround: the observed Spotify playback source was `x-sonos-vli` with an empty Sonos queue, so that queue is not the same one as Spotify Connect playback.
