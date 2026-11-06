@@ -1,5 +1,8 @@
 """Regression tests for owner notifications when Spotify authorization expires."""
 
+# The tempfile lifetime is deliberately managed by unittest.addCleanup.
+# pylint: disable=consider-using-with
+
 import asyncio
 import importlib
 import os
@@ -28,7 +31,7 @@ SpotifyAuthNotifier = importlib.import_module(
 class SpotifyNotificationTests(unittest.TestCase):
     """Verify one-time Discord alerts without contacting Spotify or Discord."""
 
-    def setUp(self):  # pylint: disable=consider-using-with
+    def setUp(self):
         """Allocate a temporary marker path and register cleanup."""
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
