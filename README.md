@@ -94,6 +94,8 @@ HA_ACCESS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 | `LOG_LEVEL`             | Optional: Log level for Björnify: `DEBUG` > `INFO` > `WARNING` > `ERROR` > `CRITICAL`. |
 | `LIB_LOG_LEVEL`         | Optional: Log level for `asyncio`, `discord`, `soco`, `spotipy`, and `urllib3`.        |
 
+Routine Discord login and gateway messages are logged at `DEBUG`, while warnings and errors remain visible at normal verbosity. JSON timestamps include a timezone offset.
+
 To get your own Spotify Client ID and secret, please create a new app using the [Spotify for Developers](https://developer.spotify.com/dashboard) Dashboard. You can add `http://127.0.0.1:3000` to _Redirect URIs_, and select `Web API` for _APIs used_.
 
 ### 🔑 Connect Spotify
