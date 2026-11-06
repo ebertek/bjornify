@@ -62,8 +62,7 @@ def redirect_uri_from_environment():
         or (
             parsed.scheme != "https"
             and not (
-                parsed.scheme == "http"
-                and parsed.hostname in {"127.0.0.1", "::1"}
+                parsed.scheme == "http" and parsed.hostname in {"127.0.0.1", "::1"}
             )
         )
     ):

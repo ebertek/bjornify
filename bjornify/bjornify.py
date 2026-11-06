@@ -16,12 +16,11 @@ import soco
 import spotipy
 from discord import app_commands
 from discord.ext import commands
-from spotipy.exceptions import SpotifyOauthError
-
 from spotify_auth import (
     SpotifyAuthorizationRequired,
     make_auth_manager,
 )
+from spotipy.exceptions import SpotifyOauthError
 
 try:
     from version import __version__
@@ -332,14 +331,16 @@ def spotify_action_with_soco_fallback(spotify_action, soco_action, action_name):
                     soco_action(speaker)
                     _LOGGER.info("%s via Sonos", action_name)
                     return "✅"
-            except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+            except Exception:  # pylint: disable=broad-exception-caught
                 _LOGGER.exception("Sonos fallback failed during %s", action_name)
                 return "The Sonos playback fallback failed."
-            return "Spotify restricted this device and no active Sonos player was found."
+            return (
+                "Spotify restricted this device and no active Sonos player was found."
+            )
         return spotify_error_message(error)
     except (SpotifyOauthError, SpotifyAuthorizationRequired) as error:
         return spotify_error_message(error)
-    except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+    except Exception:  # pylint: disable=broad-exception-caught
         _LOGGER.exception("Unexpected error during %s", action_name)
         return "Playback control failed unexpectedly."
 
@@ -389,7 +390,9 @@ async def add_track(ctx, *, query: str):
 async def pause_track(ctx):
     """Pause the current Spotify playback."""
     _LOGGER.debug("!pause command by %s", ctx.author.name)
-    response = await asyncio.get_running_loop().run_in_executor(None, player_pause_playback)
+    response = await asyncio.get_running_loop().run_in_executor(
+        None, player_pause_playback
+    )
     await ctx.message.add_reaction("✅" if response == "✅" else "❌")
     if response != "✅":
         await ctx.send(f"❌ {response}")
@@ -399,7 +402,9 @@ async def pause_track(ctx):
 async def skip_track(ctx):
     """Skip to the next Spotify track."""
     _LOGGER.debug("!next command by %s", ctx.author.name)
-    response = await asyncio.get_running_loop().run_in_executor(None, player_skip_to_next)
+    response = await asyncio.get_running_loop().run_in_executor(
+        None, player_skip_to_next
+    )
     await ctx.message.add_reaction("✅" if response == "✅" else "❌")
     if response != "✅":
         await ctx.send(f"❌ {response}")
@@ -471,7 +476,11 @@ def player_add_track(
             return f"Started playback: {uri}"
         _LOGGER.warning("No available devices to start playback")
         return "No available devices to start playback."
-    except (spotipy.exceptions.SpotifyException, SpotifyOauthError, SpotifyAuthorizationRequired) as error:
+    except (
+        spotipy.exceptions.SpotifyException,
+        SpotifyOauthError,
+        SpotifyAuthorizationRequired,
+    ) as error:
         return spotify_error_message(error)
     except Exception:  # pylint: disable=broad-exception-caught
         _LOGGER.exception("Unexpected error during add to queue")
@@ -494,7 +503,11 @@ def player_add_item_to_playback_queue(query):
 
         _LOGGER.debug("No search results")
         return "No search results."
-    except (spotipy.exceptions.SpotifyException, SpotifyOauthError, SpotifyAuthorizationRequired) as error:
+    except (
+        spotipy.exceptions.SpotifyException,
+        SpotifyOauthError,
+        SpotifyAuthorizationRequired,
+    ) as error:
         return spotify_error_message(error)
     except Exception:  # pylint: disable=broad-exception-caught
         _LOGGER.exception("Unexpected error during add to queue")
@@ -580,7 +593,11 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statem
         return embed
 
     # Best-effort Spotify lookup: fall back to Sonos on any API or payload error.
-    except (SpotifyOauthError, SpotifyAuthorizationRequired, spotipy.exceptions.SpotifyException) as error:
+    except (
+        SpotifyOauthError,
+        SpotifyAuthorizationRequired,
+        spotipy.exceptions.SpotifyException,
+    ) as error:
         spotify_problem = spotify_error_message(error)
     except Exception as error:  # noqa: BLE001  # pylint: disable=broad-exception-caught
         _LOGGER.debug("Spotify now playing lookup failed: %s", type(error).__name__)
@@ -644,7 +661,11 @@ async def autocomplete_tracks(_: discord.Interaction, current: str):
 
     try:
         results = spotify_request(spotify.search, q=current, limit=5, type="track")
-    except (spotipy.exceptions.SpotifyException, SpotifyOauthError, SpotifyAuthorizationRequired) as error:
+    except (
+        spotipy.exceptions.SpotifyException,
+        SpotifyOauthError,
+        SpotifyAuthorizationRequired,
+    ) as error:
         spotify_error_message(error)
         return []
 
@@ -688,7 +709,11 @@ async def add_slash(interaction: discord.Interaction, query: str):
                 await interaction.response.send_message(f"✅ {result}", delete_after=10)
             else:
                 await interaction.response.send_message(f"❌ {result}", ephemeral=True)
-        except (spotipy.exceptions.SpotifyException, SpotifyOauthError, SpotifyAuthorizationRequired) as error:
+        except (
+            spotipy.exceptions.SpotifyException,
+            SpotifyOauthError,
+            SpotifyAuthorizationRequired,
+        ) as error:
             await interaction.response.send_message(
                 f"❌ {spotify_error_message(error)}", ephemeral=True
             )
@@ -750,7 +775,11 @@ async def add_slash(interaction: discord.Interaction, query: str):
                         f"✅ {result}", delete_after=10
                     )
                     await interaction_dropdown.message.delete(delay=10)
-                except (spotipy.exceptions.SpotifyException, SpotifyOauthError, SpotifyAuthorizationRequired) as error:
+                except (
+                    spotipy.exceptions.SpotifyException,
+                    SpotifyOauthError,
+                    SpotifyAuthorizationRequired,
+                ) as error:
                     await interaction_dropdown.response.send_message(
                         f"❌ {spotify_error_message(error)}", ephemeral=True
                     )
@@ -771,7 +800,11 @@ async def add_slash(interaction: discord.Interaction, query: str):
         await interaction.response.send_message("Select a track:", view=view)
         view.message = await interaction.original_response()
 
-    except (spotipy.exceptions.SpotifyException, SpotifyOauthError, SpotifyAuthorizationRequired) as error:
+    except (
+        spotipy.exceptions.SpotifyException,
+        SpotifyOauthError,
+        SpotifyAuthorizationRequired,
+    ) as error:
         await interaction.response.send_message(
             f"❌ {spotify_error_message(error)}", ephemeral=True
         )
@@ -781,7 +814,9 @@ async def add_slash(interaction: discord.Interaction, query: str):
 async def pause_slash(interaction: discord.Interaction):
     """Slash command to pause Spotify playback."""
     _LOGGER.debug("/pause command by %s", interaction.user.name)
-    response = await asyncio.get_running_loop().run_in_executor(None, player_pause_playback)
+    response = await asyncio.get_running_loop().run_in_executor(
+        None, player_pause_playback
+    )
     await interaction.response.send_message(
         "✅ Paused playback." if response == "✅" else f"❌ {response}",
         ephemeral=True,
@@ -792,7 +827,9 @@ async def pause_slash(interaction: discord.Interaction):
 async def next_slash(interaction: discord.Interaction):
     """Slash command to skip to the next track on Spotify."""
     _LOGGER.debug("/next command by %s", interaction.user.name)
-    response = await asyncio.get_running_loop().run_in_executor(None, player_skip_to_next)
+    response = await asyncio.get_running_loop().run_in_executor(
+        None, player_skip_to_next
+    )
     await interaction.response.send_message(
         "✅ Skipped to next track." if response == "✅" else f"❌ {response}",
         ephemeral=True,

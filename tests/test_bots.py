@@ -364,15 +364,16 @@ class BotBehaviorTests(unittest.TestCase):
         interaction.user.name = "Test"
         interaction.response.send_message = AsyncMock()
         self.spotify.track.return_value = {
-            "name": "Song", "artists": [{"name": "Artist"}]
+            "name": "Song",
+            "artists": [{"name": "Artist"}],
         }
         with patch.object(
-            self.bjornify, "player_add_track", return_value="Spotify denied access (403)."
+            self.bjornify,
+            "player_add_track",
+            return_value="Spotify denied access (403).",
         ):
             asyncio.run(
-                self.bjornify.add_slash.callback(
-                    interaction, query="spotify:track:123"
-                )
+                self.bjornify.add_slash.callback(interaction, query="spotify:track:123")
             )
         interaction.response.send_message.assert_awaited_once_with(
             "❌ Spotify denied access (403).", ephemeral=True

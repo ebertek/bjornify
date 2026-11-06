@@ -42,9 +42,8 @@ class SpotifyAuthTests(unittest.TestCase):
         """Old localhost callback must not silently break new authorization."""
         with patch.dict(
             os.environ, {"SPOTIPY_REDIRECT_URI": "http://localhost:3000"}
-        ):
-            with self.assertRaisesRegex(ValueError, "no longer supported"):
-                spotify_auth.redirect_uri_from_environment()
+        ), self.assertRaisesRegex(ValueError, "no longer supported"):
+            spotify_auth.redirect_uri_from_environment()
 
     def test_no_cache_never_prompts_in_background(self):
         """The bot must not block on input when authorization is missing."""
@@ -62,9 +61,8 @@ class SpotifyAuthTests(unittest.TestCase):
             error = SpotifyOauthError("expired", error="invalid_grant")
             with patch.object(
                 SpotifyOAuth, "refresh_access_token", side_effect=error
-            ):
-                with self.assertRaises(spotify_auth.SpotifyAuthorizationRequired):
-                    manager.refresh_access_token("expired")
+            ), self.assertRaises(spotify_auth.SpotifyAuthorizationRequired):
+                manager.refresh_access_token("expired")
             self.assertFalse(cache.exists())
 
     def test_transient_oauth_errors_preserve_cache(self):
@@ -76,9 +74,8 @@ class SpotifyAuthTests(unittest.TestCase):
             error = SpotifyOauthError("server error", error="server_error")
             with patch.object(
                 SpotifyOAuth, "refresh_access_token", side_effect=error
-            ):
-                with self.assertRaises(SpotifyOauthError):
-                    manager.refresh_access_token("valid")
+            ), self.assertRaises(SpotifyOauthError):
+                manager.refresh_access_token("valid")
             self.assertTrue(cache.exists())
 
     def test_valid_redirect_url_saves_authorization(self):
@@ -118,9 +115,9 @@ class SpotifyAuthTests(unittest.TestCase):
                 "getpass",
                 return_value="http://127.0.0.1:3000/?code=code&state=wrong-state",
             ),
+            self.assertRaisesRegex(ValueError, "state mismatch"),
         ):
-            with self.assertRaisesRegex(ValueError, "state mismatch"):
-                spotify_auth.authorize_interactively()
+            spotify_auth.authorize_interactively()
         manager.get_access_token.assert_not_called()
 
     def test_rejects_foreign_callback_without_exchanging_token(self):
@@ -134,9 +131,9 @@ class SpotifyAuthTests(unittest.TestCase):
                 "getpass",
                 return_value="https://attacker.example/?code=foo",
             ),
+            self.assertRaisesRegex(ValueError, "does not match"),
         ):
-            with self.assertRaisesRegex(ValueError, "does not match"):
-                spotify_auth.authorize_interactively()
+            spotify_auth.authorize_interactively()
         manager.get_access_token.assert_not_called()
 
 
