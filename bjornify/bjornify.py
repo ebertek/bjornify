@@ -236,7 +236,7 @@ async def spotify_connect(interaction):
         def report_edit_result(done):
             try:
                 done.result()
-            except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+            except Exception:  # pylint: disable=broad-exception-caught
                 _LOGGER.exception("Could not update private Spotify connect message")
 
         future.add_done_callback(report_edit_result)

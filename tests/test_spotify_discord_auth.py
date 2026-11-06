@@ -291,7 +291,8 @@ class DiscordSpotifyCommandTests(unittest.TestCase):
 
         interaction.response.send_message.assert_awaited_once()
         interaction.edit_original_response.assert_awaited_once_with(
-            content=expected + (
+            content=expected
+            + (
                 " You can now use Björnify."
                 if success
                 else " Use /spotify connect to retry."

@@ -10,9 +10,9 @@ import os
 import secrets
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Callable
 from urllib.parse import parse_qs, urlsplit
 
 from spotify_auth import make_auth_manager, redirect_uri_from_environment
@@ -90,7 +90,7 @@ class SpotifyAuthorizations:
             return
         try:
             pending.on_complete(success)
-        except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+        except Exception:  # pylint: disable=broad-exception-caught
             _LOGGER.exception("Failed to dispatch Spotify authorization status")
 
 
