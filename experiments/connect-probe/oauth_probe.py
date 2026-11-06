@@ -15,11 +15,9 @@ from urllib.parse import urlsplit
 
 from spotipy.exceptions import SpotifyOauthError
 
-# The probe is copied into /tmp in the running container; the actual OAuth
-# implementation is in /app. Do not import the bot entrypoint.
-sys.path.insert(0, "/app")
-
-from spotify_auth import (  # pylint: disable=wrong-import-position
+# This file is copied to /app inside the running container for the test.
+# It imports the OAuth module, not the Discord bot entrypoint.
+from spotify_auth import (
     SCOPE,
     HeadlessSpotifyOAuth,
     PrivateTokenCache,
