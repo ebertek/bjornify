@@ -15,7 +15,10 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 enum Mode {
     AuthOnly,
     Inspect,
-    Add { expected_device: String, track_uri: String },
+    Add {
+        expected_device: String,
+        track_uri: String,
+    },
 }
 
 fn usage() -> ! {
@@ -39,7 +42,9 @@ fn valid_device_id(id: &str) -> bool {
 }
 
 fn mode(args: &[String]) -> (String, Mode) {
-    let Some(client_id) = args.get(1) else { usage() };
+    let Some(client_id) = args.get(1) else {
+        usage()
+    };
     if client_id.is_empty() {
         usage();
     }
@@ -131,7 +136,9 @@ async fn add_one(session: &Session, device_id: &str, uri: &str) -> Result<(), &'
 async fn main() {
     let (client_id, command) = mode(&env::args().collect::<Vec<_>>());
     if io::stdin().is_terminal() {
-        eprintln!("OAuth token must be supplied through a pipe, never typed or passed as an argument.");
+        eprintln!(
+            "OAuth token must be supplied through a pipe, never typed or passed as an argument."
+        );
         std::process::exit(2);
     }
     let mut token = String::new();
@@ -179,7 +186,10 @@ async fn main() {
                 std::process::exit(1);
             }
         },
-        Mode::Add { expected_device, track_uri } => {
+        Mode::Add {
+            expected_device,
+            track_uri,
+        } => {
             let current = match get_active_target(token).await {
                 Ok(Some(device)) => device,
                 _ => {
@@ -216,20 +226,27 @@ mod tests {
         assert!(valid_track_uri("spotify:track:4iV5W9uYEdYUVa79Axb7Rh"));
         assert!(!valid_track_uri("spotify:album:4iV5W9uYEdYUVa79Axb7Rh"));
         assert!(!valid_track_uri("spotify:track:bad"));
-        assert!(!valid_track_uri("spotify:track:4iV5W9uYEdYUVa79Axb7Rh:extra"));
+        assert!(!valid_track_uri(
+            "spotify:track:4iV5W9uYEdYUVa79Axb7Rh:extra"
+        ));
     }
 
     #[test]
     fn a_device_must_have_an_explicit_identity_and_restriction_flag() {
-        assert!(parse_target(&json!({
-            "device": {
-                "id": "0123456789abcdef", "name": "Family room",
-                "is_restricted": true, "is_active": true
-            }
-        })).unwrap().restricted);
+        assert!(
+            parse_target(&json!({
+                "device": {
+                    "id": "0123456789abcdef", "name": "Family room",
+                    "is_restricted": true, "is_active": true
+                }
+            }))
+            .unwrap()
+            .restricted
+        );
         assert!(parse_target(&json!({"device": {
             "id": "0123456789abcdef", "name": "Family room"
-        }})).is_none());
+        }}))
+        .is_none());
         assert!(!valid_device_id("id/with/path"));
     }
 }
