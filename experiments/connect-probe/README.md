@@ -18,7 +18,9 @@ docker build -t bjornify-connect-auth-probe \
   -f experiments/connect-probe/Dockerfile .
 ```
 
-This builds a standalone read-only command. Björnify stays running; the only change inside its container is a temporary helper file and an isolated token cache, both removable afterward.
+This builds a standalone probe executable. Its default mode is read-only.
+Björnify stays running; the only change inside its container is a temporary helper file
+and an isolated token cache, both removable afterward.
 
 ### 2. Copy the temporary OAuth helper
 
@@ -81,7 +83,13 @@ docker exec -i bjornify python /app/spotify_connect_probe.py pipe-token | \
 
 It prints the currently playing device's name and Spotify Connect device ID, plus `restricted` and `active` flags. It is safe to share this output; **never share the access token, authorization code, or a redirect URL**.
 
-The optional queue test is *deliberately manual*. Only try it if the output is your expected Sonos room and shows both `restricted: true` and `active: true`. Pick one short test track, then replace both placeholders below. The CLI verifies that the device ID still matches active playback immediately before submitting the single command. It refuses all non-restricted devices, malformed track URIs, and unexpected/missing active devices.
+The optional queue test is *deliberately manual*. Only try it if the output is
+for your expected Sonos room, with both `restricted: true` and `active: true`.
+Pick one short test track and replace both placeholders below.
+
+The CLI verifies that the device ID still matches active playback immediately
+before submitting the single command. It refuses non-restricted devices,
+malformed track URIs, and unexpected or missing active devices.
 
 ```bash
 set -o pipefail
