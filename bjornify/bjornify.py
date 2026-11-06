@@ -192,6 +192,76 @@ bot = BjornifyBot(
 )
 
 
+spotify_group = app_commands.Group(
+    name="spotify", description="Manage the Spotify account"
+)
+
+
+@spotify_group.command(name="connect", description="Connect Spotify (bot owner only)")
+async def spotify_connect(interaction):
+    """Start a private, short-lived OAuth flow using an HTTPS callback."""
+    if not await bot.is_owner(interaction.user):
+        await interaction.response.send_message(
+            "Only the bot owner can connect Spotify.", ephemeral=True
+        )
+        return
+
+    if not auth_manager.redirect_uri.startswith("https://"):
+        await interaction.response.send_message(
+            "Automatic Spotify login requires an HTTPS callback URL. "
+            "Configure SPOTIPY_REDIRECT_URI and the reverse proxy first.",
+            ephemeral=True,
+        )
+        return
+
+    try:
+        authorize_url = spotify_authorizations.begin(interaction.user.id)
+    except (OSError, ValueError):
+        _LOGGER.exception("Unable to start Spotify connection")
+        await interaction.response.send_message(
+            "Spotify connection setup failed. Check the bot logs.",
+            ephemeral=True,
+        )
+        return
+
+    view = discord.ui.View(timeout=600)
+    view.add_item(
+        discord.ui.Button(
+            label="Connect Spotify",
+            style=discord.ButtonStyle.link,
+            url=authorize_url,
+        )
+    )
+    await interaction.response.send_message(
+        "Open Spotify to authorize Björnify. After approval, "
+        "the callback page will confirm the connection. "
+        "This link expires in 10 minutes.",
+        view=view,
+        ephemeral=True,
+    )
+
+
+@spotify_group.command(name="status", description="Check Spotify login (owner only)")
+async def spotify_status(interaction):
+    """Show only the authorization cache status, never secret tokens."""
+    if not await bot.is_owner(interaction.user):
+        await interaction.response.send_message(
+            "Only the bot owner can check Spotify.", ephemeral=True
+        )
+        return
+
+    cached = auth_manager.cache_handler.get_cached_token()
+    status = (
+        "Spotify authorization is saved. Try a playback command to verify it."
+        if cached and cached.get("refresh_token")
+        else "Spotify is not connected. Run /spotify connect."
+    )
+    await interaction.response.send_message(status, ephemeral=True)
+
+
+bot.tree.add_command(spotify_group)
+
+
 def refresh_spotify_token(force: bool = False):
     """Refresh the cached Spotify token without replacing the Spotify client."""
     token_info = auth_manager.cache_handler.get_cached_token()
