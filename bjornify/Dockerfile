@@ -53,9 +53,13 @@ RUN adduser \
 # Leverage a cache mount to /root/.cache/pip to speed up subsequent builds.
 # Leverage a bind mount to requirements.txt to avoid having to copy them into
 # this layer.
+# Re-resolve minimum-version requirements for each release build instead of
+# reusing an old, cached pip-install layer.
+ARG DEPENDENCY_REFRESH=local
 # hadolint ignore=DL3042
 RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=bind,source=requirements.txt,target=requirements.txt \
+    echo "Resolving latest compatible dependencies for ${DEPENDENCY_REFRESH}" && \
     python -m pip install --root-user-action ignore -r requirements.txt
 
 # Copy the source code into the container.

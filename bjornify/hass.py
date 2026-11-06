@@ -184,7 +184,11 @@ def send_query_to_ha_assist(query):
     data = {"text": query, "language": "en"}
 
     # Send the request to HA Assist and handle the response
-    response = requests.post(url, json=data, headers=headers, timeout=30)
+    try:
+        response = requests.post(url, json=data, headers=headers, timeout=30)
+    except requests.RequestException:
+        _LOGGER.exception("Home Assistant request failed")
+        return "Error communicating with Home Assistant."
 
     if response.status_code == 200:
         _LOGGER.debug("Response: %s", str(response.json()))

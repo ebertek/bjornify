@@ -14,15 +14,30 @@ permissions:
 
 jobs:
   build-and-push:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # Never publish a PR or a fork's successful Lint run.
+    # Only the validated push to this repository's main may release images.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
 
     env:
       IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/bjornify
 
     steps:
-      - name: Checkout code
+      - name: Checkout the validated revision
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Verify the checkout matches the successful Lint run
+        env:
+          VALIDATED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$VALIDATED_SHA"
+          echo "Publishing validated commit $VALIDATED_SHA"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -66,10 +81,12 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
+          # Bust only the pip-install layer for each release attempt.
           build-args: |
             BUILD_DATE=${{ steps.set_build_date.outputs.date }}
-            GITHUB_SHA=${{ github.sha }}
+            GITHUB_SHA=${{ github.event.workflow_run.head_sha }}
             VERSION=${{ steps.get_version.outputs.version }}
+            DEPENDENCY_REFRESH=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache
           cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache,mode=max
           context: bjornify

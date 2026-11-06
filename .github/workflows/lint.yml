@@ -40,10 +40,10 @@ jobs:
 
       - name: Apply safe Ruff fixes
         # Match the additional Ruff rule families enforced by Super-Linter v9.
-        run: ruff check --fix-only --extend-select UP,TRY,BLE,DTZ,EXE bjornify scripts
+        run: ruff check --fix-only --extend-select UP,TRY,BLE,DTZ,EXE,I bjornify scripts tests
 
       - name: Format with Black
-        run: black --quiet bjornify scripts
+        run: black --quiet bjornify scripts tests
 
       - name: Commit and push Python fixes
         env:
@@ -59,6 +59,33 @@ jobs:
               -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
               commit -m "style: auto-fix Python with Ruff and Black"
           git push origin "HEAD:refs/heads/${PR_HEAD_REF}"
+
+  tests:
+    name: Unit tests
+    needs: autoformat
+    if: ${{ !cancelled() && (needs.autoformat.result == 'success' || needs.autoformat.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout validated sources
+        uses: actions/checkout@v7
+        with:
+          # Use the formatted branch HEAD for same-repository pull requests.
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || '' }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          # Match the production Docker image Python runtime.
+          python-version: "3.14"
+
+      - name: Install runtime dependencies (latest compatible releases)
+        run: python -m pip install --disable-pip-version-check -r bjornify/requirements.txt
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
 
   build:
     name: Lint
