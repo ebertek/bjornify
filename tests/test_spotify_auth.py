@@ -7,7 +7,6 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from urllib.parse import quote
 
 from spotipy.exceptions import SpotifyOauthError
 from spotipy.oauth2 import CacheFileHandler, SpotifyOAuth
