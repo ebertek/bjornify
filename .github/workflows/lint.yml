@@ -87,6 +87,10 @@ jobs:
         env:
           # To report GitHub Actions status checks
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Lint the checked-out PR HEAD, not the event's synthetic merge SHA.
+          # Full-codebase validation is already the Super-Linter default.
+          USE_FIND_ALGORITHM: true
+          VALIDATE_ALL_CODEBASE: true
           VALIDATE_BIOME_FORMAT: false
           VALIDATE_GIT_COMMITLINT: false
           VALIDATE_GITHUB_ACTIONS_ZIZMOR: false
