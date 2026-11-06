@@ -11,7 +11,7 @@ import os
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, call as mock_call, patch
 
 import requests
 from spotipy.exceptions import SpotifyException
@@ -114,9 +114,9 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         self.assertEqual(
             self.spotify.mock_calls,
             [
-                call.current_playback(),
-                call.start_playback(device_id="paused-sonos"),
-                call.add_to_queue("spotify:track:requested"),
+                mock_call.current_playback(),
+                mock_call.start_playback(device_id="paused-sonos"),
+                mock_call.add_to_queue("spotify:track:requested"),
             ],
         )
         self.spotify.devices.assert_not_called()
@@ -138,9 +138,9 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         self.assertEqual(
             self.spotify.mock_calls,
             [
-                call.current_playback(),
-                call.start_playback(),
-                call.add_to_queue("spotify:track:requested"),
+                mock_call.current_playback(),
+                mock_call.start_playback(),
+                mock_call.add_to_queue("spotify:track:requested"),
             ],
         )
         self.spotify.devices.assert_not_called()
