@@ -69,6 +69,80 @@ class BotLoggingTests(unittest.TestCase):
                     filt.filter(self.make_record(msg, logger=logger, level=level))
                 )
 
+    def test_routine_discord_info_is_hidden_by_default(self):
+        """Routine login and gateway lifecycle messages do not clutter INFO."""
+        filt = bot_logging.RoutineDiscordInfoFilter()
+        messages = (
+            ("discord.client", "logging in using static token"),
+            (
+                "discord.gateway",
+                "Shard ID None has connected to Gateway (Session ID: sample).",
+            ),
+            (
+                "discord.gateway",
+                "Shard ID None has successfully RESUMED session sample.",
+            ),
+            ("discord.gateway", "Shard ID 0 has connected to Gateway (Session ID: sample)."),
+        )
+        for logger, message in messages:
+            with self.subTest(logger=logger, message=message):
+                record = self.make_record(message, logger=logger)
+                self.assertFalse(filt.filter(record))
+
+    def test_routine_discord_info_becomes_debug_when_enabled(self):
+        """Routine Discord messages are genuinely reclassified as DEBUG."""
+        filt = bot_logging.RoutineDiscordInfoFilter(debug_enabled=True)
+        record = self.make_record(
+            "Shard ID None has connected to Gateway (Session ID: sample).",
+            logger="discord.gateway",
+        )
+        self.assertTrue(filt.filter(record))
+        self.assertEqual(record.levelno, logging.DEBUG)
+        self.assertEqual(record.levelname, "DEBUG")
+        parsed = json.loads(bot_logging.JsonFormatter().format(record))
+        self.assertEqual(parsed["level"], "DEBUG")
+
+    def test_important_discord_messages_remain_visible(self):
+        """Preserve unrelated INFO, all warnings, and errors for troubleshooting."""
+        filt = bot_logging.RoutineDiscordInfoFilter()
+        events = (
+            ("discord.client", logging.INFO, "Discord user ready"),
+            ("discord.gateway", logging.INFO, "Unexpected reconnect detail"),
+            ("discord.gateway", logging.WARNING, "Shard ID None connection lost"),
+            ("discord.gateway", logging.ERROR, "Gateway authentication failed"),
+            ("discord.client", logging.WARNING, "logging in using static token"),
+            ("bjornify", logging.INFO, "Shard ID None has connected to Gateway"),
+        )
+        for logger, level, message in events:
+            with self.subTest(message=message):
+                record = self.make_record(message, logger=logger, level=level)
+                self.assertTrue(filt.filter(record))
+                self.assertEqual(record.levelno, level)
+
+    def test_routine_filter_installation_is_idempotent(self):
+        """Multiple setup calls reuse and update the existing filter."""
+        logger = logging.getLogger("discord.gateway")
+        before = list(logger.filters)
+        try:
+            bot_logging.filter_routine_discord_info(debug_enabled=False)
+            bot_logging.filter_routine_discord_info(debug_enabled=True)
+            installed = [
+                item
+                for item in logger.filters
+                if isinstance(item, bot_logging.RoutineDiscordInfoFilter)
+            ]
+            self.assertEqual(len(installed), 1)
+            self.assertTrue(installed[0].debug_enabled)
+        finally:
+            for name in ("discord.client", "discord.gateway"):
+                current_logger = logging.getLogger(name)
+                for item in current_logger.filters[:]:
+                    if isinstance(item, bot_logging.RoutineDiscordInfoFilter):
+                        current_logger.removeFilter(item)
+            for item in before:
+                if item not in logger.filters:
+                    logger.addFilter(item)
+
     def test_filter_installation_is_idempotent(self):
         """Both bot startup routines must not repeatedly add the same filter."""
         logger = logging.getLogger("discord.client")
