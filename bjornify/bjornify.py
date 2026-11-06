@@ -4,18 +4,17 @@
 # pylint: disable=duplicate-code
 
 import asyncio
-import json
 import logging
 import os
 import signal
 import sys
-from datetime import UTC, datetime
 
 import discord
 import soco
 import spotipy
 from discord import app_commands
 from discord.ext import commands
+from bot_logging import JsonFormatter, suppress_unused_discord_voice_notices
 from spotify_auth import (
     SpotifyAuthorizationRequired,
     make_auth_manager,
@@ -56,27 +55,7 @@ os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 
 
 # Common formatters
-class JsonFormatter(logging.Formatter):
-    """Custom log formatter."""
-
-    def format(self, record: logging.LogRecord) -> str:
-        log = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=UTC)
-            .astimezone()
-            .isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-        }
-        if DEBUG_ENABLED:
-            log["module"] = record.module
-            log["func"] = record.funcName
-            log["line"] = str(record.lineno)
-
-        return json.dumps(log)
-
-
-json_formatter: logging.Formatter = JsonFormatter()
+json_formatter: logging.Formatter = JsonFormatter(debug_enabled=DEBUG_ENABLED)
 
 plain_formatter = logging.Formatter(
     "%(asctime)s.%(msecs)03d | %(levelname)-8s | bjornify | %(name)-30s | %(message)s",
@@ -123,6 +102,9 @@ _LOGGER.propagate = True  # Let messages bubble up to root
 # Apply lib log level to third-party modules
 for lib in ("asyncio", "discord", "soco", "spotipy", "urllib3"):
     logging.getLogger(lib).setLevel(LIB_LOG_LEVEL)
+
+# These optional modules are irrelevant because neither bot uses voice.
+suppress_unused_discord_voice_notices()
 
 # Validate that all required environmental variables are set
 required_env_vars = [
