@@ -13,14 +13,16 @@ import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from spotipy.exceptions import SpotifyOauthError
+
 # The probe is copied into /tmp in the running container; the actual OAuth
 # implementation is in /app. Do not import the bot entrypoint.
 sys.path.insert(0, "/app")
 
-from spotify_auth import (  # noqa: E402  # pylint: disable=wrong-import-position
+from spotify_auth import (  # pylint: disable=wrong-import-position
+    SCOPE,
     HeadlessSpotifyOAuth,
     PrivateTokenCache,
-    SCOPE,
     redirect_uri_from_environment,
 )
 
@@ -118,9 +120,7 @@ def pipe_token():
 
 def main():
     """Dispatch only the explicit experimental operations."""
-    if len(sys.argv) != 2 or sys.argv[1] not in (
-        "authorize", "status", "pipe-token"
-    ):
+    if len(sys.argv) != 2 or sys.argv[1] not in ("authorize", "status", "pipe-token"):
         print("Usage: oauth_probe.py authorize|status|pipe-token", file=sys.stderr)
         return 2
     os.umask(0o077)
@@ -132,10 +132,11 @@ def main():
             return status()
         else:
             pipe_token()
-    except (OSError, ValueError, KeyError, RuntimeError) as error:
+    except (OSError, ValueError, KeyError, RuntimeError, SpotifyOauthError) as error:
         # Never include tokens or callback query parameters in the error.
         print(
-            "Probe failed: " + type(error).__name__
+            "Probe failed: "
+            + type(error).__name__
             + ". See the documented setup, scopes and callback instructions.",
             file=sys.stderr,
         )
