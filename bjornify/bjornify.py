@@ -146,7 +146,12 @@ DEFAULT_DEVICE = os.getenv("DEFAULT_DEVICE", "Everywhere")
 # Share one OAuth cache with the owner's interactive authorization command.
 # Never attempt to prompt for authorization inside the Discord bot.
 auth_manager = make_auth_manager()
-spotify = spotipy.Spotify(auth_manager=auth_manager)
+# Let 429 responses reach us intact: Spotipy's default retry loop hides the
+# QUOTA_EXCEEDED response body that Spotify uses for Development Mode limits.
+spotify = spotipy.Spotify(
+    auth_manager=auth_manager,
+    status_forcelist=(500, 502, 503, 504),
+)
 
 
 # Set up Discord
