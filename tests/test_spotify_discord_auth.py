@@ -1,5 +1,7 @@
 """Regression tests for owner-only Spotify login and HTTPS callback handling."""
 
+# pylint: disable=protected-access
+
 import asyncio
 import http.client
 import importlib
