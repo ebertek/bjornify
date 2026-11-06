@@ -15,7 +15,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import requests
 from spotipy.exceptions import SpotifyException
 
-
 ROOT = Path(__file__).resolve().parents[1]
 API_ERROR = "Error communicating with Home Assistant."
 
@@ -87,9 +86,7 @@ class BotBehaviorTests(unittest.TestCase):
         """An active player uses Spotify add_to_queue."""
         self.spotify.current_playback.return_value = {"is_playing": True}
 
-        result = self.bjornify.player_add_track(
-            "spotify:track:123", "Artist", "Song"
-        )
+        result = self.bjornify.player_add_track("spotify:track:123", "Artist", "Song")
 
         self.assertEqual(result, "Queued: Artist - Song")
         self.spotify.add_to_queue.assert_called_once_with("spotify:track:123")
@@ -181,9 +178,7 @@ class BotBehaviorTests(unittest.TestCase):
     def test_token_expiration_triggers_refresh_and_retry(self):
         """A 401 response refreshes the token and retries the action once."""
         self.spotify.current_playback.return_value = {"is_playing": True}
-        action = MagicMock(
-            side_effect=[SpotifyException(401, -1, "Expired"), None]
-        )
+        action = MagicMock(side_effect=[SpotifyException(401, -1, "Expired"), None])
 
         with patch.object(self.bjornify, "refresh_spotify_token") as refresh:
             result = self.bjornify.spotify_action_with_soco_fallback(
@@ -197,15 +192,11 @@ class BotBehaviorTests(unittest.TestCase):
     def test_restricted_spotify_device_uses_sonos(self):
         """A 403 response can recover through a currently playing Sonos device."""
         self.spotify.current_playback.return_value = {"is_playing": True}
-        action = MagicMock(
-            side_effect=SpotifyException(403, -1, "Restricted device")
-        )
+        action = MagicMock(side_effect=SpotifyException(403, -1, "Restricted device"))
         speaker = MagicMock()
         sonos_action = MagicMock()
 
-        with patch.object(
-            self.bjornify, "find_playing_speaker", return_value=speaker
-        ):
+        with patch.object(self.bjornify, "find_playing_speaker", return_value=speaker):
             result = self.bjornify.spotify_action_with_soco_fallback(
                 spotify_action=action,
                 soco_action=sonos_action,
@@ -218,14 +209,10 @@ class BotBehaviorTests(unittest.TestCase):
     def test_restricted_device_without_sonos_returns_failure(self):
         """A 403 with no Sonos player returns an error reaction."""
         self.spotify.current_playback.return_value = {"is_playing": True}
-        action = MagicMock(
-            side_effect=SpotifyException(403, -1, "Restricted device")
-        )
+        action = MagicMock(side_effect=SpotifyException(403, -1, "Restricted device"))
         sonos_action = MagicMock()
 
-        with patch.object(
-            self.bjornify, "find_playing_speaker", return_value=None
-        ):
+        with patch.object(self.bjornify, "find_playing_speaker", return_value=None):
             result = self.bjornify.spotify_action_with_soco_fallback(
                 spotify_action=action,
                 soco_action=sonos_action,
@@ -246,7 +233,8 @@ class BotBehaviorTests(unittest.TestCase):
             "current_transport_state": "PLAYING"
         }
         playing.get_current_track_info.return_value = {
-            "uri": "x-sonos-spotify:track:123", "metadata": ""
+            "uri": "x-sonos-spotify:track:123",
+            "metadata": "",
         }
         with patch.object(
             self.bjornify.soco, "discover", return_value=[stopped, playing]
@@ -267,12 +255,8 @@ class BotBehaviorTests(unittest.TestCase):
             "duration": "3:00",
             "album_art_uri": "",
         }
-        speaker.get_current_transport_info.return_value = {
-            "current_position": "1:20"
-        }
-        with patch.object(
-            self.bjornify, "find_playing_speaker", return_value=speaker
-        ):
+        speaker.get_current_transport_info.return_value = {"current_position": "1:20"}
+        with patch.object(self.bjornify, "find_playing_speaker", return_value=speaker):
             embed = self.bjornify.get_now_playing_embed()
 
         self.assertIn("Sonos Playback on Living Room", embed.description)
