@@ -1,6 +1,6 @@
 # Experimental, standalone READ-ONLY Connect authentication probe.
 # This does not replace or start the Björnify Discord container.
-FROM rust:stable-slim-bookworm AS build
+FROM rust:slim-bookworm AS build
 
 # Install the newest security-patched packages in this ephemeral test image.
 # hadolint ignore=DL3008
