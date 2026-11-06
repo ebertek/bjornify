@@ -56,7 +56,9 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         log = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=UTC).astimezone().isoformat(),
+            "timestamp": datetime.fromtimestamp(record.created, tz=UTC)
+            .astimezone()
+            .isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -174,9 +176,7 @@ class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
                     "Synced %d slash commands to guild ID %s", len(synced), guild_id_str
                 )
             except Exception:  # pylint: disable=broad-exception-caught
-                _LOGGER.exception(
-                    "Failed to sync commands to guild %s", guild_id_str
-                )
+                _LOGGER.exception("Failed to sync commands to guild %s", guild_id_str)
         else:
             _LOGGER.debug("GUILD_ID not set — slash commands will not be registered")
 
@@ -259,9 +259,7 @@ def find_playing_speaker():
                 return speaker
 
         except Exception:  # pylint: disable=broad-exception-caught
-            _LOGGER.exception(
-                "Error while checking speaker %s", speaker.player_name
-            )
+            _LOGGER.exception("Error while checking speaker %s", speaker.player_name)
 
     _LOGGER.debug("No currently playing Sonos speaker using Spotify was found")
     return None
