@@ -214,7 +214,7 @@ def spotify_request(method, *args, **kwargs):
         return method(*args, **kwargs)
 
 
-def spotify_error_message(error):
+def spotify_error_message(error):  # pylint: disable=too-many-return-statements
     """Return a safe, actionable message without leaking tokens or API URLs."""
     if isinstance(error, SpotifyAuthorizationRequired):
         _LOGGER.warning("Spotify authorization required; run the owner OAuth CLI")
@@ -313,7 +313,7 @@ def find_playing_speaker():
     return None
 
 
-def spotify_action_with_soco_fallback(spotify_action, soco_action, action_name):
+def spotify_action_with_soco_fallback(spotify_action, soco_action, action_name):  # pylint: disable=too-many-return-statements
     """Use Spotify first, then Sonos only for a known device restriction."""
     try:
         playback = spotify_request(spotify.current_playback)
