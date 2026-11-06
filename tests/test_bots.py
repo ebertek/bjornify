@@ -8,6 +8,7 @@ import asyncio
 import importlib.util
 import logging
 import os
+import sys
 import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -16,6 +17,8 @@ import requests
 from spotipy.exceptions import SpotifyException
 
 ROOT = Path(__file__).resolve().parents[1]
+# Docker runs the scripts from /app; make that import layout available to tests.
+sys.path.insert(0, str(ROOT / "bjornify"))
 API_ERROR = "Error communicating with Home Assistant."
 
 
@@ -29,7 +32,7 @@ def load_script(name, path):
     return module
 
 
-class BotBehaviorTests(unittest.TestCase):
+class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-methods
     """Test core bot behavior with fully mocked external services."""
 
     @classmethod
@@ -54,7 +57,7 @@ class BotBehaviorTests(unittest.TestCase):
         cls.env.start()
         try:
             with (
-                patch("spotipy.oauth2.SpotifyOAuth"),
+                patch("spotify_auth.make_auth_manager"),
                 patch("spotipy.Spotify"),
             ):
                 cls.bjornify = load_script(
@@ -172,7 +175,7 @@ class BotBehaviorTests(unittest.TestCase):
 
         self.assertEqual(
             self.bjornify.player_add_item_to_playback_queue("Song"),
-            "Failed to add track to queue.",
+            "Spotify is unavailable. Try again later.",
         )
 
     def test_token_expiration_triggers_refresh_and_retry(self):
@@ -219,7 +222,7 @@ class BotBehaviorTests(unittest.TestCase):
                 action_name="pause",
             )
 
-        self.assertEqual(result, "❌")
+        self.assertIn("no active Sonos player", result)
         sonos_action.assert_not_called()
 
     def test_sonos_discovery_ignores_stopped_speakers(self):
@@ -290,6 +293,104 @@ class BotBehaviorTests(unittest.TestCase):
             asyncio.run(self.bjornify.add_track.callback(context, query="Song"))
 
         context.send.assert_awaited_once_with("Failed to add track to queue.")
+
+    def test_spotify_request_recovers_current_playback_401(self):
+        """401 on the initial GET also refreshes and retries once."""
+        call = MagicMock(
+            side_effect=[SpotifyException(401, -1, "Expired"), {"item": "ok"}]
+        )
+        with patch.object(self.bjornify, "refresh_spotify_token") as refresh:
+            result = self.bjornify.spotify_request(call)
+        self.assertEqual(result, {"item": "ok"})
+        self.assertEqual(call.call_count, 2)
+        refresh.assert_called_once_with(force=True)
+
+    def test_spotify_request_does_not_loop_forever_on_401(self):
+        """A persistent 401 must stop after one refresh and one retry."""
+        call = MagicMock(side_effect=SpotifyException(401, -1, "No access"))
+        with (
+            patch.object(self.bjornify, "refresh_spotify_token") as refresh,
+            self.assertRaises(SpotifyException),
+        ):
+            self.bjornify.spotify_request(call)
+        self.assertEqual(call.call_count, 2)
+        refresh.assert_called_once_with(force=True)
+
+    def test_unauthorized_player_returns_reconnect_message(self):
+        """Playback failures do not leak OAuth errors to Discord users."""
+        self.spotify.current_playback.side_effect = (
+            self.bjornify.SpotifyAuthorizationRequired("Token expired")
+        )
+        response = self.bjornify.player_pause_playback()
+        self.assertIn("reconnected", response)
+
+    def test_unrelated_403_does_not_try_sonos(self):
+        """Premium/allowlist failures are not mistaken for Sonos restrictions."""
+        self.spotify.current_playback.return_value = {"is_playing": True}
+        action = MagicMock(
+            side_effect=SpotifyException(403, -1, "Insufficient client scope")
+        )
+        with patch.object(self.bjornify, "find_playing_speaker") as find:
+            response = self.bjornify.spotify_action_with_soco_fallback(
+                spotify_action=action,
+                soco_action=MagicMock(),
+                action_name="pause",
+            )
+        self.assertIn("Premium", response)
+        find.assert_not_called()
+
+    def test_rate_limit_includes_retry_delay(self):
+        """429 errors report Retry-After instead of a generic queue failure."""
+        self.spotify.search.side_effect = SpotifyException(
+            429, -1, "Rate limited", headers={"Retry-After": "16"}
+        )
+        self.assertIn(
+            "16 seconds", self.bjornify.player_add_item_to_playback_queue("Song")
+        )
+
+    def test_quota_exceeded_is_distinct_from_rate_limit(self):
+        """Development Mode quota errors get a specific diagnostic."""
+        self.spotify.search.side_effect = SpotifyException(
+            429, -1, "Too many requests", reason="QUOTA_EXCEEDED"
+        )
+        self.assertIn(
+            "Development Mode API quota",
+            self.bjornify.player_add_item_to_playback_queue("Song"),
+        )
+
+    def test_slash_add_does_not_claim_success_when_queue_fails(self):
+        """A failed playback action never yields a false-positive success."""
+        interaction = MagicMock()
+        interaction.user.name = "Test"
+        interaction.response.send_message = AsyncMock()
+        self.spotify.track.return_value = {
+            "name": "Song",
+            "artists": [{"name": "Artist"}],
+        }
+        with patch.object(
+            self.bjornify,
+            "player_add_track",
+            return_value="Spotify denied access (403).",
+        ):
+            asyncio.run(
+                self.bjornify.add_slash.callback(interaction, query="spotify:track:123")
+            )
+        interaction.response.send_message.assert_awaited_once_with(
+            "❌ Spotify denied access (403).", ephemeral=True
+        )
+
+    def test_slash_pause_does_not_claim_success_on_failure(self):
+        """Pause slash command reports authentication failures accurately."""
+        interaction = MagicMock()
+        interaction.user.name = "Test"
+        interaction.response.send_message = AsyncMock()
+        with patch.object(
+            self.bjornify, "player_pause_playback", return_value="Access denied."
+        ):
+            asyncio.run(self.bjornify.pause_slash.callback(interaction))
+        interaction.response.send_message.assert_awaited_once_with(
+            "❌ Access denied.", ephemeral=True
+        )
 
     def test_home_assistant_success(self):
         """Assist responses are extracted and authentication is supplied."""
