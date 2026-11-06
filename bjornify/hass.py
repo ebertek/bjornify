@@ -105,7 +105,7 @@ for lib in ("asyncio", "discord"):
 # These optional modules are irrelevant because neither bot uses voice.
 suppress_unused_discord_voice_notices()
 # Keep only unusual Discord events at INFO; routine login/connect events are DEBUG.
-filter_routine_discord_info(debug_enabled=LOG_LEVEL == "DEBUG")
+filter_routine_discord_info(debug_enabled=DEBUG_ENABLED)
 
 # Load environment variables
 DISCORD_BOT_TOKEN = os.getenv("HASS_DISCORD_BOT_TOKEN")
