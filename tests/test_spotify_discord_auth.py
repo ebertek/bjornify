@@ -34,6 +34,82 @@ class DiscordSpotifyLoginTests(unittest.TestCase):
         ):
             return self.sessions.begin(owner_id, on_complete=on_complete)
 
+    def callback_response(self, path):
+        """Make a real local HTTP request and capture sanitized OAuth logs."""
+        with (
+            patch.dict(
+                os.environ,
+                {"SPOTIPY_REDIRECT_URI": "https://spotify.example.com/spotify/callback"},
+            ),
+            patch.object(
+                login,
+                "ThreadingHTTPServer",
+                side_effect=lambda address, handler: ThreadingHTTPServer(
+                    ("127.0.0.1", 0), handler
+                ),
+            ),
+        ):
+            server = login.start_spotify_callback(self.sessions)
+            try:
+                conn = http.client.HTTPConnection("127.0.0.1", server.server_port)
+                with self.assertLogs(login._LOGGER, level="INFO") as events:
+                    conn.request("GET", path)
+                    response = conn.getresponse()
+                    status = response.status
+                    body = response.read().decode("utf-8")
+                conn.close()
+            finally:
+                server.shutdown()
+                server.server_close()
+        return status, body, events.output
+
+    def test_success_logs_info_without_oauth_secrets(self):
+        """Successful Spotify auth is visible at INFO without leaking tokens."""
+        self.begin()
+        status, _, events = self.callback_response(
+            "/spotify/callback?state=secure-state&code=one-time-code"
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(
+            any("INFO" in line and "completed successfully" in line for line in events)
+        )
+        self.assertNotIn("one-time-code", " ".join(events))
+        self.assertNotIn("secure-state", " ".join(events))
+
+    def test_spotify_denial_logs_warning_without_state(self):
+        """An owner refusing Spotify authorization is visible as a warning."""
+        self.begin()
+        status, _, events = self.callback_response(
+            "/spotify/callback?state=secure-state&error=access_denied"
+        )
+        self.assertEqual(status, 400)
+        self.assertTrue(any("WARNING" in line and "rejected" in line for line in events))
+        self.assertNotIn("secure-state", " ".join(events))
+        self.manager.get_access_token.assert_not_called()
+
+    def test_token_exchange_failure_logs_safely(self):
+        """OAuth exchange errors produce ERROR without printing exception secrets."""
+        self.begin()
+        self.manager.get_access_token.side_effect = RuntimeError(
+            "Sensitive Spotify callback code"
+        )
+        status, _, events = self.callback_response(
+            "/spotify/callback?state=secure-state&code=one-time-code"
+        )
+        self.assertEqual(status, 502)
+        self.assertTrue(
+            any("ERROR" in line and "RuntimeError" in line for line in events)
+        )
+        self.assertNotIn("Sensitive Spotify callback code", " ".join(events))
+        self.assertNotIn("one-time-code", " ".join(events))
+
+    def test_missing_callback_state_logs_warning(self):
+        """Malformed callback requests are visible at WARNING level."""
+        status, _, events = self.callback_response("/spotify/callback?code=invalid")
+        self.assertEqual(status, 400)
+        self.assertTrue(any("WARNING" in line for line in events))
+        self.assertNotIn("invalid", " ".join(events))
+
     def test_authorization_link_is_created_for_the_owner(self):
         """A fresh login link is generated with the session owner's state."""
         self.assertEqual(self.begin(), "https://spotify.test/authorize")
