@@ -14,8 +14,8 @@ import sys
 
 import discord
 import requests
-from discord.ext import commands
 from bot_logging import JsonFormatter, suppress_unused_discord_voice_notices
+from discord.ext import commands
 
 try:
     from version import __version__

@@ -12,9 +12,9 @@ import sys
 import discord
 import soco
 import spotipy
+from bot_logging import JsonFormatter, suppress_unused_discord_voice_notices
 from discord import app_commands
 from discord.ext import commands
-from bot_logging import JsonFormatter, suppress_unused_discord_voice_notices
 from spotify_auth import (
     SpotifyAuthorizationRequired,
     make_auth_manager,
