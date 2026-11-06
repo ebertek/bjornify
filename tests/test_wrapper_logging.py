@@ -2,7 +2,6 @@
 
 import json
 import os
-import re
 import subprocess
 import unittest
 from datetime import datetime
