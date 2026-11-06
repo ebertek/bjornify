@@ -64,7 +64,7 @@ services:
 ```shell
 SPOTIPY_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 SPOTIPY_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-SPOTIPY_REDIRECT_URI=http://localhost:3000
+SPOTIPY_REDIRECT_URI=http://127.0.0.1:3000
 DISCORD_BOT_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 CHANNEL_ID=xxxxxxxxxxxxxxxxxxx
 GUILD_ID=xxxxxxxxxxxxxxxxxxx
@@ -94,7 +94,35 @@ HA_ACCESS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 | `LOG_LEVEL`             | Optional: Log level for Björnify: `DEBUG` > `INFO` > `WARNING` > `ERROR` > `CRITICAL`. |
 | `LIB_LOG_LEVEL`         | Optional: Log level for `asyncio`, `discord`, `soco`, `spotipy`, and `urllib3`.        |
 
-To get your own Spotify Client ID and secret, please create a new app using the [Spotify for Developers](https://developer.spotify.com/dashboard) Dashboard. You can add `http://localhost:3000` to _Redirect URIs_, and select `Web API` for _APIs used_.
+To get your own Spotify Client ID and secret, please create a new app using the [Spotify for Developers](https://developer.spotify.com/dashboard) Dashboard. You can add `http://127.0.0.1:3000` to _Redirect URIs_, and select `Web API` for _APIs used_.
+
+### 🔑 Connect Spotify
+
+Spotify requires a Premium account for Development Mode apps. Add the account you
+want Björnify to control to your app's allowed users in the
+[Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
+
+Once the container is running, connect that Spotify account:
+
+```shell
+docker exec -it bjornify python /app/spotify_auth.py authorize
+```
+
+Open the displayed authorization link, approve access, and paste the **entire
+redirected URL** into the terminal (the input is hidden). The browser may show
+a connection error for `127.0.0.1`; copy the URL from the address bar anyway.
+The authorization is saved in the mounted `/app/secrets` volume.
+
+Spotify refresh tokens expire **six months after authorization**, even if access
+tokens have been refreshed. Run the same command again when Björnify reports
+that Spotify needs reconnecting. Do not post the redirected URL, authorization
+code, or token cache in Discord or issue reports.
+
+**Important:** If you previously configured
+`SPOTIPY_REDIRECT_URI=http://localhost:3000`, change it to
+`http://127.0.0.1:3000` in both your environment file and the Spotify
+Developer Dashboard. The URI must match exactly.
+
 
 To get your own Discord token, please create a new application using the [Discord Developer Portal](https://discord.com/developers/applications). You will need the `bot` and the `applications.commands` scopes. Under _Bot permissions_, you will need to check `View Channels`, `Send Messages`, `Add Reactions`, `Read Message History`, and `Use External Emojis`.
 
@@ -126,7 +154,7 @@ docker run --name bjornify \
   --memory="250m" \
   -e SPOTIPY_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
   -e SPOTIPY_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
-  -e SPOTIPY_REDIRECT_URI=http://localhost:3000 \
+  -e SPOTIPY_REDIRECT_URI=http://127.0.0.1:3000 \
   -e DISCORD_BOT_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
   -e CHANNEL_ID=xxxxxxxxxxxxxxxxxxx \
   -e GUILD_ID=xxxxxxxxxxxxxxxxxxx \
