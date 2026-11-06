@@ -32,7 +32,7 @@ def load_script(name, path):
     return module
 
 
-class BotBehaviorTests(unittest.TestCase):
+class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-methods
     """Test core bot behavior with fully mocked external services."""
 
     @classmethod
@@ -308,17 +308,17 @@ class BotBehaviorTests(unittest.TestCase):
     def test_spotify_request_does_not_loop_forever_on_401(self):
         """A persistent 401 must stop after one refresh and one retry."""
         call = MagicMock(side_effect=SpotifyException(401, -1, "No access"))
-        with patch.object(self.bjornify, "refresh_spotify_token") as refresh:
-            with self.assertRaises(SpotifyException):
-                self.bjornify.spotify_request(call)
+        with (
+            patch.object(self.bjornify, "refresh_spotify_token") as refresh,
+            self.assertRaises(SpotifyException),
+        ):
+            self.bjornify.spotify_request(call)
         self.assertEqual(call.call_count, 2)
         refresh.assert_called_once_with(force=True)
 
     def test_unauthorized_player_returns_reconnect_message(self):
         """Playback failures do not leak OAuth errors to Discord users."""
-        from spotify_auth import SpotifyAuthorizationRequired
-
-        self.spotify.current_playback.side_effect = SpotifyAuthorizationRequired(
+        self.spotify.current_playback.side_effect = self.bjornify.SpotifyAuthorizationRequired(
             "Token expired"
         )
         response = self.bjornify.player_pause_playback()
