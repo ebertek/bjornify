@@ -8,6 +8,7 @@ import logging
 import os
 import signal
 import sys
+from contextlib import suppress
 
 import discord
 import soco
@@ -20,6 +21,7 @@ from spotify_auth import (
     make_auth_manager,
 )
 from spotify_discord_auth import SpotifyAuthorizations, start_spotify_callback
+from spotify_notifications import SpotifyAuthNotifier
 from spotipy.exceptions import SpotifyOauthError
 
 try:
@@ -146,10 +148,12 @@ class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.spotify_callback_server = None
+        self.spotify_monitor_task = None
 
     async def setup_hook(self):
         """Start the Spotify callback and sync slash commands to the guild."""
         self.spotify_callback_server = start_spotify_callback(spotify_authorizations)
+        self.spotify_monitor_task = spotify_notifier.start()
         guild_id_str = os.getenv("GUILD_ID")
         if guild_id_str:
             try:
@@ -177,6 +181,7 @@ bot = BjornifyBot(
     description="Björnify adds requested tracks to Björngrottan's Spotify playback queue",
     intents=intents,
 )
+spotify_notifier = SpotifyAuthNotifier(bot, auth_manager, channel_id=CHANNEL_ID)
 
 
 spotify_group = app_commands.Group(
@@ -205,6 +210,8 @@ async def spotify_connect(interaction):
 
     def on_complete(connected):
         """Update the original private Discord message from the HTTP thread."""
+        if connected:
+            spotify_notifier.clear_alert()
         content = (
             "✅ Spotify connected! You can now use Björnify."
             if connected
@@ -302,7 +309,8 @@ def spotify_request(method, *args, **kwargs):
 def spotify_error_message(error):  # pylint: disable=too-many-return-statements
     """Return a safe, actionable message without leaking tokens or API URLs."""
     if isinstance(error, SpotifyAuthorizationRequired):
-        _LOGGER.warning("Spotify authorization required; run the owner OAuth CLI")
+        _LOGGER.warning("Spotify authorization required; notifying the bot owner")
+        spotify_notifier.schedule_alert()
         return "Spotify needs to be reconnected by the bot owner."
 
     if isinstance(error, SpotifyOauthError):
@@ -944,6 +952,11 @@ async def main():
 async def shutdown():
     """Handle graceful shutdown of the bot."""
     _LOGGER.info("Received stop signal. Shutting down gracefully...")
+    monitor = getattr(bot, "spotify_monitor_task", None)
+    if monitor is not None:
+        monitor.cancel()
+        with suppress(asyncio.CancelledError):
+            await monitor
     await bot.close()
     server = getattr(bot, "spotify_callback_server", None)
     if server is not None:

@@ -115,7 +115,11 @@ must be reachable by your browser, including on mobile.
 
 Spotify refresh tokens expire after six months, so you will occasionally need
 to use `/spotify connect` again. The connection link is private, valid for ten
-minutes, and can only be created by the Discord application owner.
+minutes, and can only be created by the Discord application owner. Björnify checks
+the saved authorization periodically and sends a **one-time Discord DM** when
+reconnection is needed. If DMs are disabled, it notifies the existing `CHANNEL_ID`
+channel instead. Successful reconnection resets the alert; ordinary access-token
+refreshes do not trigger notifications.
 
 If you cannot configure HTTPS yet, the existing owner-only terminal fallback
 is `docker exec -it bjornify python /app/spotify_auth.py authorize` with
