@@ -11,7 +11,8 @@ import os
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, call as mock_call, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import call as mock_call
 
 import requests
 from spotipy.exceptions import SpotifyException
