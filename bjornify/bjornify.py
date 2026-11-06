@@ -219,8 +219,32 @@ async def spotify_connect(interaction):
         )
         return
 
+    loop = asyncio.get_running_loop()
+
+    def on_complete(connected):
+        """Update the original private Discord message from the HTTP thread."""
+        content = (
+            "✅ Spotify connected! You can now use Björnify."
+            if connected
+            else "❌ Spotify authorization failed. Use /spotify connect to retry."
+        )
+        future = asyncio.run_coroutine_threadsafe(
+            interaction.edit_original_response(content=content, view=None),
+            loop,
+        )
+
+        def report_edit_result(done):
+            try:
+                done.result()
+            except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+                _LOGGER.exception("Could not update private Spotify connect message")
+
+        future.add_done_callback(report_edit_result)
+
     try:
-        authorize_url = spotify_authorizations.begin(interaction.user.id)
+        authorize_url = spotify_authorizations.begin(
+            interaction.user.id, on_complete=on_complete
+        )
     except (OSError, ValueError):
         _LOGGER.exception("Unable to start Spotify connection")
         await interaction.response.send_message(
