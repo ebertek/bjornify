@@ -12,8 +12,57 @@ on: # yamllint disable-line rule:truthy
 permissions: {}
 
 jobs:
+  autoformat:
+    name: Auto-fix Python (Ruff and Black)
+    # Only push back to branches in this repository. Fork PRs are linted below.
+    # Dependabot PR workflows receive read-only tokens.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Install Ruff and Black
+        run: python -m pip install --disable-pip-version-check -r requirements-lint.txt
+
+      - name: Apply safe Ruff fixes
+        run: ruff check --fix-only bjornify scripts
+
+      - name: Format with Black
+        run: black --quiet bjornify scripts
+
+      - name: Commit and push Python fixes
+        env:
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git add -- ':(glob)**/*.py'
+          if git diff --cached --quiet; then
+            echo "No Python formatting fixes needed."
+            exit 0
+          fi
+
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "style: auto-fix Python with Ruff and Black"
+          git push origin "HEAD:refs/heads/${PR_HEAD_REF}"
+
   build:
     name: Lint
+    needs: autoformat
+    if: ${{ !cancelled() && (needs.autoformat.result == 'success' || needs.autoformat.result == 'skipped') }}
     runs-on: ubuntu-latest
 
     permissions:
@@ -26,6 +75,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
+          # On same-repo PRs, check out the branch AFTER auto-fixes were pushed.
+          # Fork PRs and main pushes use the usual event checkout.
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || '' }}
           # super-linter needs the full git history to get the
           # list of files that changed across commits
           fetch-depth: 0
@@ -35,6 +87,10 @@ jobs:
         env:
           # To report GitHub Actions status checks
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Lint the checked-out PR HEAD, not the event's synthetic merge SHA.
+          # Full-codebase validation is already the Super-Linter default.
+          USE_FIND_ALGORITHM: true
+          VALIDATE_ALL_CODEBASE: true
           VALIDATE_BIOME_FORMAT: false
           VALIDATE_GIT_COMMITLINT: false
           VALIDATE_GITHUB_ACTIONS_ZIZMOR: false
