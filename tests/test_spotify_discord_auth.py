@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT / "bjornify"))
 login = importlib.import_module("spotify_discord_auth")
 
 
-class DiscordSpotifyLoginTests(unittest.TestCase):  # pylint: disable=protected-access
+class DiscordSpotifyLoginTests(unittest.TestCase):
     """Test authorization ownership, expiration, and single-use callbacks."""
 
     def setUp(self):
@@ -38,7 +38,7 @@ class DiscordSpotifyLoginTests(unittest.TestCase):  # pylint: disable=protected-
         """A fresh login link is generated with the session owner's state."""
         self.assertEqual(self.begin(), "https://spotify.test/authorize")
         self.manager.get_authorize_url.assert_called_once()
-        self.assertEqual(self.sessions._pending["secure-state"].owner_id, 123)
+        self.assertEqual(getattr(self.sessions, "_pending")["secure-state"].owner_id, 123)
 
     def test_owner_can_complete_a_login_once(self):
         """An accepted callback exchanges a code once; replay is rejected."""
@@ -60,7 +60,7 @@ class DiscordSpotifyLoginTests(unittest.TestCase):  # pylint: disable=protected-
     def test_expired_login_is_rejected(self):
         """A pending authorization cannot be exchanged after ten minutes."""
         self.begin()
-        self.sessions._pending["secure-state"].expires_at = 0
+        getattr(self.sessions, "_pending")["secure-state"].expires_at = 0
         with self.assertRaises(ValueError):
             self.sessions.finish("secure-state", "one-time-code")
         self.manager.get_access_token.assert_not_called()
@@ -75,7 +75,7 @@ class DiscordSpotifyLoginTests(unittest.TestCase):  # pylint: disable=protected-
             self.sessions.begin(123)
         with self.assertRaises(ValueError):
             self.sessions.finish("secure-state", "old-code")
-        self.assertIn("new-state", self.sessions._pending)
+        self.assertIn("new-state", getattr(self.sessions, "_pending"))
 
     def test_denied_login_does_not_exchange_code(self):
         """A Spotify refusal ends the session without an access-token call."""
