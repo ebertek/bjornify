@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
-from spotify_auth import make_auth_manager
+from spotify_auth import make_auth_manager, redirect_uri_from_environment
 
 _LOGGER = logging.getLogger(__name__)
 AUTH_TIMEOUT_SECONDS = 600
@@ -76,8 +76,6 @@ class SpotifyAuthorizations:
 
 def start_spotify_callback(authorizations):
     """Serve the exact HTTPS redirect path through an external TLS reverse proxy."""
-    from spotify_auth import redirect_uri_from_environment
-
     url = urlsplit(redirect_uri_from_environment())
     if url.scheme != "https":
         return None
@@ -90,7 +88,7 @@ def start_spotify_callback(authorizations):
     class CallbackHandler(BaseHTTPRequestHandler):
         """Read only Spotify's one-time callback query parameters."""
 
-        def log_message(self, format_string, *args):
+        def log_message(self, _format, *args):  # pylint: disable=arguments-differ
             # Access logs must never print authorization codes or state values.
             _LOGGER.debug(
                 "Spotify callback HTTP response %s", args[1] if len(args) > 1 else ""
