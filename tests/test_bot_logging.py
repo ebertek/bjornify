@@ -82,7 +82,10 @@ class BotLoggingTests(unittest.TestCase):
                 "discord.gateway",
                 "Shard ID None has successfully RESUMED session sample.",
             ),
-            ("discord.gateway", "Shard ID 0 has connected to Gateway (Session ID: sample)."),
+            (
+                "discord.gateway",
+                "Shard ID 0 has connected to Gateway (Session ID: sample).",
+            ),
         )
         for logger, message in messages:
             with self.subTest(logger=logger, message=message):

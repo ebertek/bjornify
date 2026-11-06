@@ -15,7 +15,7 @@ class WrapperLoggingTests(unittest.TestCase):
 
     def test_json_timestamp_includes_timezone_offset(self):
         """Shell and Python records both have parseable offset-aware timestamps."""
-        script = WRAPPER.read_text(encoding="utf-8").split('PID_FILE=', maxsplit=1)[0]
+        script = WRAPPER.read_text(encoding="utf-8").split("PID_FILE=", maxsplit=1)[0]
         script += "\nlog INFO 'Starting bjornify.py...'\n"
         result = subprocess.run(
             ["bash", "-c", script],

@@ -59,6 +59,7 @@ def suppress_unused_discord_voice_notices():
     ):
         client_logger.addFilter(UnusedDiscordVoiceNoticeFilter())
 
+
 # These are routine Discord library lifecycle messages, not app-level events.
 _ROUTINE_DISCORD_INFO = {
     "discord.client": ("logging in using static token",),
@@ -87,8 +88,7 @@ class RoutineDiscordInfoFilter(
             routine = message in _ROUTINE_DISCORD_INFO["discord.client"]
         elif record.name == "discord.gateway":
             routine = message.startswith("Shard ID ") and any(
-                phrase in message
-                for phrase in _ROUTINE_DISCORD_INFO["discord.gateway"]
+                phrase in message for phrase in _ROUTINE_DISCORD_INFO["discord.gateway"]
             )
         else:
             routine = False
@@ -106,7 +106,11 @@ def filter_routine_discord_info(*, debug_enabled=False):
     for name in ("discord.client", "discord.gateway"):
         logger = logging.getLogger(name)
         existing = next(
-            (item for item in logger.filters if isinstance(item, RoutineDiscordInfoFilter)),
+            (
+                item
+                for item in logger.filters
+                if isinstance(item, RoutineDiscordInfoFilter)
+            ),
             None,
         )
         if existing is not None:
