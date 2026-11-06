@@ -29,7 +29,9 @@ class SpotifyNotificationTests(unittest.TestCase):
     """Verify one-time Discord alerts without contacting Spotify or Discord."""
 
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
+        self.directory = (
+            tempfile.TemporaryDirectory()
+        )  # pylint: disable=consider-using-with
         self.addCleanup(self.directory.cleanup)
         self.marker = Path(self.directory.name) / "alert-sent"
         self.owner = MagicMock()
