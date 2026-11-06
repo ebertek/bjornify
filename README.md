@@ -64,7 +64,7 @@ services:
 ```shell
 SPOTIPY_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 SPOTIPY_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-SPOTIPY_REDIRECT_URI=http://127.0.0.1:3000
+SPOTIPY_REDIRECT_URI=https://spotify.example.com/spotify/callback
 DISCORD_BOT_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 CHANNEL_ID=xxxxxxxxxxxxxxxxxxx
 GUILD_ID=xxxxxxxxxxxxxxxxxxx
@@ -98,29 +98,29 @@ To get your own Spotify Client ID and secret, please create a new app using the 
 
 ### 🔑 Connect Spotify
 
-Spotify requires a Premium account for Development Mode apps. Add the account you
-want Björnify to control to your app's allowed users in the
-[Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
+Spotify Development Mode requires a Premium Spotify account authorized for
+your app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
 
-Once the container is running, connect that Spotify account:
+To connect or reconnect, use **`/spotify connect`** in Discord as the owner of
+the Discord bot. Click **Connect Spotify**, approve access, and Spotify will
+redirect to Björnify. The browser confirms when authorization is complete.
+Use **`/spotify status`** to check whether credentials are saved.
 
-```shell
-docker exec -it bjornify python /app/spotify_auth.py authorize
-```
+For automatic login, set **`SPOTIPY_REDIRECT_URI`** to an HTTPS callback, such
+as `https://spotify.example.com/spotify/callback`. Register the **exact same
+URL** in Spotify's Developer Dashboard. Route that HTTPS URL through your
+reverse proxy to Björnify's internal HTTP callback on port `8765`
+(`SPOTIFY_AUTH_CALLBACK_PORT` can override the port). The callback endpoint
+must be reachable by your browser, including on mobile.
 
-Open the displayed authorization link, approve access, and paste the **entire redirected URL** into the terminal (the input is hidden). The browser may show
-a connection error for `127.0.0.1`; copy the URL from the address bar anyway.
-The authorization is saved in the mounted `/app/secrets` volume.
+Spotify refresh tokens expire after six months, so you will occasionally need
+to use `/spotify connect` again. The connection link is private, valid for ten
+minutes, and can only be created by the Discord application owner.
 
-Spotify refresh tokens expire **six months after authorization**, even if access
-tokens have been refreshed. Run the same command again when Björnify reports
-that Spotify needs reconnecting. Do not post the redirected URL, authorization
-code, or token cache in Discord or issue reports.
-
-**Important:** If you previously configured
-`SPOTIPY_REDIRECT_URI=http://localhost:3000`, change it to
-`http://127.0.0.1:3000` in both your environment file and the Spotify
-Developer Dashboard. The URI must match exactly.
+If you cannot configure HTTPS yet, the existing owner-only terminal fallback
+is `docker exec -it bjornify python /app/spotify_auth.py authorize` with
+`http://127.0.0.1:3000` as the registered callback. Spotify no longer accepts
+`localhost` for this purpose.
 
 To get your own Discord token, please create a new application using the [Discord Developer Portal](https://discord.com/developers/applications). You will need the `bot` and the `applications.commands` scopes. Under _Bot permissions_, you will need to check `View Channels`, `Send Messages`, `Add Reactions`, `Read Message History`, and `Use External Emojis`.
 
