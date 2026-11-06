@@ -11,7 +11,7 @@ import os
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import requests
 from spotipy.exceptions import SpotifyException
@@ -97,8 +97,6 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
 
     def test_paused_playback_resumes_original_song_then_queues_next(self):
         """Keep the paused track and target device; never play the new URI now."""
-        from unittest.mock import call
-
         self.spotify.current_playback.return_value = {
             "is_playing": False,
             "item": {"uri": "spotify:track:original"},
@@ -125,8 +123,6 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
 
     def test_paused_playback_with_null_device_id_uses_active_session(self):
         """Spotify permits nullable device IDs; use its current active session."""
-        from unittest.mock import call
-
         self.spotify.current_playback.return_value = {
             "is_playing": False,
             "item": {"uri": "spotify:track:original"},
