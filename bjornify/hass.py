@@ -14,7 +14,11 @@ import sys
 
 import discord
 import requests
-from bot_logging import JsonFormatter, suppress_unused_discord_voice_notices
+from bot_logging import (
+    JsonFormatter,
+    filter_routine_discord_info,
+    suppress_unused_discord_voice_notices,
+)
 from discord.ext import commands
 
 try:
@@ -100,6 +104,8 @@ for lib in ("asyncio", "discord"):
 
 # These optional modules are irrelevant because neither bot uses voice.
 suppress_unused_discord_voice_notices()
+# Keep only unusual Discord events at INFO; routine login/connect events are DEBUG.
+filter_routine_discord_info(debug_enabled=LOG_LEVEL == "DEBUG")
 
 # Load environment variables
 DISCORD_BOT_TOKEN = os.getenv("HASS_DISCORD_BOT_TOKEN")
