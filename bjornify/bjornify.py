@@ -21,6 +21,7 @@ from spotify_auth import (
     make_auth_manager,
 )
 from spotipy.exceptions import SpotifyOauthError
+from spotify_discord_auth import SpotifyAuthorizations, start_spotify_callback
 
 try:
     from version import __version__
@@ -153,12 +154,15 @@ spotify = spotipy.Spotify(
 )
 
 
+spotify_authorizations = SpotifyAuthorizations()
+
 # Set up Discord
 class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
     """Custom bot class."""
 
     async def setup_hook(self):
-        """Sync slash commands to the guild."""
+        """Start the Spotify callback and sync slash commands to the guild."""
+        self.spotify_callback_server = start_spotify_callback(spotify_authorizations)
         guild_id_str = os.getenv("GUILD_ID")
         if guild_id_str:
             try:
