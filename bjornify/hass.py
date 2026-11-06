@@ -7,16 +7,15 @@
 #  https://www.reddit.com/r/homeassistant/comments/1fcjypt/discord_assist_via_conversation_api/
 
 import asyncio
-import json
 import logging
 import os
 import signal
 import sys
-from datetime import UTC, datetime
 
 import discord
 import requests
 from discord.ext import commands
+from bot_logging import JsonFormatter, suppress_unused_discord_voice_notices
 
 try:
     from version import __version__
@@ -51,27 +50,7 @@ os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 
 
 # Common formatters
-class JsonFormatter(logging.Formatter):
-    """Custom log formatter."""
-
-    def format(self, record: logging.LogRecord) -> str:
-        log = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=UTC)
-            .astimezone()
-            .isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-        }
-        if DEBUG_ENABLED:
-            log["module"] = record.module
-            log["func"] = record.funcName
-            log["line"] = str(record.lineno)
-
-        return json.dumps(log)
-
-
-json_formatter: logging.Formatter = JsonFormatter()
+json_formatter: logging.Formatter = JsonFormatter(debug_enabled=DEBUG_ENABLED)
 
 plain_formatter = logging.Formatter(
     "%(asctime)s.%(msecs)03d | %(levelname)-8s | hass     | %(name)-30s | %(message)s",
@@ -118,6 +97,9 @@ _LOGGER.propagate = True  # Let messages bubble up to root
 # Apply lib log level to third-party modules
 for lib in ("asyncio", "discord"):
     logging.getLogger(lib).setLevel(LIB_LOG_LEVEL)
+
+# These optional modules are irrelevant because neither bot uses voice.
+suppress_unused_discord_voice_notices()
 
 # Load environment variables
 DISCORD_BOT_TOKEN = os.getenv("HASS_DISCORD_BOT_TOKEN")
