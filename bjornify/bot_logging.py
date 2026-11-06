@@ -36,7 +36,9 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(event, ensure_ascii=False)
 
 
-class UnusedDiscordVoiceNoticeFilter(logging.Filter):  # pylint: disable=too-few-public-methods
+class UnusedDiscordVoiceNoticeFilter(
+    logging.Filter
+):  # pylint: disable=too-few-public-methods
     """Drop only missing optional voice dependencies, not other warnings."""
 
     def filter(self, record: logging.LogRecord) -> bool:

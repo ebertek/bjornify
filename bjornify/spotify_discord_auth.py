@@ -142,7 +142,9 @@ def start_spotify_callback(authorizations):
                 self._send_page(
                     400, "Spotify login failed or expired. Use /spotify connect again."
                 )
-            except Exception as exc:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+            except (
+                Exception
+            ) as exc:  # noqa: BLE001  # pylint: disable=broad-exception-caught
                 _LOGGER.error(
                     "Spotify OAuth token exchange failed (%s)", type(exc).__name__
                 )
