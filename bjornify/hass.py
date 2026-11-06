@@ -12,8 +12,7 @@ import logging
 import os
 import signal
 import sys
-from datetime import datetime
-from typing import List
+from datetime import UTC, datetime
 
 import discord
 import requests
@@ -57,7 +56,9 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         log = {
-            "timestamp": datetime.fromtimestamp(record.created).isoformat(),
+            "timestamp": datetime.fromtimestamp(record.created, tz=UTC)
+            .astimezone()
+            .isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -86,7 +87,7 @@ else:
     log_formatter = plain_formatter
 
 # Create and configure file handler
-LOG_HANDLERS: List[logging.Handler] = []
+LOG_HANDLERS: list[logging.Handler] = []
 
 if "file" in LOG_OUTPUT:
     file_handler = logging.FileHandler(LOG_PATH, mode="w", encoding="utf-8")
@@ -134,7 +135,7 @@ required_env_vars = [
 
 for var in required_env_vars:
     if not os.getenv(var):
-        raise EnvironmentError(f"Missing required environment variable: {var}")
+        raise OSError(f"Missing required environment variable: {var}")
 
 # Set up Bot
 intents = discord.Intents.default()

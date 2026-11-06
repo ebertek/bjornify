@@ -67,10 +67,12 @@ RUN chmod +x wrapper.sh && \
     chown -R appuser:appuser /app
 
 # Switch to the non-privileged user to run the application.
+# The named user is created earlier in this image; its UID is build-time configurable.
+# hadolint ignore=DL3066
 USER appuser
 
 # Healthcheck.
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD /app/wrapper.sh healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD ["/app/wrapper.sh", "healthcheck"]
 
 # Declare persistent volume for secrets.
 VOLUME ["/app/secrets"]
