@@ -1,0 +1,9 @@
+[package]
+name = "bjornify-connect-auth-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+librespot-core = "=0.8.0"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
