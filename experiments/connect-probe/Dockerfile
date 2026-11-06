@@ -2,7 +2,8 @@
 # This does not replace or start the Björnify Discord container.
 FROM rust:stable-slim-bookworm AS build
 
-# hadolint ignore=DL3008 (experimental image gets latest security updates)
+# Install the newest security-patched packages in this ephemeral test image.
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install --no-install-recommends -y \
     ca-certificates pkg-config libssl-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -13,7 +14,8 @@ COPY experiments/connect-probe/src/ ./src/
 RUN cargo build --release
 
 FROM debian:bookworm-slim
-# hadolint ignore=DL3008 (experimental image gets latest security updates)
+# Install the newest security-patched packages in this ephemeral test image.
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install --no-install-recommends -y \
     ca-certificates libssl3 \
     && rm -rf /var/lib/apt/lists/*
