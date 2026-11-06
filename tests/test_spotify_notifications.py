@@ -1,6 +1,7 @@
 """Regression tests for owner notifications when Spotify authorization expires."""
 
 import asyncio
+import importlib
 import os
 import sys
 import tempfile
@@ -16,15 +17,19 @@ from spotipy.exceptions import SpotifyOauthError
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bjornify"))
 
-from spotify_auth import SpotifyAuthorizationRequired
-from spotify_notifications import SpotifyAuthNotifier
+SpotifyAuthorizationRequired = importlib.import_module(
+    "spotify_auth"
+).SpotifyAuthorizationRequired
+SpotifyAuthNotifier = importlib.import_module(
+    "spotify_notifications"
+).SpotifyAuthNotifier
 
 
 class SpotifyNotificationTests(unittest.TestCase):
     """Verify one-time Discord alerts without contacting Spotify or Discord."""
 
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
+        self.directory = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
         self.addCleanup(self.directory.cleanup)
         self.marker = Path(self.directory.name) / "alert-sent"
         self.owner = MagicMock()
@@ -171,7 +176,8 @@ class SpotifyNotificationTests(unittest.TestCase):
                 notified.set()
 
             self.owner.send.side_effect = owner_send
-            self.notice._loop = asyncio.get_running_loop()
+            with patch.object(self.notice, "monitor", new=AsyncMock()):
+                self.notice.start()
             await asyncio.to_thread(self.notice.schedule_alert)
             await asyncio.wait_for(notified.wait(), timeout=2)
             await asyncio.sleep(0)
