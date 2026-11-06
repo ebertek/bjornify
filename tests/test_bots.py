@@ -318,8 +318,8 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
 
     def test_unauthorized_player_returns_reconnect_message(self):
         """Playback failures do not leak OAuth errors to Discord users."""
-        self.spotify.current_playback.side_effect = self.bjornify.SpotifyAuthorizationRequired(
-            "Token expired"
+        self.spotify.current_playback.side_effect = (
+            self.bjornify.SpotifyAuthorizationRequired("Token expired")
         )
         response = self.bjornify.player_pause_playback()
         self.assertIn("reconnected", response)

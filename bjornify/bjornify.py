@@ -313,7 +313,9 @@ def find_playing_speaker():
     return None
 
 
-def spotify_action_with_soco_fallback(spotify_action, soco_action, action_name):  # pylint: disable=too-many-return-statements
+def spotify_action_with_soco_fallback(
+    spotify_action, soco_action, action_name
+):  # pylint: disable=too-many-return-statements
     """Use Spotify first, then Sonos only for a known device restriction."""
     try:
         playback = spotify_request(spotify.current_playback)
