@@ -54,7 +54,9 @@ class SpotifyAuthorizations:
     def finish(self, state, code=None, *, owner_id=None, error=None):
         """Validate state, ownership and lifetime, then exchange the code once."""
         if not state:
-            raise ValueError("Missing Spotify OAuth state. Start /spotify connect again.")
+            raise ValueError(
+                "Missing Spotify OAuth state. Start /spotify connect again."
+            )
         with self._lock:
             pending = self._pending.get(state)
             if pending is None or pending.expires_at <= time.monotonic():
@@ -77,11 +79,11 @@ class SpotifyAuthorizations:
 
         actual = urlsplit(redirect_url.strip())
         expected = urlsplit(redirect_uri_from_environment())
-        if (
-            (actual.scheme, actual.netloc, actual.path or "/")
-            != (expected.scheme, expected.netloc, expected.path or "/")
-            or actual.fragment
-        ):
+        if (actual.scheme, actual.netloc, actual.path or "/") != (
+            expected.scheme,
+            expected.netloc,
+            expected.path or "/",
+        ) or actual.fragment:
             raise ValueError("The redirect URL does not match the configured callback.")
         fields = parse_qs(actual.query)
         state = fields.get("state", [None])[0]
@@ -108,7 +110,9 @@ def start_spotify_callback(authorizations):
 
         def log_message(self, format_string, *args):
             # Access logs must never print authorization codes or state values.
-            _LOGGER.debug("Spotify callback HTTP response %s", args[1] if len(args) > 1 else "")
+            _LOGGER.debug(
+                "Spotify callback HTTP response %s", args[1] if len(args) > 1 else ""
+            )
 
         def do_GET(self):  # pylint: disable=invalid-name
             """Handle a one-use OAuth callback without echoing the code."""
@@ -123,10 +127,14 @@ def start_spotify_callback(authorizations):
             try:
                 authorizations.finish(state, code, error=error)
             except (ValueError, PermissionError):
-                self._send_page(400, "Spotify login failed or expired. Use /spotify connect again.")
-            except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+                self._send_page(
+                    400, "Spotify login failed or expired. Use /spotify connect again."
+                )
+            except Exception:  # pylint: disable=broad-exception-caught
                 _LOGGER.exception("Spotify authorization exchange failed")
-                self._send_page(502, "Spotify authorization failed. Use /spotify connect again.")
+                self._send_page(
+                    502, "Spotify authorization failed. Use /spotify connect again."
+                )
             else:
                 self._send_page(200, "Spotify connected! Return to Discord.")
 
