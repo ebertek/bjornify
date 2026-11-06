@@ -332,6 +332,11 @@ def spotify_error_message(error):  # pylint: disable=too-many-return-statements
         if error.http_status == 401:
             return "Spotify authorization was rejected. Ask the bot owner to reconnect."
         if error.http_status == 403:
+            if is_sonos_device_restriction(error):
+                return (
+                    "Spotify cannot add to this restricted device's queue. "
+                    "The song was NOT queued; add it using the Spotify app."
+                )
             return (
                 "Spotify denied access (403). Check Premium, Development Mode "
                 "allowlisting and app permissions."
@@ -349,11 +354,11 @@ def spotify_error_message(error):  # pylint: disable=too-many-return-statements
 
 
 def is_sonos_device_restriction(error):
-    """Do not mistake Premium/allowlist failures for a device restriction."""
-    if error.http_status != 403:
-        return False
-    reason = f"{error.reason or ''} {error.msg or ''}".lower()
-    return "restricted device" in reason or "restriction violated" in reason
+    """Distinguish a device restriction from unrelated HTTP 403 errors."""
+    detail = f"{error.reason or ''} {error.msg or ''}".lower()
+    return error.http_status == 403 and (
+        "restricted device" in detail or "restriction violated" in detail
+    )
 
 
 def find_playing_speaker():
