@@ -27,3 +27,5 @@ jobs:
         run: cargo check --manifest-path experiments/connect-probe/Cargo.toml
       - name: Build deployable probe executable
         run: cargo build --release --manifest-path experiments/connect-probe/Cargo.toml
+      - name: Verify standalone Docker image builds
+        run: docker build --file experiments/connect-probe/Dockerfile --tag bjornify-connect-auth-probe:ci .
