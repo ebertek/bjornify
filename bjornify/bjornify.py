@@ -25,6 +25,7 @@ from spotify_auth import (
     make_auth_manager,
 )
 from spotify_discord_auth import SpotifyAuthorizations, start_spotify_callback
+from spotify_errors import is_sonos_device_restriction, spotify_forbidden_message
 from spotify_notifications import SpotifyAuthNotifier
 from spotipy.exceptions import SpotifyOauthError
 
@@ -332,15 +333,7 @@ def spotify_error_message(error):  # pylint: disable=too-many-return-statements
         if error.http_status == 401:
             return "Spotify authorization was rejected. Ask the bot owner to reconnect."
         if error.http_status == 403:
-            if is_sonos_device_restriction(error):
-                return (
-                    "Spotify cannot add to this restricted device's queue. "
-                    "The song was NOT queued; add it using the Spotify app."
-                )
-            return (
-                "Spotify denied access (403). Check Premium, Development Mode "
-                "allowlisting and app permissions."
-            )
+            return spotify_forbidden_message(error)
         if error.http_status == 429:
             if error.reason == "QUOTA_EXCEEDED":
                 return "Spotify Development Mode API quota exceeded. Try again later."
@@ -351,14 +344,6 @@ def spotify_error_message(error):  # pylint: disable=too-many-return-statements
 
     _LOGGER.error("Spotify request failed: %s", type(error).__name__)
     return "Spotify is unavailable. Try again later."
-
-
-def is_sonos_device_restriction(error):
-    """Distinguish a device restriction from unrelated HTTP 403 errors."""
-    detail = f"{error.reason or ''} {error.msg or ''}".lower()
-    return error.http_status == 403 and (
-        "restricted device" in detail or "restriction violated" in detail
-    )
 
 
 def find_playing_speaker():
