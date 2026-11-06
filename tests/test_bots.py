@@ -95,6 +95,93 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         self.spotify.add_to_queue.assert_called_once_with("spotify:track:123")
         self.spotify.start_playback.assert_not_called()
 
+    def test_paused_playback_resumes_original_song_then_queues_next(self):
+        """Keep the paused track and target device; never play the new URI now."""
+        from unittest.mock import call
+
+        self.spotify.current_playback.return_value = {
+            "is_playing": False,
+            "item": {"uri": "spotify:track:original"},
+            "device": {"id": "paused-sonos", "name": "Living room"},
+        }
+
+        result = self.bjornify.player_add_track(
+            "spotify:track:requested", "Artist", "Requested song"
+        )
+
+        self.assertEqual(
+            result,
+            "Queued: Artist - Requested song (resumed paused playback)",
+        )
+        self.assertEqual(
+            self.spotify.mock_calls,
+            [
+                call.current_playback(),
+                call.start_playback(device_id="paused-sonos"),
+                call.add_to_queue("spotify:track:requested"),
+            ],
+        )
+        self.spotify.devices.assert_not_called()
+
+    def test_paused_playback_with_null_device_id_uses_active_session(self):
+        """Spotify permits nullable device IDs; use its current active session."""
+        from unittest.mock import call
+
+        self.spotify.current_playback.return_value = {
+            "is_playing": False,
+            "item": {"uri": "spotify:track:original"},
+            "device": {"id": None, "name": "CarPlay"},
+        }
+
+        result = self.bjornify.player_add_track("spotify:track:requested")
+
+        self.assertEqual(
+            result,
+            "Queued: spotify:track:requested (resumed paused playback)",
+        )
+        self.assertEqual(
+            self.spotify.mock_calls,
+            [
+                call.current_playback(),
+                call.start_playback(),
+                call.add_to_queue("spotify:track:requested"),
+            ],
+        )
+        self.spotify.devices.assert_not_called()
+
+    def test_paused_playback_resume_failure_does_not_queue_or_switch(self):
+        """Restricted devices fail explicitly without queueing or switching."""
+        self.spotify.current_playback.return_value = {
+            "is_playing": False,
+            "device": {"id": "restricted"},
+        }
+        self.spotify.start_playback.side_effect = SpotifyException(
+            403, -1, "Restricted device"
+        )
+
+        result = self.bjornify.player_add_track("spotify:track:requested")
+
+        self.assertIn("Spotify denied access (403)", result)
+        self.spotify.add_to_queue.assert_not_called()
+        self.spotify.devices.assert_not_called()
+        self.spotify.start_playback.assert_called_once_with(device_id="restricted")
+
+    def test_paused_playback_queue_failure_is_not_claimed_as_success(self):
+        """A successful resume must not hide a subsequent queue failure."""
+        self.spotify.current_playback.return_value = {
+            "is_playing": False,
+            "device": {"id": "speaker"},
+        }
+        self.spotify.add_to_queue.side_effect = SpotifyException(
+            429, -1, "Rate limited", headers={"Retry-After": "5"}
+        )
+
+        result = self.bjornify.player_add_track("spotify:track:requested")
+
+        self.assertIn("rate-limited", result)
+        self.assertNotIn("Queued:", result)
+        self.spotify.start_playback.assert_called_once_with(device_id="speaker")
+
     def test_start_playback_on_preferred_device(self):
         """The configured device wins when there is no current playback."""
         self.spotify.current_playback.return_value = None
