@@ -18,7 +18,7 @@ docker build -t bjornify-connect-auth-probe \
   -f experiments/connect-probe/Dockerfile .
 ```
 
-This builds a standalone read-only command. The running Björnify container stays untouched.
+This builds a standalone read-only command. Björnify stays running; the only change inside its container is a temporary helper file and an isolated token cache, both removable afterward.
 
 ### 2. Copy the temporary OAuth helper
 
