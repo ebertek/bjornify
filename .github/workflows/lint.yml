@@ -40,10 +40,10 @@ jobs:
 
       - name: Apply safe Ruff fixes
         # Match the additional Ruff rule families enforced by Super-Linter v9.
-        run: ruff check --fix-only --extend-select UP,TRY,BLE,DTZ,EXE bjornify scripts
+        run: ruff check --fix-only --extend-select UP,TRY,BLE,DTZ,EXE,I bjornify scripts tests
 
       - name: Format with Black
-        run: black --quiet bjornify scripts
+        run: black --quiet bjornify scripts tests
 
       - name: Commit and push Python fixes
         env:
