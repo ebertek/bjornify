@@ -385,7 +385,9 @@ async def pause_track(ctx):
     """Pause the current Spotify playback."""
     _LOGGER.debug("!pause command by %s", ctx.author.name)
     response = await bot.loop.run_in_executor(None, player_pause_playback)
-    await ctx.message.add_reaction(response)
+    await ctx.message.add_reaction("✅" if response == "✅" else "❌")
+    if response != "✅":
+        await ctx.send(f"❌ {response}")
 
 
 @bot.command(name="next", aliases=["skip"])
@@ -393,7 +395,9 @@ async def skip_track(ctx):
     """Skip to the next Spotify track."""
     _LOGGER.debug("!next command by %s", ctx.author.name)
     response = await bot.loop.run_in_executor(None, player_skip_to_next)
-    await ctx.message.add_reaction(response)
+    await ctx.message.add_reaction("✅" if response == "✅" else "❌")
+    if response != "✅":
+        await ctx.send(f"❌ {response}")
 
 
 @bot.command(name="np", help="Show the currently playing track")
@@ -430,10 +434,10 @@ def player_add_track(
 
     try:
         # GET /me/player
-        playback_results = spotify.current_playback()
+        playback_results = spotify_request(spotify.current_playback)
         if playback_results is not None:
             # POST /me/player/queue
-            spotify.add_to_queue(uri)
+            spotify_request(spotify.add_to_queue, uri)
             if artist and name:
                 _LOGGER.info("Queued: %s - %s", artist, name)
                 return f"Queued: {artist} - {name}"
@@ -441,7 +445,7 @@ def player_add_track(
             return f"Queued: {uri}"
 
         # GET /me/player/devices
-        devices = spotify.devices()
+        devices = spotify_request(spotify.devices)
         device_id = None
         for device in devices["devices"]:
             _LOGGER.debug("Found device: %s", device["name"])
@@ -454,7 +458,7 @@ def player_add_track(
         if device_id:
             _LOGGER.debug("device_id: %s", device_id)
             # PUT /me/player/play
-            spotify.start_playback(device_id=device_id, uris=[uri])
+            spotify_request(spotify.start_playback, device_id=device_id, uris=[uri])
             if artist and name:
                 _LOGGER.info("Started playback: %s - %s", artist, name)
                 return f"Started playback: {artist} - {name}"
@@ -462,9 +466,8 @@ def player_add_track(
             return f"Started playback: {uri}"
         _LOGGER.warning("No available devices to start playback")
         return "No available devices to start playback."
-    except spotipy.exceptions.SpotifyException:
-        _LOGGER.exception("Spotify error during add to queue")
-        return "Failed to add track to queue."
+    except (spotipy.exceptions.SpotifyException, SpotifyOauthError, SpotifyAuthorizationRequired) as error:
+        return spotify_error_message(error)
     except Exception:  # pylint: disable=broad-exception-caught
         _LOGGER.exception("Unexpected error during add to queue")
         return "Failed to add track to queue."
@@ -474,7 +477,7 @@ def player_add_item_to_playback_queue(query):
     """Add the track to the playback queue if there are any search results"""
     try:
         # Get the top result for the query: GET tracks.items[0].uri
-        search_results = spotify.search(q=query, limit=1, type="track")
+        search_results = spotify_request(spotify.search, q=query, limit=1, type="track")
         search_items = search_results["tracks"]["items"]
 
         if len(search_items) > 0:
@@ -486,9 +489,8 @@ def player_add_item_to_playback_queue(query):
 
         _LOGGER.debug("No search results")
         return "No search results."
-    except spotipy.exceptions.SpotifyException:
-        _LOGGER.exception("Spotify error during add to queue")
-        return "Failed to add track to queue."
+    except (spotipy.exceptions.SpotifyException, SpotifyOauthError, SpotifyAuthorizationRequired) as error:
+        return spotify_error_message(error)
     except Exception:  # pylint: disable=broad-exception-caught
         _LOGGER.exception("Unexpected error during add to queue")
         return "Failed to add track to queue."
@@ -515,9 +517,10 @@ def player_pause_playback():
 def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statements
     """Try to get now playing info from Spotify, fall back to SoCo."""
     _LOGGER.debug("Checking Spotify current playback...")
+    spotify_problem = None
     # Try Spotify first
     try:
-        playback = spotify.current_playback()
+        playback = spotify_request(spotify.current_playback)
         if playback is None:
             _LOGGER.debug("Spotify returned no playback (None)")
             raise ValueError("No active Spotify playback")
@@ -572,8 +575,10 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statem
         return embed
 
     # Best-effort Spotify lookup: fall back to Sonos on any API or payload error.
-    except Exception as e:  # noqa: BLE001  # pylint: disable=broad-exception-caught
-        _LOGGER.debug("Spotify now playing lookup failed: %s", e)
+    except (SpotifyOauthError, SpotifyAuthorizationRequired, spotipy.exceptions.SpotifyException) as error:
+        spotify_problem = spotify_error_message(error)
+    except Exception as error:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+        _LOGGER.debug("Spotify now playing lookup failed: %s", type(error).__name__)
 
     # Try SoCo fallback
     _LOGGER.debug("Trying Sonos fallback...")
@@ -621,6 +626,9 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statem
     except Exception as e:  # noqa: BLE001  # pylint: disable=broad-exception-caught
         _LOGGER.debug("SoCo now playing fallback failed: %s", e)
 
+    if spotify_problem:
+        return discord.Embed(description=f"❌ {spotify_problem}")
+
     return None
 
 
@@ -630,8 +638,9 @@ async def autocomplete_tracks(_: discord.Interaction, current: str):
         return []
 
     try:
-        results = spotify.search(q=current, limit=5, type="track")
-    except spotipy.exceptions.SpotifyException:
+        results = spotify_request(spotify.search, q=current, limit=5, type="track")
+    except (spotipy.exceptions.SpotifyException, SpotifyOauthError, SpotifyAuthorizationRequired) as error:
+        spotify_error_message(error)
         return []
 
     tracks = results.get("tracks", {}).get("items", [])
@@ -666,21 +675,22 @@ async def add_slash(interaction: discord.Interaction, query: str):
     # If input is already a URI, queue directly
     if query.startswith("spotify:track:"):
         try:
-            track = spotify.track(query)
+            track = spotify_request(spotify.track, query)
             title = track["name"]
             artist = ", ".join(a["name"] for a in track["artists"])
-            player_add_track(query, artist, title)
+            result = player_add_track(query, artist, title)
+            if result.startswith(("Queued:", "Started playback:")):
+                await interaction.response.send_message(f"✅ {result}", delete_after=10)
+            else:
+                await interaction.response.send_message(f"❌ {result}", ephemeral=True)
+        except (spotipy.exceptions.SpotifyException, SpotifyOauthError, SpotifyAuthorizationRequired) as error:
             await interaction.response.send_message(
-                f"✅ Queued: {artist} – {title}", delete_after=10
-            )
-        except spotipy.exceptions.SpotifyException as e:
-            await interaction.response.send_message(
-                f"❌ Failed to add track: {e}", ephemeral=True
+                f"❌ {spotify_error_message(error)}", ephemeral=True
             )
         return
 
     try:
-        results = spotify.search(q=query, limit=5, type="track")
+        results = spotify_request(spotify.search, q=query, limit=5, type="track")
         tracks = results.get("tracks", {}).get("items", [])
 
         if not tracks:
@@ -716,10 +726,15 @@ async def add_slash(interaction: discord.Interaction, query: str):
                 """Disable menu and queue selected track."""
                 uri = self.values[0]
                 try:
-                    track = spotify.track(uri)
+                    track = spotify_request(spotify.track, uri)
                     title = track["name"]
                     artist = ", ".join(a["name"] for a in track["artists"])
-                    player_add_track(uri, artist, title)
+                    result = player_add_track(uri, artist, title)
+                    if not result.startswith(("Queued:", "Started playback:")):
+                        await interaction_dropdown.response.send_message(
+                            f"❌ {result}", ephemeral=True
+                        )
+                        return
 
                     self.disabled = (  # pylint: disable=attribute-defined-outside-init
                         True
@@ -727,12 +742,12 @@ async def add_slash(interaction: discord.Interaction, query: str):
                     await interaction_dropdown.message.edit(view=self.parent_view)
 
                     await interaction_dropdown.response.send_message(
-                        f"✅ Queued: {artist} – {title}", delete_after=10
+                        f"✅ {result}", delete_after=10
                     )
                     await interaction_dropdown.message.delete(delay=10)
-                except spotipy.exceptions.SpotifyException as e:
+                except (spotipy.exceptions.SpotifyException, SpotifyOauthError, SpotifyAuthorizationRequired) as error:
                     await interaction_dropdown.response.send_message(
-                        f"❌ Failed to add track: {e}", delete_after=10
+                        f"❌ {spotify_error_message(error)}", ephemeral=True
                     )
 
         class FallbackDropdownView(
@@ -751,10 +766,9 @@ async def add_slash(interaction: discord.Interaction, query: str):
         await interaction.response.send_message("Select a track:", view=view)
         view.message = await interaction.original_response()
 
-    except spotipy.exceptions.SpotifyException as e:
-        _LOGGER.exception("Spotify error in /add")
+    except (spotipy.exceptions.SpotifyException, SpotifyOauthError, SpotifyAuthorizationRequired) as error:
         await interaction.response.send_message(
-            f"❌ Failed to add track: {e}", ephemeral=True
+            f"❌ {spotify_error_message(error)}", ephemeral=True
         )
 
 
@@ -764,7 +778,8 @@ async def pause_slash(interaction: discord.Interaction):
     _LOGGER.debug("/pause command by %s", interaction.user.name)
     response = await bot.loop.run_in_executor(None, player_pause_playback)
     await interaction.response.send_message(
-        f"{response} Paused playback.", ephemeral=True
+        "✅ Paused playback." if response == "✅" else f"❌ {response}",
+        ephemeral=True,
     )
 
 
@@ -774,7 +789,8 @@ async def next_slash(interaction: discord.Interaction):
     _LOGGER.debug("/next command by %s", interaction.user.name)
     response = await bot.loop.run_in_executor(None, player_skip_to_next)
     await interaction.response.send_message(
-        f"{response} Skipped to next track.", ephemeral=True
+        "✅ Skipped to next track." if response == "✅" else f"❌ {response}",
+        ephemeral=True,
     )
 
 
