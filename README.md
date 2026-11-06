@@ -157,8 +157,8 @@ To run the same fixes locally:
 
 ```shell
 python -m pip install -r requirements-lint.txt
-ruff check --fix-only bjornify scripts
-black bjornify scripts
+ruff check --fix-only --extend-select UP,TRY,BLE,DTZ,EXE,I bjornify scripts tests
+black bjornify scripts tests
 ```
 
 The formatter versions are pinned to those bundled with Super-Linter to avoid
