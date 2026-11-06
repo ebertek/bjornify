@@ -5,9 +5,7 @@ use std::env;
 use std::io::{self, IsTerminal, Read};
 use std::time::Duration;
 
-use librespot_core::{
-    authentication::Credentials, config::SessionConfig, session::Session,
-};
+use librespot_core::{authentication::Credentials, config::SessionConfig, session::Session};
 
 #[tokio::main]
 async fn main() {
@@ -33,16 +31,13 @@ async fn main() {
     config.client_id = client_id;
     let session = Session::new(config, None);
     let credentials = Credentials::with_access_token(token.trim());
-    let result = tokio::time::timeout(
-        Duration::from_secs(20),
-        session.connect(credentials, false),
-    )
-    .await;
+    let result =
+        tokio::time::timeout(Duration::from_secs(20), session.connect(credentials, false)).await;
 
     match result {
-        Ok(Ok(())) => println!(
-            "PASS: Spotify accepted a librespot session; no playback actions were sent."
-        ),
+        Ok(Ok(())) => {
+            println!("PASS: Spotify accepted a librespot session; no playback actions were sent.")
+        }
         Ok(Err(_)) => {
             eprintln!("FAIL: Spotify rejected this OAuth grant for Connect session login.");
             std::process::exit(1);
