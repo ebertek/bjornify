@@ -4,16 +4,15 @@
 # pylint: disable=duplicate-code
 
 import asyncio
-import json
 import logging
 import os
 import signal
 import sys
-from datetime import UTC, datetime
 
 import discord
 import soco
 import spotipy
+from bot_logging import JsonFormatter, suppress_unused_discord_voice_notices
 from discord import app_commands
 from discord.ext import commands
 from spotify_auth import (
@@ -56,27 +55,7 @@ os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 
 
 # Common formatters
-class JsonFormatter(logging.Formatter):
-    """Custom log formatter."""
-
-    def format(self, record: logging.LogRecord) -> str:
-        log = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=UTC)
-            .astimezone()
-            .isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-        }
-        if DEBUG_ENABLED:
-            log["module"] = record.module
-            log["func"] = record.funcName
-            log["line"] = str(record.lineno)
-
-        return json.dumps(log)
-
-
-json_formatter: logging.Formatter = JsonFormatter()
+json_formatter: logging.Formatter = JsonFormatter(debug_enabled=DEBUG_ENABLED)
 
 plain_formatter = logging.Formatter(
     "%(asctime)s.%(msecs)03d | %(levelname)-8s | bjornify | %(name)-30s | %(message)s",
@@ -123,6 +102,9 @@ _LOGGER.propagate = True  # Let messages bubble up to root
 # Apply lib log level to third-party modules
 for lib in ("asyncio", "discord", "soco", "spotipy", "urllib3"):
     logging.getLogger(lib).setLevel(LIB_LOG_LEVEL)
+
+# These optional modules are irrelevant because neither bot uses voice.
+suppress_unused_discord_voice_notices()
 
 # Validate that all required environmental variables are set
 required_env_vars = [
@@ -219,8 +201,32 @@ async def spotify_connect(interaction):
         )
         return
 
+    loop = asyncio.get_running_loop()
+
+    def on_complete(connected):
+        """Update the original private Discord message from the HTTP thread."""
+        content = (
+            "✅ Spotify connected! You can now use Björnify."
+            if connected
+            else "❌ Spotify authorization failed. Use /spotify connect to retry."
+        )
+        future = asyncio.run_coroutine_threadsafe(
+            interaction.edit_original_response(content=content, view=None),
+            loop,
+        )
+
+        def report_edit_result(done):
+            try:
+                done.result()
+            except Exception:  # pylint: disable=broad-exception-caught
+                _LOGGER.exception("Could not update private Spotify connect message")
+
+        future.add_done_callback(report_edit_result)
+
     try:
-        authorize_url = spotify_authorizations.begin(interaction.user.id)
+        authorize_url = spotify_authorizations.begin(
+            interaction.user.id, on_complete=on_complete
+        )
     except (OSError, ValueError):
         _LOGGER.exception("Unable to start Spotify connection")
         await interaction.response.send_message(

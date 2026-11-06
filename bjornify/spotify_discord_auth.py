@@ -10,6 +10,7 @@ import os
 import secrets
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
@@ -27,6 +28,7 @@ class PendingAuthorization:
     owner_id: int
     manager: object
     expires_at: float
+    on_complete: Callable[[bool], None] | None = None
 
 
 class SpotifyAuthorizations:
@@ -36,8 +38,8 @@ class SpotifyAuthorizations:
         self._pending = {}
         self._lock = threading.Lock()
 
-    def begin(self, owner_id):
-        """Create an authorization URL with an unpredictable, single-use state."""
+    def begin(self, owner_id, on_complete=None):
+        """Create an owner-bound login URL with optional Discord completion notice."""
         state = secrets.token_urlsafe(32)
         manager = make_auth_manager(state=state)
         with self._lock:
@@ -47,7 +49,7 @@ class SpotifyAuthorizations:
                 if value.owner_id != owner_id and value.expires_at > time.monotonic()
             }
             self._pending[state] = PendingAuthorization(
-                owner_id, manager, time.monotonic() + AUTH_TIMEOUT_SECONDS
+                owner_id, manager, time.monotonic() + AUTH_TIMEOUT_SECONDS, on_complete
             )
         return manager.get_authorize_url()
 
@@ -67,11 +69,29 @@ class SpotifyAuthorizations:
             # Consume before exchange so callbacks cannot race or replay.
             del self._pending[state]
 
-        if error:
-            raise ValueError("Spotify login was cancelled or refused. Try again.")
-        if not code:
-            raise ValueError("Spotify did not supply an authorization code.")
-        pending.manager.get_access_token(code=code, check_cache=False, as_dict=False)
+        try:
+            if error:
+                raise ValueError("Spotify login was cancelled or refused. Try again.")
+            if not code:
+                raise ValueError("Spotify did not supply an authorization code.")
+            pending.manager.get_access_token(
+                code=code, check_cache=False, as_dict=False
+            )
+        except Exception:
+            self._notify(pending, success=False)
+            raise
+
+        self._notify(pending, success=True)
+
+    @staticmethod
+    def _notify(pending, *, success):
+        """Notify Discord without affecting an already-completed OAuth exchange."""
+        if pending.on_complete is None:
+            return
+        try:
+            pending.on_complete(success)
+        except Exception:  # pylint: disable=broad-exception-caught
+            _LOGGER.exception("Failed to dispatch Spotify authorization status")
 
 
 def start_spotify_callback(authorizations):
@@ -102,6 +122,9 @@ def start_spotify_callback(authorizations):
                 return
             params = parse_qs(parsed.query)
             if len(params.get("state", [])) != 1:
+                _LOGGER.warning(
+                    "Spotify OAuth callback rejected: missing or ambiguous state"
+                )
                 self._send_page(
                     400, "Invalid Spotify login. Use /spotify connect again."
                 )
@@ -112,15 +135,23 @@ def start_spotify_callback(authorizations):
             try:
                 authorizations.finish(state, code, error=error)
             except (ValueError, PermissionError):
+                # Avoid logging one-time codes, OAuth states, or redirect URLs.
+                _LOGGER.warning(
+                    "Spotify OAuth callback rejected: denied, expired or invalid request"
+                )
                 self._send_page(
                     400, "Spotify login failed or expired. Use /spotify connect again."
                 )
-            except Exception:  # pylint: disable=broad-exception-caught
-                _LOGGER.exception("Spotify authorization exchange failed")
+            # pylint: disable=broad-exception-caught
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.error(
+                    "Spotify OAuth token exchange failed (%s)", type(exc).__name__
+                )
                 self._send_page(
                     502, "Spotify authorization failed. Use /spotify connect again."
                 )
             else:
+                _LOGGER.info("Spotify OAuth authorization completed successfully")
                 self._send_page(200, "Spotify connected! Return to Discord.")
 
         def _send_page(self, status, message):
