@@ -543,17 +543,14 @@ def player_add_track(
         if playback_results is not None:
             was_paused = playback_results.get("is_playing") is False
             if was_paused:
-                # Resume the existing song on the existing Spotify device.
-                # Do not pass a track URI or new context: that would replace
-                # the paused song rather than preserve it for the listener.
+                # No new URI/context: keep the paused song on this device.
                 device = playback_results.get("device") or {}
                 device_id = device.get("id")
                 resume_kwargs = {"device_id": device_id} if device_id else {}
                 spotify_request(spotify.start_playback, **resume_kwargs)
                 _LOGGER.info("Resumed paused Spotify playback on its current device")
 
-            # Queue only after the resume request. Spotify's queue API uses
-            # the active device and does not create a new playback context.
+            # Queue on the same active session after requesting resume.
             spotify_request(spotify.add_to_queue, uri)
             queued = f"{artist} - {name}" if artist and name else uri
             _LOGGER.info("Queued: %s", queued)
