@@ -73,23 +73,6 @@ class SpotifyAuthorizations:
             raise ValueError("Spotify did not supply an authorization code.")
         pending.manager.get_access_token(code=code, check_cache=False, as_dict=False)
 
-    def finish_redirect(self, owner_id, redirect_url):
-        """Complete a copy/pasted redirect from the owner's private Discord modal."""
-        from spotify_auth import redirect_uri_from_environment
-
-        actual = urlsplit(redirect_url.strip())
-        expected = urlsplit(redirect_uri_from_environment())
-        if (actual.scheme, actual.netloc, actual.path or "/") != (
-            expected.scheme,
-            expected.netloc,
-            expected.path or "/",
-        ) or actual.fragment:
-            raise ValueError("The redirect URL does not match the configured callback.")
-        fields = parse_qs(actual.query)
-        state = fields.get("state", [None])[0]
-        code = fields.get("code", [None])[0]
-        error = fields.get("error", [None])[0]
-        self.finish(state, code, owner_id=owner_id, error=error)
 
 
 def start_spotify_callback(authorizations):
@@ -121,7 +104,10 @@ def start_spotify_callback(authorizations):
                 self._send_page(404, "Unknown callback.")
                 return
             params = parse_qs(parsed.query)
-            state = params.get("state", [None])[0]
+            if len(params.get("state", [])) != 1:
+                self._send_page(400, "Invalid Spotify login. Use /spotify connect again.")
+                return
+            state = params["state"][0]
             code = params.get("code", [None])[0]
             error = params.get("error", [None])[0]
             try:
