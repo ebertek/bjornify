@@ -3,11 +3,11 @@
 import asyncio
 import http.client
 import importlib
-from importlib.util import module_from_spec, spec_from_file_location
 import os
 import sys
 import unittest
 from http.server import ThreadingHTTPServer
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
