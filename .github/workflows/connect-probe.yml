@@ -25,6 +25,8 @@ jobs:
         run: cargo fmt --manifest-path experiments/connect-probe/Cargo.toml --all -- --check
       - name: Check read-only Connect probe compiles
         run: cargo check --manifest-path experiments/connect-probe/Cargo.toml
+      - name: Test guarded Connect command and URI validation
+        run: cargo test --manifest-path experiments/connect-probe/Cargo.toml
       - name: Build deployable probe executable
         run: cargo build --release --manifest-path experiments/connect-probe/Cargo.toml
       - name: Verify standalone Docker image builds
