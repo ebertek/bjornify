@@ -122,6 +122,7 @@ def start_spotify_callback(authorizations):
                 return
             params = parse_qs(parsed.query)
             if len(params.get("state", [])) != 1:
+                _LOGGER.warning("Spotify OAuth callback rejected: missing or ambiguous state")
                 self._send_page(
                     400, "Invalid Spotify login. Use /spotify connect again."
                 )
@@ -132,15 +133,22 @@ def start_spotify_callback(authorizations):
             try:
                 authorizations.finish(state, code, error=error)
             except (ValueError, PermissionError):
+                # Avoid logging one-time codes, OAuth states, or redirect URLs.
+                _LOGGER.warning(
+                    "Spotify OAuth callback rejected: denied, expired or invalid request"
+                )
                 self._send_page(
                     400, "Spotify login failed or expired. Use /spotify connect again."
                 )
-            except Exception:  # pylint: disable=broad-exception-caught
-                _LOGGER.exception("Spotify authorization exchange failed")
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                _LOGGER.error(
+                    "Spotify OAuth token exchange failed (%s)", type(exc).__name__
+                )
                 self._send_page(
                     502, "Spotify authorization failed. Use /spotify connect again."
                 )
             else:
+                _LOGGER.info("Spotify OAuth authorization completed successfully")
                 self._send_page(200, "Spotify connected! Return to Discord.")
 
         def _send_page(self, status, message):
