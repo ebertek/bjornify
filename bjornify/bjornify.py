@@ -24,6 +24,7 @@ from spotify_auth import (
     SpotifyAuthorizationRequired,
     make_auth_manager,
 )
+from spotify_devices import select_fallback_device
 from spotify_discord_auth import SpotifyAuthorizations, start_spotify_callback
 from spotify_notifications import SpotifyAuthNotifier
 from spotipy.exceptions import SpotifyOauthError
@@ -566,17 +567,10 @@ def player_add_track(
 
         # GET /me/player/devices
         devices = spotify_request(spotify.devices)
-        device_id = None
-        for device in devices["devices"]:
-            _LOGGER.debug("Found device: %s", device["name"])
-            if device["name"] == DEFAULT_DEVICE:
-                device_id = device["id"]
-                break
-        # Fall back to the first device found
-        if device_id is None and devices["devices"]:
-            device_id = devices["devices"][0]["id"]
-        if device_id:
-            _LOGGER.debug("device_id: %s", device_id)
+        target = select_fallback_device(devices, DEFAULT_DEVICE)
+        if target:
+            device_id = target["id"]
+            _LOGGER.info("Starting on Spotify device: %s", target.get("name"))
             # PUT /me/player/play
             spotify_request(spotify.start_playback, device_id=device_id, uris=[uri])
             if artist and name:

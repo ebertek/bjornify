@@ -209,6 +209,59 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
             device_id="first", uris=["spotify:track:123"]
         )
 
+    def test_skip_restricted_preferred_then_use_eligible_fallback(self):
+        """A restricted DEFAULT_DEVICE must not block another usable device."""
+        self.spotify.current_playback.return_value = None
+        self.spotify.devices.return_value = {
+            "devices": [
+                {
+                    "name": "Everywhere",
+                    "id": "blocked",
+                    "is_restricted": True,
+                },
+                {"name": "Living Room", "id": "sonos", "is_restricted": False},
+            ]
+        }
+
+        result = self.bjornify.player_add_track("spotify:track:123")
+
+        self.assertEqual(result, "Started playback: spotify:track:123")
+        self.spotify.start_playback.assert_called_once_with(
+            device_id="sonos", uris=["spotify:track:123"]
+        )
+
+    def test_skip_unidentified_first_fallback_device(self):
+        """An absent device ID is never a valid playback target."""
+        self.spotify.current_playback.return_value = None
+        self.spotify.devices.return_value = {
+            "devices": [
+                {"name": "Everywhere", "id": None},
+                {"name": "Echo", "id": "echo"},
+            ]
+        }
+
+        self.bjornify.player_add_track("spotify:track:123")
+
+        self.spotify.start_playback.assert_called_once_with(
+            device_id="echo", uris=["spotify:track:123"]
+        )
+
+    def test_all_fallback_devices_restricted_or_unidentified(self):
+        """Never claim success when Spotify lists only unusable devices."""
+        self.spotify.current_playback.return_value = None
+        self.spotify.devices.return_value = {
+            "devices": [
+                {"name": "Everywhere", "id": "blocked", "is_restricted": True},
+                {"name": "CarPlay", "id": None},
+            ]
+        }
+
+        self.assertEqual(
+            self.bjornify.player_add_track("spotify:track:123"),
+            "No available devices to start playback.",
+        )
+        self.spotify.start_playback.assert_not_called()
+
     def test_no_playback_device_returns_a_helpful_response(self):
         """An empty Spotify device list must not attempt playback."""
         self.spotify.current_playback.return_value = None
