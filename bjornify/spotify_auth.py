@@ -52,19 +52,21 @@ def redirect_uri_from_environment():
     """Validate the browser redirect using Spotify's current URI policy."""
     uri = os.getenv("SPOTIPY_REDIRECT_URI", DEFAULT_REDIRECT_URI)
     parsed = urlsplit(uri)
+    has_invalid_parts = (
+        parsed.username is not None
+        or parsed.password is not None
+        or bool(parsed.query)
+        or bool(parsed.fragment)
+    )
+    is_loopback_http = parsed.scheme == "http" and parsed.hostname in {
+        "127.0.0.1",
+        "::1",
+    }
     if (
         parsed.hostname == "localhost"
-        or parsed.username is not None
-        or parsed.password is not None
-        or parsed.query
-        or parsed.fragment
         or not parsed.netloc
-        or (
-            parsed.scheme != "https"
-            and not (
-                parsed.scheme == "http" and parsed.hostname in {"127.0.0.1", "::1"}
-            )
-        )
+        or has_invalid_parts
+        or not (parsed.scheme == "https" or is_loopback_http)
     ):
         raise ValueError(
             "Invalid SPOTIPY_REDIRECT_URI. Register a matching HTTPS URL or "
