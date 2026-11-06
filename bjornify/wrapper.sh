@@ -48,7 +48,7 @@ log() {
 
 	if [ "$LOG_FORMAT" = "json" ]; then
 		local ts
-		ts=$(date +"%Y-%m-%dT%H:%M:%S.%6N")
+		ts=$(date +"%Y-%m-%dT%H:%M:%S.%6N%:z")
 
 		local esc_msg
 		esc_msg=$(json_escape "$msg")
