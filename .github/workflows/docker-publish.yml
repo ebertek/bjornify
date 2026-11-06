@@ -81,11 +81,11 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
+          # Bust only the pip-install layer for each release attempt.
           build-args: |
             BUILD_DATE=${{ steps.set_build_date.outputs.date }}
             GITHUB_SHA=${{ github.event.workflow_run.head_sha }}
             VERSION=${{ steps.get_version.outputs.version }}
-            # Bust only the pip-install layer for every release attempt.
             DEPENDENCY_REFRESH=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache
           cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache,mode=max
