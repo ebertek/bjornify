@@ -164,6 +164,28 @@ black bjornify scripts
 The formatter versions are pinned to those bundled with Super-Linter to avoid
 differences between auto-fixes and CI checks.
 
+## ✅ Automated tests and releases
+
+The [Lint workflow](.github/workflows/lint.yml) runs mocked unit tests for
+Spotify queueing, Sonos fallback, Discord commands, and Home Assistant API
+responses alongside Super-Linter. It installs the runtime dependencies from
+`bjornify/requirements.txt`.
+
+Run the tests locally:
+
+```shell
+python -m pip install -r bjornify/requirements.txt
+python -m unittest discover -s tests -v
+```
+
+The [Docker publishing workflow](.github/workflows/docker-publish.yml) publishes
+only after all checks pass on a **push to `main`**. It checks out the exact
+validated commit and preserves multi-platform image publication.
+
+Runtime dependencies deliberately retain **minimum versions**. Every new
+release build re-resolves the latest compatible versions, even when Docker
+layer caching is enabled.
+
 ## 🐞 Submitting Issues
 
 If you encounter a problem, feel free to [open an issue](https://github.com/ebertek/bjornify/issues). Please include the following to help us investigate:
