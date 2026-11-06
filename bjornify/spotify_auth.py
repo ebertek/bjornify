@@ -18,13 +18,12 @@ from spotipy.oauth2 import CacheFileHandler, SpotifyOAuth
 DEFAULT_REDIRECT_URI = "http://127.0.0.1:3000"
 TOKEN_CACHE_PATH = Path("/app/secrets/spotipy_token.cache")
 # Björnify controls playback; it does not need access to saved libraries.
-SCOPE = ",".join(
-    (
-        "user-read-currently-playing",
-        "user-read-playback-state",
-        "user-modify-playback-state",
-    )
-)
+# SpotifyOAuth accepts a list of scopes directly.
+SCOPE = [
+    "user-read-currently-playing",
+    "user-read-playback-state",
+    "user-modify-playback-state",
+]
 AUTHORIZE_COMMAND = "docker exec -it bjornify python /app/spotify_auth.py authorize"
 REAUTH_MESSAGE = "Spotify authorization required; the bot owner must reconnect Spotify."
 
