@@ -39,7 +39,9 @@ class DiscordSpotifyLoginTests(unittest.TestCase):
         with (
             patch.dict(
                 os.environ,
-                {"SPOTIPY_REDIRECT_URI": "https://spotify.example.com/spotify/callback"},
+                {
+                    "SPOTIPY_REDIRECT_URI": "https://spotify.example.com/spotify/callback"
+                },
             ),
             patch.object(
                 login,
@@ -83,7 +85,9 @@ class DiscordSpotifyLoginTests(unittest.TestCase):
             "/spotify/callback?state=secure-state&error=access_denied"
         )
         self.assertEqual(status, 400)
-        self.assertTrue(any("WARNING" in line and "rejected" in line for line in events))
+        self.assertTrue(
+            any("WARNING" in line and "rejected" in line for line in events)
+        )
         self.assertNotIn("secure-state", " ".join(events))
         self.manager.get_access_token.assert_not_called()
 
