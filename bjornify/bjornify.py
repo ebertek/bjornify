@@ -934,6 +934,10 @@ async def shutdown():
     """Handle graceful shutdown of the bot."""
     _LOGGER.info("Received stop signal. Shutting down gracefully...")
     await bot.close()
+    server = getattr(bot, "spotify_callback_server", None)
+    if server is not None:
+        await asyncio.to_thread(server.shutdown)
+        server.server_close()
     _LOGGER.info("Shutdown complete")
     for log_handler in logging.getLogger().handlers:
         log_handler.flush()
