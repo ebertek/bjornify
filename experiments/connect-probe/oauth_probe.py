@@ -13,16 +13,15 @@ import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from spotipy.exceptions import SpotifyOauthError
-
-# This file is copied to /app inside the running container for the test.
-# It imports the OAuth module, not the Discord bot entrypoint.
 from spotify_auth import (
     SCOPE,
     HeadlessSpotifyOAuth,
     PrivateTokenCache,
     redirect_uri_from_environment,
 )
+from spotipy.exceptions import SpotifyOauthError
+
+# This helper is copied to /app for a one-off test; it never imports the bot.
 
 CACHE_PATH = Path("/tmp/bjornify-connect-probe.cache")
 PROBE_SCOPES = [*SCOPE, "streaming"]
