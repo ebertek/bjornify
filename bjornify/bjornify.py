@@ -5,10 +5,10 @@
 
 import asyncio
 import logging
-from contextlib import suppress
 import os
 import signal
 import sys
+from contextlib import suppress
 
 import discord
 import soco

@@ -10,9 +10,8 @@ import os
 from pathlib import Path
 
 import discord
-from spotipy.exceptions import SpotifyOauthError
-
 from spotify_auth import SpotifyAuthorizationRequired
+from spotipy.exceptions import SpotifyOauthError
 
 _LOGGER = logging.getLogger(__name__)
 ALERT_MARKER = Path("/app/secrets/.spotify-reauthorization-notified")
@@ -89,7 +88,12 @@ class SpotifyAuthNotifier:
                 return
             try:
                 await self._send_to_discord()
-            except (discord.DiscordException, OSError, ValueError, AttributeError) as error:
+            except (
+                discord.DiscordException,
+                OSError,
+                ValueError,
+                AttributeError,
+            ) as error:
                 _LOGGER.warning(
                     "Unable to deliver Spotify reauthorization notice (%s)",
                     type(error).__name__,
@@ -109,7 +113,9 @@ class SpotifyAuthNotifier:
 
         if owner_id is not None:
             try:
-                owner = self.bot.get_user(owner_id) or await self.bot.fetch_user(owner_id)
+                owner = self.bot.get_user(owner_id) or await self.bot.fetch_user(
+                    owner_id
+                )
                 await owner.send(ALERT_TEXT)
                 return
             except (discord.Forbidden, discord.HTTPException):
@@ -124,5 +130,7 @@ class SpotifyAuthNotifier:
         mention = f"<@{owner_id}> " if owner_id else ""
         await channel.send(
             mention + ALERT_TEXT,
-            allowed_mentions=discord.AllowedMentions(users=True, roles=False, everyone=False),
+            allowed_mentions=discord.AllowedMentions(
+                users=True, roles=False, everyone=False
+            ),
         )

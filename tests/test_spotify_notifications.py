@@ -15,8 +15,8 @@ from spotipy.exceptions import SpotifyOauthError
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bjornify"))
 
-from spotify_auth import SpotifyAuthorizationRequired  # noqa: E402
-from spotify_notifications import SpotifyAuthNotifier  # noqa: E402
+from spotify_auth import SpotifyAuthorizationRequired
+from spotify_notifications import SpotifyAuthNotifier
 
 
 class SpotifyNotificationTests(unittest.TestCase):
@@ -142,6 +142,7 @@ class SpotifyNotificationTests(unittest.TestCase):
 
     def test_alert_scheduled_safely_from_worker_thread(self):
         """A synchronous playback error can schedule an async Discord notice."""
+
         async def run():
             notified = asyncio.Event()
 
