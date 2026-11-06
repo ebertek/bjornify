@@ -108,8 +108,7 @@ Once the container is running, connect that Spotify account:
 docker exec -it bjornify python /app/spotify_auth.py authorize
 ```
 
-Open the displayed authorization link, approve access, and paste the **entire
-redirected URL** into the terminal (the input is hidden). The browser may show
+Open the displayed authorization link, approve access, and paste the **entire redirected URL** into the terminal (the input is hidden). The browser may show
 a connection error for `127.0.0.1`; copy the URL from the address bar anyway.
 The authorization is saved in the mounted `/app/secrets` volume.
 
@@ -122,7 +121,6 @@ code, or token cache in Discord or issue reports.
 `SPOTIPY_REDIRECT_URI=http://localhost:3000`, change it to
 `http://127.0.0.1:3000` in both your environment file and the Spotify
 Developer Dashboard. The URI must match exactly.
-
 
 To get your own Discord token, please create a new application using the [Discord Developer Portal](https://discord.com/developers/applications). You will need the `bot` and the `applications.commands` scopes. Under _Bot permissions_, you will need to check `View Channels`, `Send Messages`, `Add Reactions`, `Read Message History`, and `Use External Emojis`.
 
