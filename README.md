@@ -6,7 +6,7 @@ Björnify is a Discord bot based on [discord.py](https://github.com/Rapptz/disco
 
 - Listens for `!add`, `!next`, `!pause`, and `!np` commands.
 - Uses [Spotipy](https://github.com/spotipy-dev/spotipy) to search tracks and manage playback via Spotify Web API.
-- Queues tracks or starts playback if nothing is playing.
+- Queues tracks on the current Spotify session. If playback is paused, resumes the existing song before queueing the requested track next; if no session exists, starts playback on an available device.
 - Falls back to controlling Sonos speakers via [SoCo](https://github.com/SoCo/SoCo) if Spotify playback fails due to device restrictions.
 - Uses autocomplete and dropdown UI for enhanced slash command experience (`/add`).
 

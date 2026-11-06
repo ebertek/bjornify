@@ -547,13 +547,22 @@ def player_add_track(
         # GET /me/player
         playback_results = spotify_request(spotify.current_playback)
         if playback_results is not None:
-            # POST /me/player/queue
+            was_paused = playback_results.get("is_playing") is False
+            if was_paused:
+                # No new URI/context: keep the paused song on this device.
+                device = playback_results.get("device") or {}
+                device_id = device.get("id")
+                resume_kwargs = {"device_id": device_id} if device_id else {}
+                spotify_request(spotify.start_playback, **resume_kwargs)
+                _LOGGER.info("Resumed paused Spotify playback on its current device")
+
+            # Queue on the same active session after requesting resume.
             spotify_request(spotify.add_to_queue, uri)
-            if artist and name:
-                _LOGGER.info("Queued: %s - %s", artist, name)
-                return f"Queued: {artist} - {name}"
-            _LOGGER.info("Queued: %s", uri)
-            return f"Queued: {uri}"
+            queued = f"{artist} - {name}" if artist and name else uri
+            _LOGGER.info("Queued: %s", queued)
+            if was_paused:
+                return f"Queued: {queued} (resumed paused playback)"
+            return f"Queued: {queued}"
 
         # GET /me/player/devices
         devices = spotify_request(spotify.devices)

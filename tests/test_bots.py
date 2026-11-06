@@ -11,7 +11,7 @@ import os
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import requests
 from spotipy.exceptions import SpotifyException
@@ -94,6 +94,89 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         self.assertEqual(result, "Queued: Artist - Song")
         self.spotify.add_to_queue.assert_called_once_with("spotify:track:123")
         self.spotify.start_playback.assert_not_called()
+
+    def test_paused_playback_resumes_original_song_then_queues_next(self):
+        """Keep the paused track and target device; never play the new URI now."""
+        self.spotify.current_playback.return_value = {
+            "is_playing": False,
+            "item": {"uri": "spotify:track:original"},
+            "device": {"id": "paused-sonos", "name": "Living room"},
+        }
+
+        result = self.bjornify.player_add_track(
+            "spotify:track:requested", "Artist", "Requested song"
+        )
+
+        self.assertEqual(
+            result,
+            "Queued: Artist - Requested song (resumed paused playback)",
+        )
+        self.assertEqual(
+            self.spotify.mock_calls,
+            [
+                call.current_playback(),
+                call.start_playback(device_id="paused-sonos"),
+                call.add_to_queue("spotify:track:requested"),
+            ],
+        )
+        self.spotify.devices.assert_not_called()
+
+    def test_paused_playback_with_null_device_id_uses_active_session(self):
+        """Spotify permits nullable device IDs; use its current active session."""
+        self.spotify.current_playback.return_value = {
+            "is_playing": False,
+            "item": {"uri": "spotify:track:original"},
+            "device": {"id": None, "name": "CarPlay"},
+        }
+
+        result = self.bjornify.player_add_track("spotify:track:requested")
+
+        self.assertEqual(
+            result,
+            "Queued: spotify:track:requested (resumed paused playback)",
+        )
+        self.assertEqual(
+            self.spotify.mock_calls,
+            [
+                call.current_playback(),
+                call.start_playback(),
+                call.add_to_queue("spotify:track:requested"),
+            ],
+        )
+        self.spotify.devices.assert_not_called()
+
+    def test_paused_playback_resume_failure_does_not_queue_or_switch(self):
+        """Restricted devices fail explicitly without queueing or switching."""
+        self.spotify.current_playback.return_value = {
+            "is_playing": False,
+            "device": {"id": "restricted"},
+        }
+        self.spotify.start_playback.side_effect = SpotifyException(
+            403, -1, "Restricted device"
+        )
+
+        result = self.bjornify.player_add_track("spotify:track:requested")
+
+        self.assertIn("Spotify denied access (403)", result)
+        self.spotify.add_to_queue.assert_not_called()
+        self.spotify.devices.assert_not_called()
+        self.spotify.start_playback.assert_called_once_with(device_id="restricted")
+
+    def test_paused_playback_queue_failure_is_not_claimed_as_success(self):
+        """A successful resume must not hide a subsequent queue failure."""
+        self.spotify.current_playback.return_value = {
+            "is_playing": False,
+            "device": {"id": "speaker"},
+        }
+        self.spotify.add_to_queue.side_effect = SpotifyException(
+            429, -1, "Rate limited", headers={"Retry-After": "5"}
+        )
+
+        result = self.bjornify.player_add_track("spotify:track:requested")
+
+        self.assertIn("rate-limited", result)
+        self.assertNotIn("Queued:", result)
+        self.spotify.start_playback.assert_called_once_with(device_id="speaker")
 
     def test_start_playback_on_preferred_device(self):
         """The configured device wins when there is no current playback."""
@@ -296,24 +379,24 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
 
     def test_spotify_request_recovers_current_playback_401(self):
         """401 on the initial GET also refreshes and retries once."""
-        call = MagicMock(
+        api_call = MagicMock(
             side_effect=[SpotifyException(401, -1, "Expired"), {"item": "ok"}]
         )
         with patch.object(self.bjornify, "refresh_spotify_token") as refresh:
-            result = self.bjornify.spotify_request(call)
+            result = self.bjornify.spotify_request(api_call)
         self.assertEqual(result, {"item": "ok"})
-        self.assertEqual(call.call_count, 2)
+        self.assertEqual(api_call.call_count, 2)
         refresh.assert_called_once_with(force=True)
 
     def test_spotify_request_does_not_loop_forever_on_401(self):
         """A persistent 401 must stop after one refresh and one retry."""
-        call = MagicMock(side_effect=SpotifyException(401, -1, "No access"))
+        api_call = MagicMock(side_effect=SpotifyException(401, -1, "No access"))
         with (
             patch.object(self.bjornify, "refresh_spotify_token") as refresh,
             self.assertRaises(SpotifyException),
         ):
-            self.bjornify.spotify_request(call)
-        self.assertEqual(call.call_count, 2)
+            self.bjornify.spotify_request(api_call)
+        self.assertEqual(api_call.call_count, 2)
         refresh.assert_called_once_with(force=True)
 
     def test_unauthorized_player_returns_reconnect_message(self):
