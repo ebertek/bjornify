@@ -28,10 +28,9 @@ SpotifyAuthNotifier = importlib.import_module(
 class SpotifyNotificationTests(unittest.TestCase):
     """Verify one-time Discord alerts without contacting Spotify or Discord."""
 
-    def setUp(self):
-        self.directory = (
-            tempfile.TemporaryDirectory()
-        )  # pylint: disable=consider-using-with
+    def setUp(self):  # pylint: disable=consider-using-with
+        """Allocate a temporary marker path and register cleanup."""
+        self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.marker = Path(self.directory.name) / "alert-sent"
         self.owner = MagicMock()
