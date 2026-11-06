@@ -384,7 +384,7 @@ async def add_track(ctx, *, query: str):
 async def pause_track(ctx):
     """Pause the current Spotify playback."""
     _LOGGER.debug("!pause command by %s", ctx.author.name)
-    response = await bot.loop.run_in_executor(None, player_pause_playback)
+    response = await asyncio.get_running_loop().run_in_executor(None, player_pause_playback)
     await ctx.message.add_reaction("✅" if response == "✅" else "❌")
     if response != "✅":
         await ctx.send(f"❌ {response}")
@@ -394,7 +394,7 @@ async def pause_track(ctx):
 async def skip_track(ctx):
     """Skip to the next Spotify track."""
     _LOGGER.debug("!next command by %s", ctx.author.name)
-    response = await bot.loop.run_in_executor(None, player_skip_to_next)
+    response = await asyncio.get_running_loop().run_in_executor(None, player_skip_to_next)
     await ctx.message.add_reaction("✅" if response == "✅" else "❌")
     if response != "✅":
         await ctx.send(f"❌ {response}")
@@ -776,7 +776,7 @@ async def add_slash(interaction: discord.Interaction, query: str):
 async def pause_slash(interaction: discord.Interaction):
     """Slash command to pause Spotify playback."""
     _LOGGER.debug("/pause command by %s", interaction.user.name)
-    response = await bot.loop.run_in_executor(None, player_pause_playback)
+    response = await asyncio.get_running_loop().run_in_executor(None, player_pause_playback)
     await interaction.response.send_message(
         "✅ Paused playback." if response == "✅" else f"❌ {response}",
         ephemeral=True,
@@ -787,7 +787,7 @@ async def pause_slash(interaction: discord.Interaction):
 async def next_slash(interaction: discord.Interaction):
     """Slash command to skip to the next track on Spotify."""
     _LOGGER.debug("/next command by %s", interaction.user.name)
-    response = await bot.loop.run_in_executor(None, player_skip_to_next)
+    response = await asyncio.get_running_loop().run_in_executor(None, player_skip_to_next)
     await interaction.response.send_message(
         "✅ Skipped to next track." if response == "✅" else f"❌ {response}",
         ephemeral=True,
