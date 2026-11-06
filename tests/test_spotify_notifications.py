@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
+import requests
 from spotipy.exceptions import SpotifyOauthError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -88,6 +89,26 @@ class SpotifyNotificationTests(unittest.TestCase):
         asyncio.run(self.notice.check_authorization())
         self.owner.send.assert_not_awaited()
         self.assertFalse(self.marker.exists())
+
+    def test_temporary_http_error_does_not_notify(self):
+        """A network failure must not stop monitoring or send an expiry alert."""
+        self.auth.refresh_access_token.side_effect = requests.ConnectionError(
+            "Spotify temporarily unavailable"
+        )
+        asyncio.run(self.notice.check_authorization())
+        self.owner.send.assert_not_awaited()
+        self.assertFalse(self.marker.exists())
+
+    def test_owner_lookup_outage_falls_back_to_channel(self):
+        """Discord app-info failures can still notify the command channel."""
+        response = MagicMock(status=503, reason="Service Unavailable")
+        self.bot.application_info.side_effect = discord.HTTPException(
+            response, "Discord temporarily unavailable"
+        )
+        asyncio.run(self.notice.send_alert())
+        self.channel.send.assert_awaited_once()
+        self.assertIn("/spotify connect", self.channel.send.await_args.args[0])
+        self.assertTrue(self.marker.exists())
 
     def test_healthy_refresh_clears_previous_alert(self):
         """Successful refresh allows a new alert after a future expiration."""
