@@ -21,9 +21,7 @@ class ConnectOAuthProbeTests(unittest.TestCase):
 
     def test_streaming_scope_is_added_without_dropping_existing_scopes(self):
         """The probe requests streaming on the existing Spotify application."""
-        self.assertEqual(
-            probe.PROBE_SCOPES, [*probe.SCOPE, "streaming"]
-        )
+        self.assertEqual(probe.PROBE_SCOPES, [*probe.SCOPE, "streaming"])
         self.assertNotEqual(probe.PROBE_SCOPES, probe.SCOPE)
 
     def test_manager_uses_existing_app_with_separate_cache(self):
@@ -47,9 +45,7 @@ class ConnectOAuthProbeTests(unittest.TestCase):
             kwargs["cache_handler"].cache_path,
             "/app/secrets/spotipy_token.cache",
         )
-        self.assertEqual(
-            kwargs["cache_handler"].cache_path, str(probe.CACHE_PATH)
-        )
+        self.assertEqual(kwargs["cache_handler"].cache_path, str(probe.CACHE_PATH))
 
     def test_missing_streaming_scope_is_rejected(self):
         """A standard Björnify grant is insufficient for Connect login."""
