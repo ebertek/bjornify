@@ -179,7 +179,9 @@ class DiscordSpotifyCommandTests(unittest.TestCase):
         ):
             from importlib.util import module_from_spec, spec_from_file_location
 
-            spec = spec_from_file_location("bjornify_discord_auth_tests", ROOT / "bjornify" / "bjornify.py")
+            spec = spec_from_file_location(
+                "bjornify_discord_auth_tests", ROOT / "bjornify" / "bjornify.py"
+            )
             module = module_from_spec(spec)
             spec.loader.exec_module(module)
             cls.bot_module = module
@@ -195,9 +197,7 @@ class DiscordSpotifyCommandTests(unittest.TestCase):
             ),
             patch.object(self.bot_module.spotify_authorizations, "begin") as begin,
         ):
-            asyncio.run(
-                self.bot_module.spotify_connect.callback(interaction)
-            )
+            asyncio.run(self.bot_module.spotify_connect.callback(interaction))
         begin.assert_not_called()
         self.assertTrue(
             interaction.response.send_message.await_args.kwargs["ephemeral"]
