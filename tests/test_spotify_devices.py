@@ -100,9 +100,7 @@ class SpotifyDeviceSelectionTests(unittest.TestCase):
     def test_missing_restriction_flag_is_not_assumed_restricted(self):
         """Old or partial API responses remain usable when they include an ID."""
         response = {"devices": [{"name": "Computer", "id": "desktop"}]}
-        self.assertEqual(
-            select_fallback_device(response, "Computer")["id"], "desktop"
-        )
+        self.assertEqual(select_fallback_device(response, "Computer")["id"], "desktop")
 
 
 if __name__ == "__main__":

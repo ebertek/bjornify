@@ -24,8 +24,8 @@ from spotify_auth import (
     SpotifyAuthorizationRequired,
     make_auth_manager,
 )
-from spotify_discord_auth import SpotifyAuthorizations, start_spotify_callback
 from spotify_devices import select_fallback_device
+from spotify_discord_auth import SpotifyAuthorizations, start_spotify_callback
 from spotify_notifications import SpotifyAuthNotifier
 from spotipy.exceptions import SpotifyOauthError
 
