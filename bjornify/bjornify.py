@@ -16,7 +16,12 @@ import soco
 import spotipy
 from discord import app_commands
 from discord.ext import commands
-from spotipy.oauth2 import SpotifyOAuth
+from spotipy.exceptions import SpotifyOauthError
+
+from spotify_auth import (
+    SpotifyAuthorizationRequired,
+    make_auth_manager,
+)
 
 try:
     from version import __version__
@@ -134,27 +139,13 @@ for var in required_env_vars:
 # Load environmental variables
 SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
 SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
-SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI", "http://localhost:3000")
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 DEFAULT_DEVICE = os.getenv("DEFAULT_DEVICE", "Everywhere")
 
-# Set up Spotify
-SCOPE = (
-    "user-library-read"
-    ",user-read-currently-playing"
-    ",user-read-playback-state"
-    ",user-modify-playback-state"
-)
-
-auth_manager = SpotifyOAuth(
-    client_id=SPOTIPY_CLIENT_ID,
-    client_secret=SPOTIPY_CLIENT_SECRET,
-    redirect_uri=SPOTIPY_REDIRECT_URI,
-    scope=SCOPE,
-    open_browser=False,
-    cache_path="/app/secrets/spotipy_token.cache",
-)
+# Share one OAuth cache with the owner's interactive authorization command.
+# Never attempt to prompt for authorization inside the Discord bot.
+auth_manager = make_auth_manager()
 spotify = spotipy.Spotify(auth_manager=auth_manager)
 
 
@@ -194,19 +185,72 @@ bot = BjornifyBot(
 
 
 def refresh_spotify_token(force: bool = False):
-    """Refresh Spotify access token if expired, or always if force=True."""
-    global spotify  # pylint: disable=global-statement
-    token_info = auth_manager.get_cached_token()
-
-    if force or auth_manager.is_token_expired(token_info):
-        _LOGGER.info(
-            "Refreshing Spotify token %s",
-            "forcefully" if force else "because it expired",
+    """Refresh the cached Spotify token without replacing the Spotify client."""
+    token_info = auth_manager.cache_handler.get_cached_token()
+    if not token_info or not token_info.get("refresh_token"):
+        raise SpotifyAuthorizationRequired(
+            "Spotify authorization is missing; the bot owner must reconnect Spotify."
         )
+    if force or auth_manager.is_token_expired(token_info):
+        _LOGGER.info("Refreshing Spotify access token")
+        # This updates the shared cache. Do NOT replace the client: commands
+        # hold bound Spotify methods that must use the same auth manager.
         auth_manager.refresh_access_token(token_info["refresh_token"])
-        spotify = spotipy.Spotify(auth_manager=auth_manager)
-    else:
-        _LOGGER.debug("Spotify token still valid — no refresh needed")
+
+
+def spotify_request(method, *args, **kwargs):
+    """Retry an API request once after a Spotify 401 authentication response."""
+    try:
+        return method(*args, **kwargs)
+    except spotipy.exceptions.SpotifyException as error:
+        if error.http_status != 401:
+            raise
+        _LOGGER.warning("Spotify returned 401; refreshing token and retrying once")
+        refresh_spotify_token(force=True)
+        return method(*args, **kwargs)
+
+
+def spotify_error_message(error):
+    """Return a safe, actionable message without leaking tokens or API URLs."""
+    if isinstance(error, SpotifyAuthorizationRequired):
+        _LOGGER.warning("Spotify authorization required; run the owner OAuth CLI")
+        return "Spotify needs to be reconnected by the bot owner."
+
+    if isinstance(error, SpotifyOauthError):
+        _LOGGER.warning("Spotify OAuth failure: %s", error.error or "unknown")
+        return "Spotify authorization failed. Ask the bot owner to reconnect Spotify."
+
+    if isinstance(error, spotipy.exceptions.SpotifyException):
+        _LOGGER.warning(
+            "Spotify API failed: HTTP %s, reason %s",
+            error.http_status,
+            error.reason or "unknown",
+        )
+        if error.http_status == 401:
+            return "Spotify authorization was rejected. Ask the bot owner to reconnect."
+        if error.http_status == 403:
+            return (
+                "Spotify denied access (403). Check Premium, Development Mode "
+                "allowlisting and app permissions."
+            )
+        if error.http_status == 429:
+            if error.reason == "QUOTA_EXCEEDED":
+                return "Spotify Development Mode API quota exceeded. Try again later."
+            retry_after = (error.headers or {}).get("Retry-After", "")
+            if str(retry_after).isdecimal():
+                return f"Spotify is rate-limited. Try again in {retry_after} seconds."
+            return "Spotify is rate-limited. Try again shortly."
+
+    _LOGGER.error("Spotify request failed: %s", type(error).__name__)
+    return "Spotify is unavailable. Try again later."
+
+
+def is_sonos_device_restriction(error):
+    """Do not mistake Premium/allowlist failures for a device restriction."""
+    if error.http_status != 403:
+        return False
+    reason = f"{error.reason or ''} {error.msg or ''}".lower()
+    return "restricted device" in reason or "restriction violated" in reason
 
 
 def find_playing_speaker():
@@ -265,53 +309,34 @@ def find_playing_speaker():
     return None
 
 
-def spotify_action_with_soco_fallback(
-    spotify_action, soco_action, action_name
-):  # pylint: disable=too-many-return-statements
-    """Try a Spotify action, fallback to a SoCo action if Spotify fails with 403."""
-    # GET /me/player
-    playback_results = spotify.current_playback()
-    if playback_results is not None:
-        try:
-            # POST /me/player/next or PUT /me/player/pause
-            spotify_action()
-            _LOGGER.info("%s via Spotify", action_name)
-            return "✅"
-        except spotipy.exceptions.SpotifyException as e:
-            if e.http_status == 401:
-                _LOGGER.warning("Spotify token expired, refreshing token")
-                refresh_spotify_token(force=True)
-                try:
-                    spotify_action()  # Retry once after refreshing
-                    _LOGGER.info("%s via Spotify (after refresh)", action_name)
+def spotify_action_with_soco_fallback(spotify_action, soco_action, action_name):
+    """Use Spotify first, then Sonos only for a known device restriction."""
+    try:
+        playback = spotify_request(spotify.current_playback)
+        if playback is None:
+            return "No active Spotify playback found."
+        spotify_request(spotify_action)
+        _LOGGER.info("%s via Spotify", action_name)
+        return "✅"
+    except spotipy.exceptions.SpotifyException as error:
+        if is_sonos_device_restriction(error):
+            _LOGGER.info("Device restriction during %s; trying Sonos", action_name)
+            try:
+                speaker = find_playing_speaker()
+                if speaker is not None:
+                    soco_action(speaker)
+                    _LOGGER.info("%s via Sonos", action_name)
                     return "✅"
-                except Exception:  # pylint: disable=broad-exception-caught
-                    _LOGGER.exception("Failed after token refresh")
-                    return "❌"
-            if e.http_status == 403:
-                _LOGGER.exception(
-                    "Spotify refused to %s: Restricted device. Trying with SoCo...",
-                    action_name,
-                )
-                playing_speaker = find_playing_speaker()
-                if playing_speaker:
-                    try:
-                        soco_action(playing_speaker)
-                        _LOGGER.info(
-                            "%s using SoCo: %s",
-                            action_name.capitalize(),
-                            playing_speaker.player_name,
-                        )
-                        return "✅"
-                    except Exception:  # pylint: disable=broad-exception-caught
-                        _LOGGER.exception("Failed to %s via SoCo", action_name)
-                        return "❌"
-                _LOGGER.info("No active speaker found via SoCo")
-                return "❌"
-            _LOGGER.exception("Unexpected Spotify error during %s", action_name)
-            return "❌"
-    _LOGGER.debug("%s failed: no playback found", action_name.capitalize())
-    return "❌"
+            except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+                _LOGGER.exception("Sonos fallback failed during %s", action_name)
+                return "The Sonos playback fallback failed."
+            return "Spotify restricted this device and no active Sonos player was found."
+        return spotify_error_message(error)
+    except (SpotifyOauthError, SpotifyAuthorizationRequired) as error:
+        return spotify_error_message(error)
+    except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+        _LOGGER.exception("Unexpected error during %s", action_name)
+        return "Playback control failed unexpectedly."
 
 
 @bot.event
