@@ -36,7 +36,7 @@ jobs:
           python-version: "3.15"
 
       - name: Install Ruff and Black
-        run: python -m pip install --disable-pip-version-check -r requirements-lint.txt
+        run: python -m pip install --disable-pip-version-check -r .github/requirements-lint.txt
 
       - name: Apply safe Ruff fixes
         # Match the additional Ruff rule families enforced by Super-Linter v9.
@@ -79,7 +79,7 @@ jobs:
         uses: actions/setup-python@v7
         with:
           # Match the production Docker image Python runtime.
-          python-version: "3.14"
+          python-version: "3.15"
 
       - name: Install runtime dependencies (latest compatible releases)
         run: python -m pip install --disable-pip-version-check -r bjornify/requirements.txt
