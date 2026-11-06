@@ -1,4 +1,4 @@
 # Match the Python tools bundled with super-linter/slim@v8.7.0.
 # Update these pins together with the Super-Linter version to avoid format drift.
 ruff==0.15.17
-black==26.5.1
+black==26.10.1
