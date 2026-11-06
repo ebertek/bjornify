@@ -3,6 +3,7 @@
 import asyncio
 import http.client
 import importlib
+from importlib.util import module_from_spec, spec_from_file_location
 import os
 import sys
 import unittest
@@ -15,7 +16,7 @@ sys.path.insert(0, str(ROOT / "bjornify"))
 login = importlib.import_module("spotify_discord_auth")
 
 
-class DiscordSpotifyLoginTests(unittest.TestCase):
+class DiscordSpotifyLoginTests(unittest.TestCase):  # pylint: disable=protected-access
     """Test authorization ownership, expiration, and single-use callbacks."""
 
     def setUp(self):
@@ -24,6 +25,7 @@ class DiscordSpotifyLoginTests(unittest.TestCase):
         self.manager.get_authorize_url.return_value = "https://spotify.test/authorize"
 
     def begin(self, owner_id=123):
+        """Start a mocked Spotify authorization session for an owner."""
         with (
             patch.object(login, "make_auth_manager", return_value=self.manager),
             patch.object(login.secrets, "token_urlsafe", return_value="secure-state"),
@@ -177,8 +179,6 @@ class DiscordSpotifyCommandTests(unittest.TestCase):
             patch("spotify_auth.make_auth_manager"),
             patch("spotipy.Spotify"),
         ):
-            from importlib.util import module_from_spec, spec_from_file_location
-
             spec = spec_from_file_location(
                 "bjornify_discord_auth_tests", ROOT / "bjornify" / "bjornify.py"
             )
