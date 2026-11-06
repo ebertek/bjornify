@@ -11,8 +11,7 @@ import os
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-from unittest.mock import call as mock_call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import requests
 from spotipy.exceptions import SpotifyException
@@ -115,9 +114,9 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         self.assertEqual(
             self.spotify.mock_calls,
             [
-                mock_call.current_playback(),
-                mock_call.start_playback(device_id="paused-sonos"),
-                mock_call.add_to_queue("spotify:track:requested"),
+                call.current_playback(),
+                call.start_playback(device_id="paused-sonos"),
+                call.add_to_queue("spotify:track:requested"),
             ],
         )
         self.spotify.devices.assert_not_called()
@@ -139,9 +138,9 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         self.assertEqual(
             self.spotify.mock_calls,
             [
-                mock_call.current_playback(),
-                mock_call.start_playback(),
-                mock_call.add_to_queue("spotify:track:requested"),
+                call.current_playback(),
+                call.start_playback(),
+                call.add_to_queue("spotify:track:requested"),
             ],
         )
         self.spotify.devices.assert_not_called()
@@ -380,24 +379,24 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
 
     def test_spotify_request_recovers_current_playback_401(self):
         """401 on the initial GET also refreshes and retries once."""
-        call = MagicMock(
+        api_call = MagicMock(
             side_effect=[SpotifyException(401, -1, "Expired"), {"item": "ok"}]
         )
         with patch.object(self.bjornify, "refresh_spotify_token") as refresh:
-            result = self.bjornify.spotify_request(call)
+            result = self.bjornify.spotify_request(api_call)
         self.assertEqual(result, {"item": "ok"})
-        self.assertEqual(call.call_count, 2)
+        self.assertEqual(api_call.call_count, 2)
         refresh.assert_called_once_with(force=True)
 
     def test_spotify_request_does_not_loop_forever_on_401(self):
         """A persistent 401 must stop after one refresh and one retry."""
-        call = MagicMock(side_effect=SpotifyException(401, -1, "No access"))
+        api_call = MagicMock(side_effect=SpotifyException(401, -1, "No access"))
         with (
             patch.object(self.bjornify, "refresh_spotify_token") as refresh,
             self.assertRaises(SpotifyException),
         ):
-            self.bjornify.spotify_request(call)
-        self.assertEqual(call.call_count, 2)
+            self.bjornify.spotify_request(api_call)
+        self.assertEqual(api_call.call_count, 2)
         refresh.assert_called_once_with(force=True)
 
     def test_unauthorized_player_returns_reconnect_message(self):
