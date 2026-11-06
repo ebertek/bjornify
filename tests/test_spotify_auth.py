@@ -30,6 +30,14 @@ class SpotifyAuthTests(unittest.TestCase):
             cache_handler=CacheFileHandler(cache_path=str(cache_file)),
         )
 
+    def test_discord_callback_saves_private_token_cache(self):
+        """Newly cached refresh tokens are readable only by their owner."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "spotify-cache"
+            handler = spotify_auth.PrivateTokenCache(cache_path=str(path))
+            handler.save_token_to_cache({"access_token": "dummy", "refresh_token": "dummy"})
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
     def test_default_loopback_redirect(self):
         """Default callback uses Spotify's supported loopback IP literal."""
         with patch.dict(os.environ, {}, clear=True):
