@@ -74,7 +74,6 @@ class SpotifyAuthorizations:
         pending.manager.get_access_token(code=code, check_cache=False, as_dict=False)
 
 
-
 def start_spotify_callback(authorizations):
     """Serve the exact HTTPS redirect path through an external TLS reverse proxy."""
     from spotify_auth import redirect_uri_from_environment
@@ -105,7 +104,9 @@ def start_spotify_callback(authorizations):
                 return
             params = parse_qs(parsed.query)
             if len(params.get("state", [])) != 1:
-                self._send_page(400, "Invalid Spotify login. Use /spotify connect again.")
+                self._send_page(
+                    400, "Invalid Spotify login. Use /spotify connect again."
+                )
                 return
             state = params["state"][0]
             code = params.get("code", [None])[0]
