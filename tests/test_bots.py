@@ -383,14 +383,10 @@ class BotBehaviorTests(unittest.TestCase):
         interaction = MagicMock()
         interaction.user.name = "Test"
         interaction.response.send_message = AsyncMock()
-        self.bjornify.bot._asyncio_loop = asyncio.get_event_loop_policy().new_event_loop()
-        try:
-            with patch.object(
-                self.bjornify, "player_pause_playback", return_value="Access denied."
-            ):
-                asyncio.run(self.bjornify.pause_slash.callback(interaction))
-        finally:
-            self.bjornify.bot._asyncio_loop.close()
+        with patch.object(
+            self.bjornify, "player_pause_playback", return_value="Access denied."
+        ):
+            asyncio.run(self.bjornify.pause_slash.callback(interaction))
         interaction.response.send_message.assert_awaited_once_with(
             "❌ Access denied.", ephemeral=True
         )
