@@ -20,8 +20,8 @@ from spotify_auth import (
     SpotifyAuthorizationRequired,
     make_auth_manager,
 )
-from spotipy.exceptions import SpotifyOauthError
 from spotify_discord_auth import SpotifyAuthorizations, start_spotify_callback
+from spotipy.exceptions import SpotifyOauthError
 
 try:
     from version import __version__
@@ -155,6 +155,7 @@ spotify = spotipy.Spotify(
 
 
 spotify_authorizations = SpotifyAuthorizations()
+
 
 # Set up Discord
 class BjornifyBot(commands.Bot):  # pylint: disable=too-few-public-methods
