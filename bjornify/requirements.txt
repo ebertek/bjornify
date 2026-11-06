@@ -1,3 +1,4 @@
 discord.py>=2.7.1
 spotipy>=2.26.0
 soco>=0.32.1
+requests>=2.32.5
