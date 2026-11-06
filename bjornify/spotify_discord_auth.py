@@ -114,7 +114,7 @@ def start_spotify_callback(authorizations):
                 "Spotify callback HTTP response %s", args[1] if len(args) > 1 else ""
             )
 
-        def do_GET(self):  # pylint: disable=invalid-name,broad-exception-caught
+        def do_GET(self):  # pylint: disable=invalid-name
             """Handle a one-use OAuth callback without echoing the code."""
             parsed = urlsplit(self.path)
             if parsed.path != expected_path:
@@ -142,6 +142,7 @@ def start_spotify_callback(authorizations):
                 self._send_page(
                     400, "Spotify login failed or expired. Use /spotify connect again."
                 )
+            # pylint: disable=broad-exception-caught
             except Exception as exc:  # noqa: BLE001
                 _LOGGER.error(
                     "Spotify OAuth token exchange failed (%s)", type(exc).__name__
