@@ -42,7 +42,9 @@ class PlaybackDeviceAuthTests(unittest.TestCase):
 
     def setUp(self):
         """Replace /tmp with a disposable private test cache."""
-        self.directory = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
+        self.directory = (
+            tempfile.TemporaryDirectory()
+        )  # pylint: disable=consider-using-with
         self.addCleanup(self.directory.cleanup)
         self.cache = Path(self.directory.name) / "playback.cache"
         original = helper.CACHE_PATH
@@ -67,7 +69,10 @@ class PlaybackDeviceAuthTests(unittest.TestCase):
 
     def test_unknown_endpoint_is_refused_before_network_request(self):
         """Only Spotify OAuth endpoints can receive form submissions."""
-        with patch.object(helper.requests, "post") as call, self.assertRaises(ValueError):
+        with (
+            patch.object(helper.requests, "post") as call,
+            self.assertRaises(ValueError),
+        ):
             helper.spotify_post("https://malicious.invalid", {})
         call.assert_not_called()
 
