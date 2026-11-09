@@ -1,7 +1,7 @@
 """Experimental Spotify Connect device-code grant, isolated from Björnify OAuth.
 
 This helper never starts playback. It is explicitly invoked, and saves a
-streaming-only Spotify desktop-client grant in /tmp (ephemeral on redeploy).
+streaming-only Spotify desktop-client grant in /app/secrets (persistent volume).
 Never copy the cache into a repository or paste tokens into chat.
 """
 
@@ -20,7 +20,7 @@ import requests
 PLAYBACK_CLIENT_ID = "65b708073fc0480ea92a077233ca87bd"
 DEVICE_AUTHORIZE_URL = "https://accounts.spotify.com/oauth2/device/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
-CACHE_PATH = Path("/tmp/bjornify-connect-playback.cache")
+CACHE_PATH = Path(os.environ.get("BJORNIFY_CONNECT_TOKEN_CACHE_PATH", "/app/secrets/spotify_connect_playback.cache"))
 REQUEST_TIMEOUT = (4, 12)
 MAX_RESPONSE_BYTES = 16 * 1024
 REFRESH_MARGIN_SECONDS = 90
