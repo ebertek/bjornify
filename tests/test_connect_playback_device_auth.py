@@ -24,7 +24,7 @@ helper = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(helper)
 
 
-class Response:
+class Response:  # pylint: disable=too-few-public-methods
     """Small fake HTTP response; no real Spotify requests."""
 
     def __init__(self, payload, *, status=200):
@@ -42,7 +42,7 @@ class PlaybackDeviceAuthTests(unittest.TestCase):
 
     def setUp(self):
         """Replace /tmp with a disposable private test cache."""
-        self.directory = tempfile.TemporaryDirectory()
+        self.directory = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
         self.addCleanup(self.directory.cleanup)
         self.cache = Path(self.directory.name) / "playback.cache"
         original = helper.CACHE_PATH
@@ -67,9 +67,8 @@ class PlaybackDeviceAuthTests(unittest.TestCase):
 
     def test_unknown_endpoint_is_refused_before_network_request(self):
         """Only Spotify OAuth endpoints can receive form submissions."""
-        with patch.object(helper.requests, "post") as call:
-            with self.assertRaises(ValueError):
-                helper.spotify_post("https://malicious.invalid", {})
+        with patch.object(helper.requests, "post") as call, self.assertRaises(ValueError):
+            helper.spotify_post("https://malicious.invalid", {})
         call.assert_not_called()
 
     def test_server_errors_are_reduced_to_a_known_error_label(self):
