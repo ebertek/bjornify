@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bjornify"))
 
-from spotify_connect_queue import (
+from spotify_connect_queue import (  # noqa: E402  # pylint: disable=wrong-import-position
     ConnectQueueError,
     get_receiver_id,
     personal_access_token,
