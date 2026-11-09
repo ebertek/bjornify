@@ -1,6 +1,20 @@
 # syntax=docker/dockerfile:1
 # checkov:skip=CKV_DOCKER_3 Justification: UID is provided externally via Compose
 
+# Build librespot once and ship only its command-line executable.
+# Use the same Debian release as the Python runtime for OpenSSL ABI compatibility.
+FROM rust:slim-trixie AS connect-build
+
+# hadolint ignore=DL3008
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    ca-certificates pkg-config libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /probe
+COPY experiments/connect-probe/Cargo.toml ./Cargo.toml
+COPY experiments/connect-probe/src/ ./src/
+RUN cargo build --release
+
 ARG PYTHON_VERSION=3.15-slim
 ARG DEBIAN=trixie
 FROM python:${PYTHON_VERSION}-${DEBIAN}
@@ -58,12 +72,15 @@ RUN adduser \
 ARG DEPENDENCY_REFRESH=local
 # hadolint ignore=DL3042
 RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=bind,source=requirements.txt,target=requirements.txt \
+    --mount=type=bind,source=bjornify/requirements.txt,target=requirements.txt \
     echo "Resolving latest compatible dependencies for ${DEPENDENCY_REFRESH}" && \
     python -m pip install --root-user-action ignore -r requirements.txt
 
-# Copy the source code into the container.
-COPY . .
+# Copy only the runtime code. The build context is the repository root.
+COPY bjornify/ .
+# Keep the desktop OAuth refresh and pairing code shared with the tested probe.
+COPY experiments/connect-probe/playback_device_auth.py /app/connect_playback_auth.py
+COPY --from=connect-build /probe/target/release/bjornify-connect-auth-probe /usr/local/bin/bjornify-connect
 
 # Make entrypoint script executable and create required directories.
 RUN chmod +x wrapper.sh && \
