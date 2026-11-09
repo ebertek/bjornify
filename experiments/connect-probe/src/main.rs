@@ -227,7 +227,11 @@ async fn main() {
             track_uri,
         } => {
             let playback = match get_playback(token).await {
-                Ok(Some(value)) if value.get("is_playing").and_then(Value::as_bool) == Some(true) => value,
+                Ok(Some(value))
+                    if value.get("is_playing").and_then(Value::as_bool) == Some(true) =>
+                {
+                    value
+                }
                 _ => {
                     eprintln!("REFUSED: Cannot verify that Spotify is currently playing.");
                     std::process::exit(1);
@@ -297,7 +301,8 @@ mod tests {
                 "is_active": true,
                 "is_restricted": true
             }
-        })).is_none());
+        }))
+        .is_none());
     }
 
     #[test]
@@ -307,10 +312,10 @@ mod tests {
         let diag = playback_diagnostics(&json!({
             "device": {
                 "id": "0123456789abcdef",
-                "name": "Room\\nInjected"
+                "name": "Room\nInjected"
             }
         }));
-        assert!(!diag.contains("\\nInjected"));
+        assert!(!diag.contains("\nInjected"));
     }
 
     #[test]
