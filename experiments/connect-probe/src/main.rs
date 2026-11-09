@@ -7,12 +7,8 @@ use std::net::Ipv4Addr;
 use std::time::Duration;
 
 use librespot_core::{
-    authentication::Credentials,
-    config::SessionConfig,
-    error::Error as ConnectError,
-    http_client::HttpClientError,
-    session::Session,
-    spclient::RequestStrategy,
+    authentication::Credentials, config::SessionConfig, error::Error as ConnectError,
+    http_client::HttpClientError, session::Session, spclient::RequestStrategy,
 };
 use reqwest::{redirect::Policy, Client, Method, StatusCode};
 use serde_json::{json, Value};
@@ -267,8 +263,7 @@ fn sonos_identity_matches(
 /// Only expose a vetted error category and HTTP status. The underlying error
 /// may contain Spotify service URLs, sensitive IDs, or response metadata.
 fn safe_command_failure(error: &ConnectError) -> String {
-    if let Some(HttpClientError::StatusCode(status)) =
-        error.error.downcast_ref::<HttpClientError>()
+    if let Some(HttpClientError::StatusCode(status)) = error.error.downcast_ref::<HttpClientError>()
     {
         let meaning = match status.as_u16() {
             400 => "invalid Connect-state request",
@@ -306,7 +301,12 @@ async fn add_one(session: &Session, device_id: &str, uri: &str) -> Result<(), St
     )
     .await
     .map_err(|_| "Connect-state queue command timed out".to_string())?
-    .map_err(|error| format!("Connect-state queue command failed: {}", safe_command_failure(&error)))?;
+    .map_err(|error| {
+        format!(
+            "Connect-state queue command failed: {}",
+            safe_command_failure(&error)
+        )
+    })?;
     Ok(())
 }
 
