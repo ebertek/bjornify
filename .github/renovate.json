@@ -1,20 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
+  "extends": ["config:recommended"],
   "packageRules": [
     {
       "description": "librespot-core 0.8.0 build.rs requires vergen 9.0.6; 9.1.0 changes vergen-lib's trait ABI. Remove this rule after librespot publishes a compatible version.",
-      "matchManagers": [
-        "cargo"
-      ],
-      "matchFileNames": [
-        "experiments/connect-probe/Cargo.toml"
-      ],
-      "matchPackageNames": [
-        "vergen"
-      ],
+      "matchManagers": ["cargo"],
+      "matchFileNames": ["experiments/connect-probe/Cargo.toml"],
+      "matchPackageNames": ["vergen"],
       "enabled": false
     }
   ]
