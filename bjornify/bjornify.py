@@ -413,15 +413,16 @@ def spotify_error_message(error):  # pylint: disable=too-many-return-statements
     return "Spotify is unavailable. Try again later."
 
 
-def find_playing_speaker(expected_name=None):
-    """Find a Spotify-playing Sonos room, refusing ambiguous playback targets."""
+def find_playing_speaker(expected_name=None, allow_paused=False):
+    """Find one Spotify Sonos room, refusing ambiguous playback targets."""
     speakers = soco.discover(timeout=5) or set()
     matches = []
     for speaker in speakers:
         try:
             if expected_name and speaker.player_name != expected_name:
                 continue
-            if speaker.get_current_transport_info().get("current_transport_state") != "PLAYING":
+            state = speaker.get_current_transport_info().get("current_transport_state")
+            if state != "PLAYING" and not (allow_paused and state == "PAUSED_PLAYBACK"):
                 continue
             track = speaker.get_current_track_info()
             uri = track.get("uri", "")
@@ -598,9 +599,9 @@ def player_add_track(
                     if not is_sonos_device_restriction(error):
                         raise
                     target = spotify_sonos_target(playback_results)
-                    speaker = find_playing_speaker(target) if target else None
-                    # A paused Sonos room cannot pass the playing-only discovery
-                    # guard. Never guess a receiver or transfer the session.
+                    speaker = (
+                        find_playing_speaker(target, allow_paused=True) if target else None
+                    )
                     if speaker is None:
                         return "Paused restricted Sonos playback cannot be resumed safely."
                     speaker.play()
@@ -719,6 +720,7 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statem
     """Try to get now playing info from Spotify, fall back to SoCo."""
     _LOGGER.debug("Checking Spotify current playback...")
     spotify_problem = None
+    playback = None
     # Try Spotify first
     try:
         playback = spotify_request(spotify.current_playback)
