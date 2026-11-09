@@ -91,7 +91,9 @@ jobs:
           cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache,mode=max
           context: .
           file: bjornify/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          # Pleiades is amd64; emulated arm64 Rust builds took ~33 minutes.
+          # Reintroduce arm64 via a native runner if it is needed later.
+          platforms: linux/amd64
           provenance: true
           push: true
           sbom: true
