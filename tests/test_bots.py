@@ -503,7 +503,7 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
             asyncio.run(self.bjornify.add_track.callback(context, query="Song"))
 
         add.assert_called_once_with("Song")
-        context.send.assert_awaited_once_with("Queued: Artist - Song")
+        context.send.assert_awaited_once_with("✅ Queued: Artist - Song")
 
     def test_add_command_forwards_queue_failure(self):
         """A handled Spotify error reaches Discord as a readable response."""
@@ -517,7 +517,7 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         ):
             asyncio.run(self.bjornify.add_track.callback(context, query="Song"))
 
-        context.send.assert_awaited_once_with("Failed to add track to queue.")
+        context.send.assert_awaited_once_with("❌ Failed to add track to queue.")
 
     def test_spotify_request_recovers_current_playback_401(self):
         """401 on the initial GET also refreshes and retries once."""
