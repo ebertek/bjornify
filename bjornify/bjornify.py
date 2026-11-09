@@ -24,6 +24,7 @@ from spotify_auth import (
     SpotifyAuthorizationRequired,
     make_auth_manager,
 )
+from spotify_connect_queue import ConnectQueueError, queue_restricted_sonos
 from spotify_devices import select_fallback_device
 from spotify_discord_auth import SpotifyAuthorizations, start_spotify_callback
 from spotify_errors import is_sonos_device_restriction, spotify_forbidden_message
@@ -548,8 +549,27 @@ def player_add_track(
                 _LOGGER.info("Resumed paused Spotify playback on its current device")
 
             # Queue on the same active session after requesting resume.
-            spotify_request(spotify.add_to_queue, uri)
             queued = f"{artist} - {name}" if artist and name else uri
+            try:
+                spotify_request(spotify.add_to_queue, uri)
+            except spotipy.exceptions.SpotifyException as error:
+                if not is_sonos_device_restriction(error):
+                    raise
+                # Spotify's Web API cannot queue to a restricted Sonos player.
+                # Only the independently authenticated Connect backend can do so.
+                # Do not attempt a fallback for an unverified or paused session.
+                try:
+                    queue_restricted_sonos(uri, playback_results, auth_manager)
+                except ConnectQueueError as queue_error:
+                    _LOGGER.info("Connect queue fallback unavailable: %s", queue_error)
+                    return spotify_error_message(error) + " " + str(queue_error)
+                except Exception:  # pylint: disable=broad-exception-caught
+                    _LOGGER.exception("Unexpected restricted-Sonos Connect failure")
+                    return (
+                        "Spotify restricted this device. The Connect queue "
+                        "fallback failed; queue outcome is unconfirmed."
+                    )
+                return f"Queue request accepted via Spotify Connect: {queued}"
             _LOGGER.info("Queued: %s", queued)
             if was_paused:
                 return f"Queued: {queued} (resumed paused playback)"
