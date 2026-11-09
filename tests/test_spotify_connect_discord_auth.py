@@ -1,6 +1,5 @@
 """Tests for private Discord Spotify Connect device pairing."""
 
-import asyncio
 import importlib
 import sys
 import types
