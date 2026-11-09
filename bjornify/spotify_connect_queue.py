@@ -10,10 +10,8 @@ import importlib
 import ipaddress
 import json
 import logging
-import os
 import re
 import subprocess
-import time
 
 import requests
 import soco
@@ -41,7 +39,11 @@ def private_sonos_ip(value):
         address = ipaddress.IPv4Address(value)
     except ipaddress.AddressValueError:
         return None
-    return str(address) if any(address in network for network in PRIVATE_NETWORKS) else None
+    return (
+        str(address)
+        if any(address in network for network in PRIVATE_NETWORKS)
+        else None
+    )
 
 
 def get_receiver_id(address):
@@ -90,7 +92,9 @@ def find_ungrouped_receiver(name):
         speaker = matches[0]
         group = speaker.group
         if group.coordinator is not speaker or len(group.members) != 1:
-            raise ConnectQueueError("Grouped Sonos rooms are not supported for queue fallback.")
+            raise ConnectQueueError(
+                "Grouped Sonos rooms are not supported for queue fallback."
+            )
         state = speaker.get_current_transport_info().get("current_transport_state")
         if state != "PLAYING":
             raise ConnectQueueError("The Sonos room is no longer playing.")
@@ -101,7 +105,9 @@ def find_ungrouped_receiver(name):
     except ConnectQueueError:
         raise
     except (OSError, ValueError, soco.exceptions.SoCoException) as error:
-        raise ConnectQueueError("Sonos room discovery or state check failed.") from error
+        raise ConnectQueueError(
+            "Sonos room discovery or state check failed."
+        ) from error
 
 
 def personal_access_token(auth_manager):
@@ -143,7 +149,9 @@ def queue_restricted_sonos(uri, playback, auth_manager):
     address = find_ungrouped_receiver(name)
     remote_name, remote_type, receiver_id = get_receiver_id(address)
     if remote_name != name or str(remote_type).lower() != "speaker":
-        raise ConnectQueueError("Sonos Connect identity does not match Spotify's device.")
+        raise ConnectQueueError(
+            "Sonos Connect identity does not match Spotify's device."
+        )
 
     # Spotify's desktop playback grant is entirely separate from the personal
     # Web API grant. Neither credential appears in the subprocess arguments.
