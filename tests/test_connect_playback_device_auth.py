@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 import os
+import shutil
 import tempfile
 import time
 import types
@@ -40,11 +41,10 @@ class Response:  # pylint: disable=too-few-public-methods
 class PlaybackDeviceAuthTests(unittest.TestCase):
     """Device-code auth and cached grants are separate from production OAuth."""
 
-    def setUp(self):  # pylint: disable=consider-using-with
+    def setUp(self):
         """Replace /tmp with a disposable private test cache."""
-        directory = self.enterContext(
-            tempfile.TemporaryDirectory()
-        )  # pylint: disable=consider-using-with
+        directory = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, directory)
         self.cache = Path(directory) / "playback.cache"
         original = helper.CACHE_PATH
         helper.CACHE_PATH = self.cache
