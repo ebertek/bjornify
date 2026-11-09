@@ -40,7 +40,7 @@ class Response:  # pylint: disable=too-few-public-methods
 class PlaybackDeviceAuthTests(unittest.TestCase):
     """Device-code auth and cached grants are separate from production OAuth."""
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=consider-using-with
         """Replace /tmp with a disposable private test cache."""
         directory = self.enterContext(
             tempfile.TemporaryDirectory()
