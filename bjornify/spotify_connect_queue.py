@@ -125,7 +125,9 @@ def personal_access_token(auth_manager):
     return token
 
 
-def queue_restricted_sonos(uri, playback, auth_manager):  # pylint: disable=too-many-locals
+def queue_restricted_sonos(
+    uri, playback, auth_manager
+):  # pylint: disable=too-many-locals
     """Queue one track on a verified active Sonos speaker, or fail closed.
 
     Returns only after the command endpoint acknowledges the single addition.
