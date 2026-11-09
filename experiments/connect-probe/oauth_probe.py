@@ -134,7 +134,14 @@ def main():
             return status()
         else:
             pipe_token()
-    except (OSError, ValueError, TypeError, KeyError, RuntimeError, SpotifyOauthError) as error:
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        RuntimeError,
+        SpotifyOauthError,
+    ) as error:
         # Never include tokens or callback query parameters in the error.
         print(
             "Probe failed: "
