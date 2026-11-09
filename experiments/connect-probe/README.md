@@ -79,10 +79,22 @@ docker exec -i bjornify python /app/spotify_connect_probe.py pipe-token | \
 
 It reports only whether the reusable login credential is present and whether
 Spotify client-token issuance, login5 service-token issuance, and service
-endpoint resolution succeed. Token **values**, account IDs, service URLs, and
-raw error messages are never printed. This makes authentication-related
-requests only; it does **not** register a player, change playback, or attempt
-any queue write. Share the diagnostic result, not an OAuth token.
+endpoint resolution succeed. Recognized login5 rejection codes (for example
+`INVALID_CREDENTIALS` or `BAD_REQUEST`) are printed from a fixed allowlist;
+unknown replies remain an unspecific error category. Token **values**,
+account IDs, service URLs, and raw error messages are never printed. This
+makes authentication-related requests only; it does **not** register a player,
+change playback, or attempt any queue write. Share the diagnostic result,
+not an OAuth token.
+
+**Auth architecture hypothesis:** [Spotifast's auth module](https://github.com/crmne/spotifast/blob/main/src/auth.rs)
+deliberately uses separate OAuth grants for ordinary Web API calls (the
+application's personal client identity) and Spotify Connect playback (Spotify's
+desktop client identity). Björnify's current experiment reuses its personal
+OAuth grant for both. librespot login5 may reject the resulting stored
+credentials. Check the safe login5 rejection code before changing the grant;
+a successful initial `Session::connect` is not proof that the credential can
+obtain a login5 service token.
 
 ## Optional phase 2: one guarded queue-write experiment
 
