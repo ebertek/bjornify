@@ -832,7 +832,7 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
 
     def test_playback_diagnostics_exclude_identifiers_and_tokens(self):
         """Debug payloads expose device type and state, not actual device IDs."""
-        diagnostics = self.bjornify._playback_diagnostics(
+        diagnostics = self.bjornify._playback_diagnostics(  # pylint: disable=protected-access
             {
                 "is_playing": False,
                 "access_token": "secret",
