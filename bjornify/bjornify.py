@@ -413,6 +413,15 @@ def spotify_error_message(error):  # pylint: disable=too-many-return-statements
     return "Spotify is unavailable. Try again later."
 
 
+def _is_spotify_sonos_track(uri, metadata, expected_name):
+    """Recognize Sonos Spotify transports without trusting unrelated rooms."""
+    if "x-sonos-spotify:" in uri or "x-sonos-spotify:" in metadata:
+        return True
+    return uri.startswith("x-sonos-vli:") and bool(
+        "spotify:" in uri or "spotify:" in metadata or expected_name
+    )
+
+
 def find_playing_speaker(expected_name=None, allow_paused=False):
     """Find one Spotify Sonos room, refusing ambiguous playback targets."""
     speakers = soco.discover(timeout=5) or set()
@@ -428,14 +437,7 @@ def find_playing_speaker(expected_name=None, allow_paused=False):
             uri = track.get("uri", "")
             metadata = track.get("metadata", "")
             # Spotify Connect's virtual line-in may not expose a Spotify URI.
-            if (
-                "x-sonos-spotify:" in uri
-                or "x-sonos-spotify:" in metadata
-                or (
-                    uri.startswith("x-sonos-vli:")
-                    and ("spotify:" in uri or "spotify:" in metadata or expected_name)
-                )
-            ):
+            if _is_spotify_sonos_track(uri, metadata, expected_name):
                 matches.append(speaker)
         except (
             OSError,
@@ -445,6 +447,12 @@ def find_playing_speaker(expected_name=None, allow_paused=False):
             soco.exceptions.SoCoException,
         ):
             _LOGGER.debug("Could not inspect Sonos room %s", speaker.player_name)
+    _LOGGER.debug(
+        "Sonos discovery: expected room=%s, paused allowed=%s, matches=%d",
+        expected_name,
+        allow_paused,
+        len(matches),
+    )
     return matches[0] if len(matches) == 1 else None
 
 
@@ -585,7 +593,7 @@ async def on_message(message):
 
 def player_add_track(
     uri, artist=None, name=None
-):  # pylint: disable=too-many-return-statements,too-many-branches
+):  # pylint: disable=too-many-return-statements,too-many-branches,too-many-statements
     """Add the track to the playback queue."""
     if artist and name:
         _LOGGER.debug("Adding: %s - %s (%s)", artist, name, uri)
@@ -634,6 +642,10 @@ def player_add_track(
                     # A paused-session snapshot cannot authorize a Connect write.
                     if was_paused:
                         playback_results = spotify_request(spotify.current_playback)
+                    _LOGGER.debug(
+                        "Attempting guarded Connect queue fallback; paused=%s",
+                        was_paused,
+                    )
                     queue_restricted_sonos(uri, playback_results, auth_manager)
                 except ConnectQueueError as queue_error:
                     _LOGGER.info("Connect queue fallback unavailable: %s", queue_error)
@@ -660,6 +672,11 @@ def player_add_track(
             if not target:
                 break
             remaining.remove(target)
+            _LOGGER.debug(
+                "Attempting fallback playback on device %s; candidates left=%d",
+                target.get("name"),
+                len(remaining),
+            )
             try:
                 spotify_request(
                     spotify.start_playback, device_id=target["id"], uris=[uri]
