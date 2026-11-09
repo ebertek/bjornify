@@ -318,11 +318,11 @@ async def spotify_connect_playback(interaction):
     )
     await interaction.edit_original_response(
         content=(
-            "**Spotify Connect playback pairing**\\n"
-            f"Enter code **`{challenge['user_code']}`** at Spotify Pair and approve.\\n"
+            "**Spotify Connect playback pairing**\n"
+            f"Enter code **`{challenge['user_code']}`** at Spotify Pair and approve.\n"
             f"This private code expires within {challenge['expires_in']} seconds. "
             "Björnify will update this message automatically."
-        ).replace("\\\\n", "\\n"),
+        ),
         view=view,
     )
 
@@ -346,7 +346,7 @@ async def spotify_status(interaction):
     if spotify_playback_pairings.pending:
         playback = "Pairing pending. Approve the code from /spotify connect-playback."
     await interaction.response.send_message(
-        f"**Spotify Web API:** {status}\\n**Spotify Connect playback:** {playback}",
+        f"**Spotify Web API:** {status}\n**Spotify Connect playback:** {playback}",
         ephemeral=True,
     )
 
