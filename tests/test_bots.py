@@ -114,9 +114,8 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
                 "spotify:track:requested", "Slowdive", "Souvlaki Space Station"
             )
 
-        self.assertIn("restricted device", result)
-        self.assertIn("NOT queued", result)
-        self.assertIn("Spotify app", result)
+        self.assertIn("Restricted Sonos queue fallback unavailable", result)
+        self.assertIn("Only one Spotify track URI is supported", result)
         self.assertNotIn("Premium", result)
         self.spotify.start_playback.assert_not_called()
         self.spotify.devices.assert_not_called()
