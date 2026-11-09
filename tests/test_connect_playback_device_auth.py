@@ -85,7 +85,9 @@ class PlaybackDeviceAuthTests(unittest.TestCase):
 
     def test_poll_pairing_exchanges_only_device_code(self):
         """The Discord poll uses the same fixed OAuth endpoint as the CLI."""
-        with patch.object(helper, "spotify_post", return_value={"error": "authorization_pending"}) as call:
+        with patch.object(
+            helper, "spotify_post", return_value={"error": "authorization_pending"}
+        ) as call:
             result = helper.poll_pairing("private-device-secret")
         self.assertEqual(result["error"], "authorization_pending")
         call.assert_called_once_with(
