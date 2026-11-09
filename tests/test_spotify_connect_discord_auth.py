@@ -1,5 +1,7 @@
 """Tests for private Discord Spotify Connect device pairing."""
 
+# pylint: disable=protected-access
+
 import importlib
 import sys
 import types
