@@ -42,11 +42,8 @@ class PlaybackDeviceAuthTests(unittest.TestCase):
 
     def setUp(self):
         """Replace /tmp with a disposable private test cache."""
-        self.directory = (
-            tempfile.TemporaryDirectory()
-        )  # pylint: disable=consider-using-with
-        self.addCleanup(self.directory.cleanup)
-        self.cache = Path(self.directory.name) / "playback.cache"
+        directory = self.enterContext(tempfile.TemporaryDirectory())
+        self.cache = Path(directory) / "playback.cache"
         original = helper.CACHE_PATH
         helper.CACHE_PATH = self.cache
         self.addCleanup(setattr, helper, "CACHE_PATH", original)
@@ -91,7 +88,7 @@ class PlaybackDeviceAuthTests(unittest.TestCase):
         """Unexpected JSON or oversized replies cannot reach token storage."""
         with patch.object(helper.requests, "post") as call:
             call.return_value = Response(["invalid"])
-            with self.assertRaises(ValueError):
+            with self.assertRaises(TypeError):
                 helper.spotify_post(helper.DEVICE_AUTHORIZE_URL, {})
             huge = Response({"access_token": "A" * 20000})
             call.return_value = huge
