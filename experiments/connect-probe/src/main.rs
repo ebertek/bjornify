@@ -295,11 +295,8 @@ async fn diagnose_service_auth(session: &Session) {
         }
     );
 
-    let client_token = tokio::time::timeout(
-        Duration::from_secs(25),
-        session.spclient().client_token(),
-    )
-    .await;
+    let client_token =
+        tokio::time::timeout(Duration::from_secs(25), session.spclient().client_token()).await;
     match client_token {
         Ok(Ok(_)) => println!("SPCLIENT CLIENT TOKEN: PASS"),
         Ok(Err(error)) => {
@@ -317,11 +314,8 @@ async fn diagnose_service_auth(session: &Session) {
         }
     }
 
-    let service_token = tokio::time::timeout(
-        Duration::from_secs(25),
-        session.login5().auth_token(),
-    )
-    .await;
+    let service_token =
+        tokio::time::timeout(Duration::from_secs(25), session.login5().auth_token()).await;
     match service_token {
         Ok(Ok(_)) => println!("LOGIN5 SERVICE TOKEN: PASS"),
         Ok(Err(error)) => {
@@ -339,12 +333,7 @@ async fn diagnose_service_auth(session: &Session) {
         }
     }
 
-    match tokio::time::timeout(
-        REQUEST_TIMEOUT,
-        session.spclient().base_url(),
-    )
-    .await
-    {
+    match tokio::time::timeout(REQUEST_TIMEOUT, session.spclient().base_url()).await {
         Ok(Ok(_)) => println!("SPCLIENT ENDPOINT RESOLUTION: PASS"),
         Ok(Err(error)) => println!(
             "SPCLIENT ENDPOINT RESOLUTION: FAIL ({})",
