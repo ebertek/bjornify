@@ -6,6 +6,7 @@ No OAuth, playback control, credentials, or queue writes.
 """
 
 import ipaddress
+import json
 import re
 import sys
 
@@ -17,7 +18,7 @@ SONOS_NETWORKS = tuple(
     for cidr in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
 )
 MAX_REPLY_BYTES = 16 * 1024
-DEVICE_ID = re.compile(r"[0-9a-fA-F]{10,128}\\Z")
+DEVICE_ID = re.compile(r"[0-9a-fA-F]{10,128}\Z")
 
 
 def safe_text(value):
@@ -75,7 +76,7 @@ def zero_conf_info(address, session=None):
                 if len(body) > MAX_REPLY_BYTES:
                     return None, "Response too large"
             try:
-                payload = requests.models.complexjson.loads(body)
+                payload = json.loads(body)
             except (ValueError, UnicodeDecodeError):
                 return None, "Invalid JSON"
             details = extract_info(payload)
