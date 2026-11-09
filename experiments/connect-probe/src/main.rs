@@ -307,8 +307,9 @@ mod tests {
 
     #[test]
     fn inspection_handles_missing_device_and_strips_control_characters() {
-        assert!(playback_diagnostics(&json!({"is_playing": false}))
-            .contains("DEVICE: absent or null"));
+        assert!(
+            playback_diagnostics(&json!({"is_playing": false})).contains("DEVICE: absent or null")
+        );
         let diag = playback_diagnostics(&json!({
             "device": {
                 "id": "0123456789abcdef",
