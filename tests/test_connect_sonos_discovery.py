@@ -24,9 +24,7 @@ class FakeReply:
 
     def __init__(self, payload=None, *, status=200, body=None):
         self.status_code = status
-        self.body = (
-            json.dumps(payload).encode() if body is None else body
-        )
+        self.body = json.dumps(payload).encode() if body is None else body
 
     def __enter__(self):
         return self
@@ -77,9 +75,7 @@ class SonosDiscoveryTests(unittest.TestCase):
 
     def test_invalid_ids_are_not_treated_as_connect_device_ids(self):
         for device_id in (None, "bogus", "fake/id/too/short", "AA\\n", ""):
-            self.assertIsNone(
-                discovery.extract_info({"deviceID": device_id})["id"]
-            )
+            self.assertIsNone(discovery.extract_info({"deviceID": device_id})["id"])
 
     def test_getinfo_is_read_only_and_never_follows_redirects(self):
         client = MagicMock()
