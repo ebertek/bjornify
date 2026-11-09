@@ -14,4 +14,4 @@ serde_json = "1"
 # Pin its vergen peer to avoid the incompatible vergen 9.1.x minor bump.
 # Upstream fix: https://github.com/librespot-org/librespot/pull/1683
 [build-dependencies]
-vergen = "=9.0.6"
+vergen = "=10.0.3"
