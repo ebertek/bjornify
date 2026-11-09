@@ -422,9 +422,9 @@ def _playback_diagnostics(playback):
         "device_type": str(device.get("type") or "unknown"),
         "device_restricted": bool(device.get("is_restricted")),
         "playback_state": (
-            "playing" if (playback or {}).get("is_playing") is True
-            else "paused" if (playback or {}).get("is_playing") is False
-            else "unknown"
+            "playing"
+            if (playback or {}).get("is_playing") is True
+            else "paused" if (playback or {}).get("is_playing") is False else "unknown"
         ),
     }
 
@@ -454,8 +454,14 @@ def find_playing_speaker(expected_name=None, allow_paused=False):
             track = speaker.get_current_track_info()
             uri = track.get("uri", "")
             metadata = track.get("metadata", "") or ""
-            media = speaker.get_current_media_info() if uri.startswith("x-sonos-vli:") else {}
-            source_metadata = str(metadata) + " " + str(media.get("CurrentURIMetaData") or "")
+            media = (
+                speaker.get_current_media_info()
+                if uri.startswith("x-sonos-vli:")
+                else {}
+            )
+            source_metadata = (
+                str(metadata) + " " + str(media.get("CurrentURIMetaData") or "")
+            )
             recognized = _is_spotify_sonos_track(uri, source_metadata, expected_name)
             _LOGGER.debug(
                 "Sonos candidate: name=%s state=%s transport=%s spotify_evidence=%s",
@@ -500,18 +506,29 @@ def spotify_action_with_soco_fallback(
         playback = spotify_request(spotify.current_playback)
         if playback is None:
             return "No active Spotify playback found."
-        _LOGGER.debug("Playback action=%s path=spotify details=%s", action_name, _playback_diagnostics(playback))
+        _LOGGER.debug(
+            "Playback action=%s path=spotify details=%s",
+            action_name,
+            _playback_diagnostics(playback),
+        )
         spotify_request(spotify_action)
         _LOGGER.info("%s via Spotify", action_name)
         return "✅"
     except spotipy.exceptions.SpotifyException as error:
         if is_sonos_device_restriction(error):
-            _LOGGER.info("Playback action=%s error_class=restricted_device path=soco", action_name)
+            _LOGGER.info(
+                "Playback action=%s error_class=restricted_device path=soco",
+                action_name,
+            )
             try:
                 target = spotify_sonos_target(playback)
                 speaker = find_playing_speaker(target) if target else None
                 if speaker is not None:
-                    _LOGGER.debug("Playback action=%s selected_sonos_room=%s", action_name, speaker.player_name)
+                    _LOGGER.debug(
+                        "Playback action=%s selected_sonos_room=%s",
+                        action_name,
+                        speaker.player_name,
+                    )
                     soco_action(speaker)
                     _LOGGER.info("%s via Sonos", action_name)
                     return "✅"
@@ -632,7 +649,9 @@ def player_add_track(
     try:
         # GET /me/player
         playback_results = spotify_request(spotify.current_playback)
-        _LOGGER.debug("Add track playback snapshot: %s", _playback_diagnostics(playback_results))
+        _LOGGER.debug(
+            "Add track playback snapshot: %s", _playback_diagnostics(playback_results)
+        )
         if playback_results is not None:
             was_paused = playback_results.get("is_playing") is False
             if was_paused:
@@ -679,7 +698,9 @@ def player_add_track(
                     _LOGGER.debug("Queue path=connect error_class=restricted_device")
                     queue_restricted_sonos(uri, playback_results, auth_manager)
                 except ConnectQueueError as queue_error:
-                    _LOGGER.info("Queue path=connect error_class=%s", type(queue_error).__name__)
+                    _LOGGER.info(
+                        "Queue path=connect error_class=%s", type(queue_error).__name__
+                    )
                     return "Restricted Sonos queue fallback unavailable: " + str(
                         queue_error
                     )

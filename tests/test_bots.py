@@ -824,7 +824,8 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
                 "current_transport_state": "PLAYING"
             }
             speaker.get_current_track_info.return_value = {
-                "uri": "x-sonos-spotify:track:synthetic", "metadata": ""
+                "uri": "x-sonos-spotify:track:synthetic",
+                "metadata": "",
             }
         with patch.object(self.bjornify.soco, "discover", return_value=speakers):
             self.assertIsNone(self.bjornify.find_playing_speaker("Family room"))
@@ -860,13 +861,16 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         interaction.response.defer = AsyncMock()
         interaction.followup.send = AsyncMock()
         self.spotify.track.return_value = {
-            "name": "Song", "artists": [{"name": "Artist"}]
+            "name": "Song",
+            "artists": [{"name": "Artist"}],
         }
         with patch.object(
             self.bjornify, "player_add_track", return_value="No available devices."
         ):
             asyncio.run(
-                self.bjornify.add_track.callback(context, query="spotify:track:synthetic")
+                self.bjornify.add_track.callback(
+                    context, query="spotify:track:synthetic"
+                )
             )
             asyncio.run(
                 self.bjornify.add_slash.callback(
