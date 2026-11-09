@@ -206,10 +206,43 @@ def pipe_token():
     sys.stdout.flush()
 
 
+def dual_tokens():
+    """Pass separate Connect and personal Web API tokens through one private pipe.
+
+    Reads the production Web API token cache without changing or refreshing it.
+    The output must be consumed only by the dedicated Rust experimental probe.
+    """
+    if sys.stdout.isatty():
+        raise ValueError("Refusing to print Spotify access tokens to the terminal.")
+    from spotify_auth import make_auth_manager  # pylint: disable=import-outside-toplevel
+
+    personal_manager = make_auth_manager()
+    cached = personal_manager.cache_handler.get_cached_token()
+    if (
+        not isinstance(cached, dict)
+        or not isinstance(cached.get("access_token"), str)
+        or cached.get("expires_at", 0) <= time.time() + REFRESH_MARGIN_SECONDS
+        or "user-read-playback-state" not in cached.get("scope", "").split()
+    ):
+        raise ValueError(
+            "Personal Web API cache unavailable or expiring; let production Björnify refresh it."
+        )
+    playback = valid_grant()
+    sys.stdout.write(
+        json.dumps(
+            {
+                "playback_token": playback["access_token"],
+                "web_api_token": cached["access_token"],
+            }
+        )
+    )
+    sys.stdout.flush()
+
+
 def main():
     """Only explicit operations are supported; no ambient auth changes."""
     if len(sys.argv) != 2:
-        print("Usage: connect_playback_auth.py authorize|status|client-id|pipe-token")
+        print("Usage: connect_playback_auth.py authorize|status|client-id|pipe-token|pipe-dual")
         return 2
     os.umask(0o077)
     try:
@@ -222,6 +255,8 @@ def main():
             print(PLAYBACK_CLIENT_ID)
         elif operation == "pipe-token":
             pipe_token()
+        elif operation == "pipe-dual":
+            dual_tokens()
         else:
             print("Unknown operation.", file=sys.stderr)
             return 2
