@@ -12,6 +12,7 @@ import sys
 
 import requests
 import soco
+from soco.exceptions import SoCoException
 
 SONOS_NETWORKS = tuple(
     ipaddress.IPv4Network(cidr)
@@ -51,7 +52,7 @@ def extract_info(payload):
     }
 
 
-def zero_conf_info(address, session=None):
+def zero_conf_info(address, session=None):  # pylint: disable=too-many-return-statements
     """Read GET /spotifyzc?action=getInfo with a bounded response, no redirects."""
     ip = lan_ipv4(address)
     if ip is None:
@@ -108,7 +109,7 @@ def discover():
             transport = speaker.get_current_transport_info().get(
                 "current_transport_state", "unknown"
             )
-        except Exception:  # SoCo may fail independently of ZeroConf.
+        except (SoCoException, requests.RequestException, KeyError, ValueError):
             transport = "unknown"
         details, error = zero_conf_info(address)
         print(f"SONOS: {name} | IPv4: {address} | state: {safe_text(transport)}")
