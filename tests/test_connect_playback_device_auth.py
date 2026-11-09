@@ -42,7 +42,7 @@ class PlaybackDeviceAuthTests(unittest.TestCase):
 
     def setUp(self):
         """Replace /tmp with a disposable private test cache."""
-        directory = self.enterContext(tempfile.TemporaryDirectory())
+        directory = self.enterContext(tempfile.TemporaryDirectory())  # pylint: disable=consider-using-with
         self.cache = Path(directory) / "playback.cache"
         original = helper.CACHE_PATH
         helper.CACHE_PATH = self.cache
