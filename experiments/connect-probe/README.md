@@ -61,13 +61,60 @@ docker exec -i bjornify \
 
 The `diagnose` command checks client-token and login5 service-token
 prerequisites without issuing Connect-state queue writes or controlling
-Spotify playback. It may report PASS, FAIL or TIMEOUT. **Do not run
-`add-sonos` after this test**, even if it passes: the existing Sonos
-identity guard uses Spotify's Web API playback endpoint and must be updated
-to use Björnify's **separate personal Web API grant** for that read.
-Spotify's desktop Connect playback grant does not reliably support Web API
-requests. This dual-token separation should be designed and tested before
-any further queue writes.
+Spotify playback. It may report PASS, FAIL or TIMEOUT. The guarded queue-write modes have now been updated to require **two
+distinct tokens**: the isolated Spotify desktop playback grant for librespot
+and the cached personal Björnify Web API grant for active-player inspection.
+One access token alone can no longer authorize a queue-write experiment.
+
+First, run a **read-only two-token inspection** (while Spotify is playing
+on the intended Sonos room):
+
+```bash
+git pull --ff-only
+docker cp experiments/connect-probe/playback_device_auth.py \
+  bjornify:/app/connect_playback_auth.py
+docker build -t bjornify-connect-auth-probe \
+  -f experiments/connect-probe/Dockerfile .
+set -o pipefail
+docker exec -i bjornify \
+  python /app/connect_playback_auth.py pipe-dual | \
+  docker run --rm -i bjornify-connect-auth-probe \
+  "$(docker exec bjornify python /app/connect_playback_auth.py client-id)" \
+  inspect-dual
+```
+
+`pipe-dual` reads the production Web API access token from its cache
+**without modifying or refreshing the production cache**, and refreshes
+only the independent playback token. If the personal cached access
+token is stale or about to expire, this step refuses to run. Let the
+regular production bot renew its token instead of passing credentials
+manually. Neither token is passed in argv or printed to the terminal.
+
+**Optional one-track queue test only after successful two-token inspection:**
+
+```bash
+set -o pipefail
+docker exec -i bjornify \
+  python /app/connect_playback_auth.py pipe-dual | \
+  docker run --rm -i bjornify-connect-auth-probe \
+  "$(docker exec bjornify python /app/connect_playback_auth.py client-id)" \
+  add-sonos "ROOM_NAME" "SONOS_PRIVATE_IPV4" "40_HEX_CONNECT_DEVICE_ID" \
+  "spotify:track:22_CHARACTER_TRACK_ID" --confirm-write
+```
+
+The command re-checks the active, playing, restricted Spotify speaker using
+the personal Web API grant, then separately checks the supplied receiver's
+name, type and Connect identity against its private-LAN ZeroConf reply.
+It refuses a mismatch and avoids automatic retries. **Do not test during
+Sonos grouping, room renames or playback transitions.** One `SENT` only
+means an endpoint acknowledgement; independently verify the Spotify app
+queue. If the request fails or times out, do not retry blindly.
+
+Spotify's desktop playback grant is never used to call the Web API. This
+is still an experimental, undocumented Connect-state command; a
+successfully authenticated librespot session is **not** evidence that
+Spotify will accept the queue request. Production Björnify and Discord
+`/add` remain unchanged.
 
 For reference, the original personal-client grant and Sonos discovery
 instructions remain below as historical test documentation.
