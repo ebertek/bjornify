@@ -40,7 +40,7 @@ docker cp experiments/connect-probe/playback_device_auth.py \
 docker exec -it bjornify python /app/connect_playback_auth.py authorize
 ```
 
-Open **https://spotify.com/pair**, enter the displayed temporary code,
+Open **[Spotify Pair](https://spotify.com/pair)**, enter the displayed temporary code,
 and approve. **Never post a pairing code, access token, or refresh token
 to the repository.** The grant is isolated and ephemeral across container
 recreation; production's Spotify OAuth grant remains unchanged.
