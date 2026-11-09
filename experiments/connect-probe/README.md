@@ -83,6 +83,31 @@ docker exec -i bjornify python /app/spotify_connect_probe.py pipe-token | \
 
 It prints the currently playing device's name and Spotify Connect device ID, plus `restricted` and `active` flags. It is safe to share this output; **never share the access token, authorization code, or a redirect URL**.
 
+### Finding the Sonos Connect identity when Spotify returns a null ID
+
+Spotify can report an active Sonos device with `id: null` and
+`is_restricted: true`. The Web API then cannot identify the queue target.
+An `inspect` result like this is expected; it is not an OAuth failure.
+
+The separate Python helper uses the existing SoCo installation to discover
+Sonos receivers, then performs only
+`GET http://<Sonos LAN IP>:1400/spotifyzc?action=getInfo`.
+The helper prints the non-secret receiver identity, name and transport state,
+not OAuth tokens, private keys or account information.
+
+```bash
+docker cp experiments/connect-probe/sonos_discovery.py \
+  bjornify:/app/sonos_discovery.py
+docker exec bjornify python /app/sonos_discovery.py
+```
+
+The discovery helper is read-only and makes no Spotify queue commands.
+A ZeroConf device ID alone **does not prove** it is the device actively
+playing the account's Spotify session, especially in a grouped Sonos system.
+The `add` command still requires an independently verified active Spotify
+device ID and will refuse an incomplete Web API identity. Do not manually
+substitute the discovered ID into a write command while this guard remains.
+
 The optional queue test is *deliberately manual*. Only try it if the output is
 for your expected Sonos room, with both `restricted: true` and `active: true`.
 Pick one short test track and replace both placeholders below.
