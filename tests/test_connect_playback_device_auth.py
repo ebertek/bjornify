@@ -66,6 +66,55 @@ class PlaybackDeviceAuthTests(unittest.TestCase):
         self.assertNotIn("client_secret", kwargs["data"])
         self.assertFalse(kwargs["allow_redirects"])
 
+    def test_discord_pairing_reuses_safe_cli_device_authorization(self):
+        """A valid public pairing code is returned without exposing any token."""
+        reply = {
+            "device_code": "private-device-secret",
+            "user_code": "ABC123",
+            "expires_in": 600,
+            "interval": 5,
+        }
+        with patch.object(helper, "spotify_post", return_value=reply) as call:
+            result = helper.begin_pairing()
+        self.assertEqual(result, reply)
+        call.assert_called_once_with(
+            helper.DEVICE_AUTHORIZE_URL,
+            {"client_id": helper.PLAYBACK_CLIENT_ID, "scope": "streaming"},
+        )
+        self.assertNotIn("access_token", result)
+
+    def test_poll_pairing_exchanges_only_device_code(self):
+        """The Discord poll uses the same fixed OAuth endpoint as the CLI."""
+        with patch.object(
+            helper, "spotify_post", return_value={"error": "authorization_pending"}
+        ) as call:
+            result = helper.poll_pairing("private-device-secret")
+        self.assertEqual(result["error"], "authorization_pending")
+        call.assert_called_once_with(
+            helper.TOKEN_URL,
+            {
+                "client_id": helper.PLAYBACK_CLIENT_ID,
+                "grant_type": helper.GRANT_TYPE,
+                "device_code": "private-device-secret",
+            },
+        )
+
+    def test_invalid_pairing_challenges_are_rejected(self):
+        """Bad user codes and impossible polling windows cannot reach Discord."""
+        with patch.object(helper, "spotify_post") as call:
+            call.return_value = {
+                "device_code": "secret",
+                "user_code": "bad!markdown",
+                "expires_in": 600,
+                "interval": 5,
+            }
+            with self.assertRaises(ValueError):
+                helper.begin_pairing()
+            call.return_value["user_code"] = "ABC123"
+            call.return_value["interval"] = -1
+            with self.assertRaises(ValueError):
+                helper.begin_pairing()
+
     def test_unknown_endpoint_is_refused_before_network_request(self):
         """Only Spotify OAuth endpoints can receive form submissions."""
         with (

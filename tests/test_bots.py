@@ -631,6 +631,80 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
             delete_after=10,
         )
 
+    def test_only_discord_owner_can_start_connect_playback(self):
+        """Nonowners cannot obtain private device-pairing challenges."""
+        interaction = MagicMock()
+        interaction.response.send_message = AsyncMock()
+        with (
+            patch.object(
+                self.bjornify.bot, "is_owner", new_callable=AsyncMock
+            ) as owner,
+            patch.object(
+                self.bjornify.spotify_playback_pairings,
+                "begin",
+                new_callable=AsyncMock,
+            ) as begin,
+        ):
+            owner.return_value = False
+            asyncio.run(self.bjornify.spotify_connect_playback.callback(interaction))
+        begin.assert_not_awaited()
+        interaction.response.send_message.assert_awaited_once()
+        self.assertTrue(
+            interaction.response.send_message.await_args.kwargs["ephemeral"]
+        )
+
+    def test_discord_playback_pairing_shows_ephemeral_code_no_tokens(self):
+        """Owner gets a private Spotify Pair link, not the OAuth device secret."""
+        interaction = MagicMock()
+        interaction.user.id = 123
+        interaction.response.defer = AsyncMock()
+        interaction.edit_original_response = AsyncMock()
+        with (
+            patch.object(
+                self.bjornify.bot, "is_owner", new_callable=AsyncMock
+            ) as owner,
+            patch.object(
+                self.bjornify.spotify_playback_pairings,
+                "begin",
+                new_callable=AsyncMock,
+            ) as begin,
+        ):
+            owner.return_value = True
+            begin.return_value = {"user_code": "ABC123", "expires_in": 600}
+            asyncio.run(self.bjornify.spotify_connect_playback.callback(interaction))
+        interaction.response.defer.assert_awaited_once_with(ephemeral=True)
+        content = interaction.edit_original_response.await_args.kwargs["content"]
+        view = interaction.edit_original_response.await_args.kwargs["view"]
+        self.assertIn("ABC123", content)
+        self.assertIn("spotify.com/pair", view.children[0].url)
+        self.assertNotIn("access_token", content)
+        self.assertNotIn("device_code", content)
+
+    def test_discord_status_displays_both_grants_without_token_contents(self):
+        """Owner status shows both grants while never printing refresh tokens."""
+        interaction = MagicMock()
+        interaction.response.send_message = AsyncMock()
+        with (
+            patch.object(
+                self.bjornify.bot, "is_owner", new_callable=AsyncMock
+            ) as owner,
+            patch.object(self.bjornify, "playback_grant_status") as status,
+            patch.object(self.bjornify, "auth_manager") as auth,
+        ):
+            owner.return_value = True
+            status.return_value = "Connected (playback grant saved)."
+            auth.cache_handler.get_cached_token.return_value = {
+                "refresh_token": "webapi-private-refresh-secret"
+            }
+            asyncio.run(self.bjornify.spotify_status.callback(interaction))
+        output = interaction.response.send_message.await_args.args[0]
+        self.assertIn("Spotify Web API", output)
+        self.assertIn("Spotify Connect playback", output)
+        self.assertNotIn("webapi-private-refresh-secret", output)
+        self.assertTrue(
+            interaction.response.send_message.await_args.kwargs["ephemeral"]
+        )
+
     def test_slash_pause_does_not_claim_success_on_failure(self):
         """Pause slash command reports authentication failures accurately."""
         interaction = MagicMock()

@@ -110,27 +110,32 @@ If the Web API rejects an **actively playing** Sonos speaker with the specific
 and Sonos ZeroConf identity before sending **one** queue command through the
 bundled librespot binary.
 
-**One-time setup:** while the new container is running, authorize the desktop
-playback grant with Spotify's headless device pairing:
+**One-time setup (Discord, no shell required):** the Discord application
+owner runs **`/spotify connect-playback`**. Björnify sends an **ephemeral**
+message with a temporary code and an **Open Spotify Pair** button. Open
+[Spotify Pair](https://spotify.com/pair), enter the code and approve. Björnify
+checks for authorization in the background and replaces the private code with
+the result; no access or refresh tokens appear in Discord.
+
+Use **`/spotify status`** to inspect both the regular Spotify Web API grant and
+the separate Connect playback grant. A second pairing attempt is refused while
+one is pending. Pairing expires within ten minutes; the command is restricted
+to the Discord application owner.
+
+**Optional CLI setup (for server administrators):**
 
 ```bash
 docker exec -it bjornify python /app/connect_playback_auth.py authorize
-```
-
-Visit [Spotify Pair](https://spotify.com/pair), enter the temporary pairing code,
-and approve. This is a **separate** grant from `/spotify connect`, using the
-desktop playback-client identity; no Spotify Developer Dashboard callback or
-client secret is required. After authorization, the grant and refresh token are
-stored as `/app/secrets/spotify_connect_playback.cache` with file mode `0600`.
-Because `/app/secrets` is already a persistent volume, the pairing survives
-container updates and restarts. The bot automatically refreshes the short-lived
-playback access token when necessary.
-
-Check the saved grant without printing credentials:
-
-```bash
 docker exec bjornify python /app/connect_playback_auth.py status
 ```
+
+Both methods use Spotify's desktop playback-client device authorization flow,
+independent of `/spotify connect` (Web API). No Developer Dashboard callback
+or client secret is needed for the playback grant. After approval, the grant
+and refresh token are stored in `/app/secrets/spotify_connect_playback.cache`
+with file mode `0600`. The existing persistent `/app/secrets` volume keeps
+authorization across container restarts and the bot refreshes access tokens
+automatically.
 
 If you already completed the experimental pairing in an existing container,
 you can preserve that separate grant **before recreating the container**:
@@ -160,10 +165,12 @@ command. **Never paste or commit OAuth cache contents.**
 Spotify Development Mode requires a Premium Spotify account authorized for
 your app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
 
-To connect or reconnect, use **`/spotify connect`** in Discord as the owner of
-the Discord bot. Click **Connect Spotify**, approve access, and Spotify will
-redirect to Björnify. The browser confirms when authorization is complete.
-Use **`/spotify status`** to check whether credentials are saved.
+To connect or reconnect the **Web API**, use **`/spotify connect`** in
+Discord as the application owner. Click **Connect Spotify**, approve access,
+and Spotify will redirect to Björnify. The browser confirms authorization.
+Use **`/spotify connect-playback`** to pair the separate Connect playback
+grant for Sonos, or **`/spotify status`** to check both grants. Neither
+Discord command requires server-shell access.
 
 For automatic login, set **`SPOTIPY_REDIRECT_URI`** to an HTTPS callback, such
 as `https://spotify.example.com/spotify/callback`. Register the **exact same
