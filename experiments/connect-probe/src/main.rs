@@ -21,6 +21,7 @@ const SONOS_REPLY_MAX_BYTES: usize = 16 * 1024;
 enum Mode {
     AuthOnly,
     Inspect,
+    Diagnose,
     Add {
         expected_device: String,
         track_uri: String,
@@ -35,7 +36,7 @@ enum Mode {
 
 fn usage() -> ! {
     eprintln!(
-        "Usage: connect-probe CLIENT_ID [inspect | add DEVICE_ID TRACK_URI --confirm-write | add-sonos NAME PRIVATE_IPV4 DEVICE_ID TRACK_URI --confirm-write]"
+        "Usage: connect-probe CLIENT_ID [inspect | diagnose | add DEVICE_ID TRACK_URI --confirm-write | add-sonos NAME PRIVATE_IPV4 DEVICE_ID TRACK_URI --confirm-write]"
     );
     std::process::exit(2);
 }
@@ -73,6 +74,7 @@ fn mode(args: &[String]) -> (String, Mode) {
     let mode = match args.get(2).map(String::as_str) {
         None if args.len() == 2 => Mode::AuthOnly,
         Some("inspect") if args.len() == 3 => Mode::Inspect,
+        Some("diagnose") if args.len() == 3 => Mode::Diagnose,
         Some("add") if args.len() == 6 && args[5] == "--confirm-write" => {
             if !valid_device_id(&args[3]) || !valid_track_uri(&args[4]) {
                 eprintln!("Invalid device ID or Spotify track URI; no command sent.");
@@ -280,6 +282,79 @@ fn safe_command_failure(error: &ConnectError) -> String {
     format!("librespot error category: {:?}", error.kind)
 }
 
+/// Read-only with respect to playback and queue: requests the same Spotify
+/// client/service tokens needed for a Connect command, without sending one.
+async fn diagnose_service_auth(session: &Session) {
+    println!("CONNECT LOGIN: PASS");
+    println!(
+        "REUSABLE CREDENTIALS: {}",
+        if session.auth_data().is_empty() {
+            "missing"
+        } else {
+            "present"
+        }
+    );
+
+    let client_token = tokio::time::timeout(
+        Duration::from_secs(25),
+        session.spclient().client_token(),
+    )
+    .await;
+    match client_token {
+        Ok(Ok(_)) => println!("SPCLIENT CLIENT TOKEN: PASS"),
+        Ok(Err(error)) => {
+            println!(
+                "SPCLIENT CLIENT TOKEN: FAIL ({})",
+                safe_command_failure(&error)
+            );
+            println!("READ ONLY: no Connect-state queue commands sent.");
+            return;
+        }
+        Err(_) => {
+            println!("SPCLIENT CLIENT TOKEN: TIMEOUT");
+            println!("READ ONLY: no Connect-state queue commands sent.");
+            return;
+        }
+    }
+
+    let service_token = tokio::time::timeout(
+        Duration::from_secs(25),
+        session.login5().auth_token(),
+    )
+    .await;
+    match service_token {
+        Ok(Ok(_)) => println!("LOGIN5 SERVICE TOKEN: PASS"),
+        Ok(Err(error)) => {
+            println!(
+                "LOGIN5 SERVICE TOKEN: FAIL ({})",
+                safe_command_failure(&error)
+            );
+            println!("READ ONLY: no Connect-state queue commands sent.");
+            return;
+        }
+        Err(_) => {
+            println!("LOGIN5 SERVICE TOKEN: TIMEOUT");
+            println!("READ ONLY: no Connect-state queue commands sent.");
+            return;
+        }
+    }
+
+    match tokio::time::timeout(
+        REQUEST_TIMEOUT,
+        session.spclient().base_url(),
+    )
+    .await
+    {
+        Ok(Ok(_)) => println!("SPCLIENT ENDPOINT RESOLUTION: PASS"),
+        Ok(Err(error)) => println!(
+            "SPCLIENT ENDPOINT RESOLUTION: FAIL ({})",
+            safe_command_failure(&error)
+        ),
+        Err(_) => println!("SPCLIENT ENDPOINT RESOLUTION: TIMEOUT"),
+    }
+    println!("READ ONLY: no Connect-state queue commands sent.");
+}
+
 async fn add_one(session: &Session, device_id: &str, uri: &str) -> Result<(), String> {
     // This is Spotify's private Connect-state route, not its documented Web API.
     // It is based on the restricted-Sonos implementation in crmne/spotifast.
@@ -358,6 +433,7 @@ async fn main() {
                 std::process::exit(1);
             }
         },
+        Mode::Diagnose => diagnose_service_auth(&session).await,
         Mode::AddSonos {
             expected_name,
             address,
@@ -442,6 +518,17 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn diagnose_mode_is_read_only_and_has_no_track_or_device_arguments() {
+        let (client, command) = mode(&[
+            "probe".to_string(),
+            "test-client-id".to_string(),
+            "diagnose".to_string(),
+        ]);
+        assert_eq!(client, "test-client-id");
+        assert!(matches!(command, Mode::Diagnose));
+    }
 
     #[test]
     fn queue_errors_reveal_http_status_without_including_private_message() {
