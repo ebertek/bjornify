@@ -413,7 +413,7 @@ mod tests {
         let playback = json!({
             "is_playing": true,
             "device": {
-                "name": "Sunroom",
+                "name": "Test speaker",
                 "type": "Speaker",
                 "id": null,
                 "is_active": true,
@@ -421,40 +421,40 @@ mod tests {
             }
         });
         let info = json!({
-            "remoteName": "Sunroom",
+            "remoteName": "Test speaker",
             "deviceType": "SPEAKER",
-            "deviceID": "d701104685fbde42166bed92607ce970a4c41eb5"
+            "deviceID": "0123456789abcdef0123456789abcdef01234567"
         });
-        let id = "d701104685fbde42166bed92607ce970a4c41eb5";
-        assert!(sonos_identity_matches(&playback, &info, "Sunroom", id));
-        assert!(!sonos_identity_matches(&playback, &info, "Family room", id));
+        let id = "0123456789abcdef0123456789abcdef01234567";
+        assert!(sonos_identity_matches(&playback, &info, "Test speaker", id));
+        assert!(!sonos_identity_matches(&playback, &info, "Other room", id));
         let mut changed = playback.clone();
         changed["device"]["is_restricted"] = json!(false);
-        assert!(!sonos_identity_matches(&changed, &info, "Sunroom", id));
+        assert!(!sonos_identity_matches(&changed, &info, "Test speaker", id));
         changed = playback.clone();
         changed["is_playing"] = json!(false);
-        assert!(!sonos_identity_matches(&changed, &info, "Sunroom", id));
+        assert!(!sonos_identity_matches(&changed, &info, "Test speaker", id));
         changed = playback.clone();
-        changed["device"]["id"] = json!("0123456789abcdef0123456789abcdef01234567");
-        assert!(!sonos_identity_matches(&changed, &info, "Sunroom", id));
+        changed["device"]["id"] = json!("fedcba9876543210fedcba9876543210fedcba98");
+        assert!(!sonos_identity_matches(&changed, &info, "Test speaker", id));
         let mut invalid_info = info.clone();
-        invalid_info["deviceID"] = json!("0123456789abcdef0123456789abcdef01234567");
-        assert!(!sonos_identity_matches(&playback, &invalid_info, "Sunroom", id));
+        invalid_info["deviceID"] = json!("fedcba9876543210fedcba9876543210fedcba98");
+        assert!(!sonos_identity_matches(&playback, &invalid_info, "Test speaker", id));
         invalid_info = info.clone();
-        invalid_info["remoteName"] = json!("Living room");
-        assert!(!sonos_identity_matches(&playback, &invalid_info, "Sunroom", id));
+        invalid_info["remoteName"] = json!("Other room");
+        assert!(!sonos_identity_matches(&playback, &invalid_info, "Test speaker", id));
     }
 
     #[test]
     fn sonos_write_accepts_only_private_ipv4_and_safe_names() {
         assert_eq!(
-            sonos_private_ipv4("10.4.20.97"),
-            Some("10.4.20.97".parse().unwrap())
+            sonos_private_ipv4("192.168.2.47"),
+            Some("192.168.2.47".parse().unwrap())
         );
         for address in ["8.8.8.8", "127.0.0.1", "169.254.1.2", "::1", "example.com"] {
             assert!(sonos_private_ipv4(address).is_none());
         }
-        assert!(valid_device_name("Sunroom"));
+        assert!(valid_device_name("Test speaker"));
         assert!(!valid_device_name(""));
         assert!(!valid_device_name("Sunroom\nInjected"));
     }
