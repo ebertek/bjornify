@@ -1,0 +1,21 @@
+# Root-context multi-stage Björnify build.
+# Never send private/local files or Git metadata to the build daemon.
+.git
+.github
+**/.env
+**/.env.*
+**/secrets
+**/secrets/**
+**/*.cache
+**/*.pyc
+**/__pycache__
+**/.venv
+**/node_modules
+**/logs
+**/dist
+**/target
+tests
+docs
+README.md
+*.md
+!experiments/connect-probe/Cargo.toml
