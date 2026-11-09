@@ -413,60 +413,56 @@ def spotify_error_message(error):  # pylint: disable=too-many-return-statements
     return "Spotify is unavailable. Try again later."
 
 
-def find_playing_speaker():
-    """Find and return the first Sonos speaker that is currently playing Spotify."""
-    speakers = soco.discover()
+def _is_spotify_sonos_track(uri, metadata, expected_name):
+    """Recognize Sonos Spotify transports without trusting unrelated rooms."""
+    if "x-sonos-spotify:" in uri or "x-sonos-spotify:" in metadata:
+        return True
+    return uri.startswith("x-sonos-vli:") and bool(
+        "spotify:" in uri or "spotify:" in metadata or expected_name
+    )
 
-    if not speakers:
-        _LOGGER.info("No Sonos speakers found")
-        return None
 
+def find_playing_speaker(expected_name=None, allow_paused=False):
+    """Find one Spotify Sonos room, refusing ambiguous playback targets."""
+    speakers = soco.discover(timeout=5) or set()
+    matches = []
     for speaker in speakers:
         try:
-            # Check if the speaker is playing
-            state = speaker.get_current_transport_info()["current_transport_state"]
-            if state != "PLAYING":
+            if expected_name and speaker.player_name != expected_name:
                 continue
-        except Exception:  # pylint: disable=broad-exception-caught
-            _LOGGER.exception(
-                "Failed to get transport state for %s", speaker.player_name
-            )
-            continue
+            state = speaker.get_current_transport_info().get("current_transport_state")
+            if state != "PLAYING" and not (allow_paused and state == "PAUSED_PLAYBACK"):
+                continue
+            track = speaker.get_current_track_info()
+            uri = track.get("uri", "")
+            metadata = track.get("metadata", "")
+            # Spotify Connect's virtual line-in may not expose a Spotify URI.
+            if _is_spotify_sonos_track(uri, metadata, expected_name):
+                matches.append(speaker)
+        except (
+            OSError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            soco.exceptions.SoCoException,
+        ):
+            _LOGGER.debug("Could not inspect Sonos room %s", speaker.player_name)
+    _LOGGER.debug(
+        "Sonos discovery: expected room=%s, paused allowed=%s, matches=%d",
+        expected_name,
+        allow_paused,
+        len(matches),
+    )
+    return matches[0] if len(matches) == 1 else None
 
-        try:
-            # Check current track URI
-            track_info = speaker.get_current_track_info()
-            uri = track_info.get("uri", "")
-            metadata = track_info.get("metadata", "")
-            _LOGGER.debug("Checking speaker: %s | URI: %s", speaker.player_name, uri)
 
-            # Primary: Explicit x-sonos-spotify
-            if "x-sonos-spotify:" in uri:
-                _LOGGER.debug(
-                    "Speaker %s playing Spotify (via URI)", speaker.player_name
-                )
-                return speaker
-
-            # Fallback: VirtualLineInSource pointing to Spotify
-            if uri.startswith("x-sonos-vli:") and "spotify:" in uri:
-                _LOGGER.debug(
-                    "Speaker %s playing Spotify (via VirtualLineInSource)",
-                    speaker.player_name,
-                )
-                return speaker
-
-            # Optional fallback: metadata sniffing
-            if "x-sonos-spotify:" in metadata:
-                _LOGGER.debug(
-                    "Speaker %s playing Spotify (via metadata)", speaker.player_name
-                )
-                return speaker
-
-        except Exception:  # pylint: disable=broad-exception-caught
-            _LOGGER.exception("Error while checking speaker %s", speaker.player_name)
-
-    _LOGGER.debug("No currently playing Sonos speaker using Spotify was found")
-    return None
+def spotify_sonos_target(playback):
+    """Only use SoCo when Spotify identifies a uniquely named Sonos speaker."""
+    device = (playback or {}).get("device") or {}
+    if str(device.get("type", "")).lower() != "speaker":
+        return None
+    name = device.get("name")
+    return name if isinstance(name, str) and name else None
 
 
 def spotify_action_with_soco_fallback(
@@ -484,7 +480,8 @@ def spotify_action_with_soco_fallback(
         if is_sonos_device_restriction(error):
             _LOGGER.info("Device restriction during %s; trying Sonos", action_name)
             try:
-                speaker = find_playing_speaker()
+                target = spotify_sonos_target(playback)
+                speaker = find_playing_speaker(target) if target else None
                 if speaker is not None:
                     soco_action(speaker)
                     _LOGGER.info("%s via Sonos", action_name)
@@ -541,7 +538,10 @@ async def add_track(ctx, *, query: str):
     """Add a track to the Spotify playback queue."""
     _LOGGER.debug("!add command by %s: %s", ctx.author.name, query)
     response = await asyncio.to_thread(player_add_item_to_playback_queue, query)
-    await ctx.send(response)
+    await ctx.send(
+        ("✅ " if response.startswith(("Queued:", "Started playback:")) else "❌ ")
+        + response
+    )
 
 
 @bot.command(name="pause", aliases=["stop"])
@@ -572,7 +572,7 @@ async def skip_track(ctx):
 async def now_playing(ctx):
     """Show the currently playing track."""
     _LOGGER.debug("!np command by %s", ctx.author.name)
-    embed = get_now_playing_embed()
+    embed = await asyncio.to_thread(get_now_playing_embed)
     if embed:
         await ctx.send(embed=embed)
     else:
@@ -593,7 +593,7 @@ async def on_message(message):
 
 def player_add_track(
     uri, artist=None, name=None
-):  # pylint: disable=too-many-return-statements,too-many-branches
+):  # pylint: disable=too-many-return-statements,too-many-branches,too-many-statements
     """Add the track to the playback queue."""
     if artist and name:
         _LOGGER.debug("Adding: %s - %s (%s)", artist, name, uri)
@@ -610,7 +610,22 @@ def player_add_track(
                 device = playback_results.get("device") or {}
                 device_id = device.get("id")
                 resume_kwargs = {"device_id": device_id} if device_id else {}
-                spotify_request(spotify.start_playback, **resume_kwargs)
+                try:
+                    spotify_request(spotify.start_playback, **resume_kwargs)
+                except spotipy.exceptions.SpotifyException as error:
+                    if not is_sonos_device_restriction(error):
+                        raise
+                    target = spotify_sonos_target(playback_results)
+                    speaker = (
+                        find_playing_speaker(target, allow_paused=True)
+                        if target
+                        else None
+                    )
+                    if speaker is None:
+                        return (
+                            "Paused restricted Sonos playback cannot be resumed safely."
+                        )
+                    speaker.play()
                 _LOGGER.info("Resumed paused Spotify playback on its current device")
 
             # Queue on the same active session after requesting resume.
@@ -624,10 +639,19 @@ def player_add_track(
                 # Only the independently authenticated Connect backend can do so.
                 # Do not attempt a fallback for an unverified or paused session.
                 try:
+                    # A paused-session snapshot cannot authorize a Connect write.
+                    if was_paused:
+                        playback_results = spotify_request(spotify.current_playback)
+                    _LOGGER.debug(
+                        "Attempting guarded Connect queue fallback; paused=%s",
+                        was_paused,
+                    )
                     queue_restricted_sonos(uri, playback_results, auth_manager)
                 except ConnectQueueError as queue_error:
                     _LOGGER.info("Connect queue fallback unavailable: %s", queue_error)
-                    return spotify_error_message(error) + " " + str(queue_error)
+                    return "Restricted Sonos queue fallback unavailable: " + str(
+                        queue_error
+                    )
                 except Exception:  # pylint: disable=broad-exception-caught
                     _LOGGER.exception("Unexpected restricted-Sonos Connect failure")
                     return (
@@ -642,18 +666,30 @@ def player_add_track(
 
         # GET /me/player/devices
         devices = spotify_request(spotify.devices)
-        target = select_fallback_device(devices, DEFAULT_DEVICE)
-        if target:
-            device_id = target["id"]
-            _LOGGER.info("Starting on Spotify device: %s", target.get("name"))
-            # PUT /me/player/play
-            spotify_request(spotify.start_playback, device_id=device_id, uris=[uri])
-            if artist and name:
-                _LOGGER.info("Started playback: %s - %s", artist, name)
-                return f"Started playback: {artist} - {name}"
-            _LOGGER.info("Started playback: %s", uri)
-            return f"Started playback: {uri}"
-        _LOGGER.warning("No available devices to start playback")
+        remaining = list((devices or {}).get("devices") or [])
+        while remaining:
+            target = select_fallback_device({"devices": remaining}, DEFAULT_DEVICE)
+            if not target:
+                break
+            remaining.remove(target)
+            _LOGGER.debug(
+                "Attempting fallback playback on device %s; candidates left=%d",
+                target.get("name"),
+                len(remaining),
+            )
+            try:
+                spotify_request(
+                    spotify.start_playback, device_id=target["id"], uris=[uri]
+                )
+            except spotipy.exceptions.SpotifyException as error:
+                if not is_sonos_device_restriction(error) and error.http_status != 404:
+                    raise
+                _LOGGER.info(
+                    "Playback device %s unavailable; trying another", target.get("name")
+                )
+                continue
+            queued = f"{artist} - {name}" if artist and name else uri
+            return f"Started playback: {queued}"
         return "No available devices to start playback."
     except (
         spotipy.exceptions.SpotifyException,
@@ -670,6 +706,13 @@ def player_add_item_to_playback_queue(query):
     """Add the track to the playback queue if there are any search results"""
     try:
         # Get the top result for the query: GET tracks.items[0].uri
+        if query.startswith("spotify:track:"):
+            track = spotify_request(spotify.track, query)
+            return player_add_track(
+                query,
+                ", ".join(artist["name"] for artist in track["artists"]),
+                track["name"],
+            )
         search_results = spotify_request(spotify.search, q=query, limit=1, type="track")
         search_items = search_results["tracks"]["items"]
 
@@ -715,6 +758,7 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statem
     """Try to get now playing info from Spotify, fall back to SoCo."""
     _LOGGER.debug("Checking Spotify current playback...")
     spotify_problem = None
+    playback = None
     # Try Spotify first
     try:
         playback = spotify_request(spotify.current_playback)
@@ -781,10 +825,11 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statem
     except Exception as error:  # noqa: BLE001  # pylint: disable=broad-exception-caught
         _LOGGER.debug("Spotify now playing lookup failed: %s", type(error).__name__)
 
-    # Try SoCo fallback
+    # Only show Sonos metadata when a unique room can be identified.
     _LOGGER.debug("Trying Sonos fallback...")
     try:
-        speaker = find_playing_speaker()
+        target = spotify_sonos_target(playback) if isinstance(playback, dict) else None
+        speaker = find_playing_speaker(target) if target else find_playing_speaker()
         if not speaker:
             _LOGGER.debug("No Sonos speaker found")
             return None
@@ -899,14 +944,15 @@ async def add_slash(interaction: discord.Interaction, query: str):
             )
         return
 
+    await interaction.response.defer()
     try:
-        results = spotify_request(spotify.search, q=query, limit=5, type="track")
+        results = await asyncio.to_thread(
+            spotify_request, spotify.search, q=query, limit=5, type="track"
+        )
         tracks = results.get("tracks", {}).get("items", [])
 
         if not tracks:
-            await interaction.response.send_message(
-                "❌ No results found.", ephemeral=True
-            )
+            await interaction.followup.send("❌ No results found.", ephemeral=True)
             return
 
         class FallbackDropdown(
@@ -933,7 +979,12 @@ async def add_slash(interaction: discord.Interaction, query: str):
                 self.parent_view = parent_view
 
             async def callback(self, interaction_dropdown: discord.Interaction):
-                """Disable menu and queue selected track."""
+                """Only the requester can select and queue a track."""
+                if interaction_dropdown.user.id != interaction.user.id:
+                    await interaction_dropdown.response.send_message(
+                        "Only the requester can select a track.", ephemeral=True
+                    )
+                    return
                 uri = self.values[0]
                 await interaction_dropdown.response.defer()
                 try:
@@ -980,15 +1031,16 @@ async def add_slash(interaction: discord.Interaction, query: str):
 
         view = FallbackDropdownView()
         view.add_item(FallbackDropdown(parent_view=view))
-        await interaction.response.send_message("Select a track:", view=view)
-        view.message = await interaction.original_response()
+        view.message = await interaction.followup.send(
+            "Select a track:", view=view, ephemeral=True, wait=True
+        )
 
     except (
         spotipy.exceptions.SpotifyException,
         SpotifyOauthError,
         SpotifyAuthorizationRequired,
     ) as error:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"❌ {spotify_error_message(error)}", ephemeral=True
         )
 
@@ -997,10 +1049,9 @@ async def add_slash(interaction: discord.Interaction, query: str):
 async def pause_slash(interaction: discord.Interaction):
     """Slash command to pause Spotify playback."""
     _LOGGER.debug("/pause command by %s", interaction.user.name)
-    response = await asyncio.get_running_loop().run_in_executor(
-        None, player_pause_playback
-    )
-    await interaction.response.send_message(
+    await interaction.response.defer(ephemeral=True)
+    response = await asyncio.to_thread(player_pause_playback)
+    await interaction.followup.send(
         "✅ Paused playback." if response == "✅" else f"❌ {response}",
         ephemeral=True,
     )
@@ -1010,10 +1061,9 @@ async def pause_slash(interaction: discord.Interaction):
 async def next_slash(interaction: discord.Interaction):
     """Slash command to skip to the next track on Spotify."""
     _LOGGER.debug("/next command by %s", interaction.user.name)
-    response = await asyncio.get_running_loop().run_in_executor(
-        None, player_skip_to_next
-    )
-    await interaction.response.send_message(
+    await interaction.response.defer(ephemeral=True)
+    response = await asyncio.to_thread(player_skip_to_next)
+    await interaction.followup.send(
         "✅ Skipped to next track." if response == "✅" else f"❌ {response}",
         ephemeral=True,
     )
@@ -1024,7 +1074,7 @@ async def np_slash(interaction: discord.Interaction):
     """Slash command to show the currently playing track."""
     _LOGGER.debug("/np command by %s", interaction.user.name)
     await interaction.response.defer(ephemeral=True)
-    embed = get_now_playing_embed()
+    embed = await asyncio.to_thread(get_now_playing_embed)
     if embed:
         await interaction.followup.send(embed=embed)
     else:
