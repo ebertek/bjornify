@@ -106,8 +106,6 @@ def find_ungrouped_receiver(name):
         if not address:
             raise ConnectQueueError("Sonos has no usable private IPv4 address.")
         return address
-    except ConnectQueueError:
-        raise
     except (OSError, ValueError, TypeError, soco.exceptions.SoCoException) as error:
         raise ConnectQueueError(
             "Sonos room discovery or state check failed."
@@ -127,7 +125,7 @@ def personal_access_token(auth_manager):
     return token
 
 
-def queue_restricted_sonos(uri, playback, auth_manager):
+def queue_restricted_sonos(uri, playback, auth_manager):  # pylint: disable=too-many-locals
     """Queue one track on a verified active Sonos speaker, or fail closed.
 
     Returns only after the command endpoint acknowledges the single addition.
@@ -145,7 +143,7 @@ def queue_restricted_sonos(uri, playback, auth_manager):
         raise ConnectQueueError("Spotify playback is not active.")
     device = playback.get("device") or {}
     name = device.get("name")
-    if (
+    if (  # pylint: disable=too-many-boolean-expressions
         device.get("is_active") is not True
         or device.get("is_restricted") is not True
         or str(device.get("type", "")).lower() != "speaker"
