@@ -138,12 +138,15 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         self.spotify.add_to_queue.side_effect = SpotifyException(
             403, -1, "Restricted device"
         )
-        with patch.object(self.bjornify, "queue_restricted_sonos", return_value=True) as connect:
+        with patch.object(
+            self.bjornify, "queue_restricted_sonos", return_value=True
+        ) as connect:
             result = self.bjornify.player_add_track(
                 "spotify:track:requested", "Slowdive", "Souvlaki Space Station"
             )
         self.assertEqual(
-            result, "Queued: Slowdive - Souvlaki Space Station (Spotify Connect accepted request)"
+            result,
+            "Queued: Slowdive - Souvlaki Space Station (Spotify Connect accepted request)",
         )
         connect.assert_called_once_with(
             "spotify:track:requested", playback, self.bjornify.auth_manager
@@ -159,7 +162,9 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         with patch.object(
             self.bjornify,
             "queue_restricted_sonos",
-            side_effect=self.bjornify.ConnectQueueError("Connect authorization missing."),
+            side_effect=self.bjornify.ConnectQueueError(
+                "Connect authorization missing."
+            ),
         ) as connect:
             result = self.bjornify.player_add_track("spotify:track:requested")
         self.assertIn("Connect authorization missing", result)
@@ -618,9 +623,7 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
             return_value="Queued: Artist - Song (Spotify Connect accepted request)",
         ):
             asyncio.run(
-                self.bjornify.add_slash.callback(
-                    interaction, query="spotify:track:123"
-                )
+                self.bjornify.add_slash.callback(interaction, query="spotify:track:123")
             )
         interaction.response.defer.assert_awaited_once()
         interaction.followup.send.assert_awaited_once_with(
