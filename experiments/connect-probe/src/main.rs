@@ -21,6 +21,7 @@ const SONOS_REPLY_MAX_BYTES: usize = 16 * 1024;
 enum Mode {
     AuthOnly,
     Inspect,
+    InspectDual,
     Diagnose,
     Add {
         expected_device: String,
@@ -36,7 +37,7 @@ enum Mode {
 
 fn usage() -> ! {
     eprintln!(
-        "Usage: connect-probe CLIENT_ID [inspect | diagnose | add DEVICE_ID TRACK_URI --confirm-write | add-sonos NAME PRIVATE_IPV4 DEVICE_ID TRACK_URI --confirm-write]"
+        "Usage: connect-probe CLIENT_ID [inspect | inspect-dual | diagnose | add DEVICE_ID TRACK_URI --confirm-write | add-sonos NAME PRIVATE_IPV4 DEVICE_ID TRACK_URI --confirm-write]"
     );
     std::process::exit(2);
 }
@@ -74,6 +75,7 @@ fn mode(args: &[String]) -> (String, Mode) {
     let mode = match args.get(2).map(String::as_str) {
         None if args.len() == 2 => Mode::AuthOnly,
         Some("inspect") if args.len() == 3 => Mode::Inspect,
+        Some("inspect-dual") if args.len() == 3 => Mode::InspectDual,
         Some("diagnose") if args.len() == 3 => Mode::Diagnose,
         Some("add") if args.len() == 6 && args[5] == "--confirm-write" => {
             if !valid_device_id(&args[3]) || !valid_track_uri(&args[4]) {
@@ -107,6 +109,56 @@ fn mode(args: &[String]) -> (String, Mode) {
         _ => usage(),
     };
     (client_id.clone(), mode)
+}
+
+/// Separate Connect/playback credentials from read-only Web API credentials.
+/// Refuse any queue write without both independently supplied grants.
+struct ProbeTokens {
+    playback: String,
+    web_api: Option<String>,
+}
+
+fn parse_tokens(raw: &str, mode: &Mode) -> Result<ProbeTokens, &'static str> {
+    let raw = raw.trim();
+    if raw.is_empty() || raw.len() > 16 * 1024 {
+        return Err("No valid OAuth credentials received on stdin");
+    }
+    match mode {
+        Mode::Add { .. } | Mode::AddSonos { .. } | Mode::InspectDual => {
+            let data: Value =
+                serde_json::from_str(raw).map_err(|_| "Separate OAuth grants required")?;
+            let playback = data
+                .get("playback_token")
+                .and_then(Value::as_str)
+                .filter(|value| valid_token(value))
+                .ok_or("Playback OAuth grant missing or invalid")?;
+            let web_api = data
+                .get("web_api_token")
+                .and_then(Value::as_str)
+                .filter(|value| valid_token(value))
+                .ok_or("Web API OAuth grant missing or invalid")?;
+            if playback == web_api {
+                return Err("Playback and Web API grants must be distinct");
+            }
+            Ok(ProbeTokens {
+                playback: playback.to_owned(),
+                web_api: Some(web_api.to_owned()),
+            })
+        }
+        _ => {
+            if !valid_token(raw) {
+                return Err("Expected single access token for read-only mode");
+            }
+            Ok(ProbeTokens {
+                playback: raw.to_owned(),
+                web_api: None,
+            })
+        }
+    }
+}
+
+fn valid_token(token: &str) -> bool {
+    token.len() >= 8 && token.len() <= 8192 && !token.chars().any(char::is_whitespace)
 }
 
 struct Target {
@@ -409,12 +461,19 @@ async fn main() {
         );
         std::process::exit(2);
     }
-    let mut token = String::new();
-    if io::stdin().read_to_string(&mut token).is_err() || token.trim().is_empty() {
-        eprintln!("No Spotify OAuth token received on stdin.");
+    let mut token_data = String::new();
+    if io::stdin().read_to_string(&mut token_data).is_err() {
+        eprintln!("Could not read OAuth credentials from stdin.");
         std::process::exit(2);
     }
-    let token = token.trim();
+    let tokens = match parse_tokens(&token_data, &command) {
+        Ok(tokens) => tokens,
+        Err(message) => {
+            eprintln!("REFUSED: {message}. No Spotify playback or queue command sent.");
+            std::process::exit(2);
+        }
+    };
+    let token = tokens.playback.as_str();
 
     let mut config = SessionConfig::default();
     config.client_id = client_id;
@@ -449,6 +508,20 @@ async fn main() {
             }
         },
         Mode::Diagnose => diagnose_service_auth(&session).await,
+        Mode::InspectDual => {
+            let Some(web_api_token) = tokens.web_api.as_deref() else {
+                eprintln!("REFUSED: Personal Web API grant missing.");
+                std::process::exit(2);
+            };
+            match get_playback(web_api_token).await {
+                Ok(Some(playback)) => println!("{}", playback_diagnostics(&playback)),
+                Ok(None) => println!("NO PLAYBACK STATE: no playback or queue commands sent."),
+                Err(msg) => {
+                    eprintln!("FAIL: {msg}. No playback or queue commands sent.");
+                    std::process::exit(1);
+                }
+            }
+        },
         Mode::AddSonos {
             expected_name,
             address,
@@ -464,7 +537,8 @@ async fn main() {
                     std::process::exit(1);
                 }
             };
-            let playback = match get_playback(token).await {
+            let web_api_token = tokens.web_api.as_deref().expect("Dual grant required");
+            let playback = match get_playback(web_api_token).await {
                 Ok(Some(value)) => value,
                 _ => {
                     eprintln!("REFUSED: Could not verify Spotify's current playback.");
@@ -491,7 +565,8 @@ async fn main() {
             expected_device,
             track_uri,
         } => {
-            let playback = match get_playback(token).await {
+            let web_api_token = tokens.web_api.as_deref().expect("Dual grant required");
+            let playback = match get_playback(web_api_token).await {
                 Ok(Some(value))
                     if value.get("is_playing").and_then(Value::as_bool) == Some(true) =>
                 {
@@ -533,6 +608,23 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn queue_write_refuses_single_token_or_duplicate_grants() {
+        let mode = Mode::AddSonos {
+            expected_name: "Test speaker".to_string(),
+            address: "192.168.1.10".parse().unwrap(),
+            expected_device: "0123456789abcdef0123456789abcdef01234567".to_string(),
+            track_uri: "spotify:track:4iV5W9uYEdYUVa79Axb7Rh".to_string(),
+        };
+        assert!(parse_tokens("singleaccesstoken123", &mode).is_err());
+        assert!(parse_tokens(r#"{"playback_token":"the-same-token","web_api_token":"the-same-token"}"#, &mode).is_err());
+        assert!(parse_tokens(r#"{"playback_token":"valid-playback-token"}"#, &mode).is_err());
+        assert!(parse_tokens(r#"{"playback_token":"valid-playback-token","web_api_token":"different-web-api-token"}"#, &mode).is_ok());
+        assert!(parse_tokens(r#"{"playback_token":"valid-playback-token","web_api_token":"different-web-api-token"}"#, &Mode::InspectDual).is_ok());
+        assert!(parse_tokens("valid-playback-token", &Mode::Diagnose).is_ok());
+        assert!(parse_tokens(r#"{"playback_token":"valid-playback-token"}"#, &Mode::Diagnose).is_err());
+    }
 
     #[test]
     fn login5_rejection_is_whitelisted_and_never_leaks_service_errors() {
