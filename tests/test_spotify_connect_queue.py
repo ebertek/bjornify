@@ -1,6 +1,6 @@
 """Regression tests for production Spotify Connect restricted-Sonos fallback.
 
-No test contacts Spotify, Sonos, Discord, or a real librepsot process.
+No test contacts Spotify, Sonos, Discord, or a real librespot process.
 """
 
 import json
@@ -8,7 +8,10 @@ import subprocess
 import sys
 import types
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bjornify"))
 
 from spotify_connect_queue import (
     ConnectQueueError,
@@ -22,7 +25,7 @@ SONOS_ID = "0123456789abcdef0123456789abcdef01234567"
 TRACK_URI = "spotify:track:76JhicgPtW4zbN72tpnMyA"
 
 
-class MockReply:
+class MockReply:  # pylint: disable=too-few-public-methods
     """Small streaming ZeroConf response supporting context management."""
 
     def __init__(self, data, status=200):
@@ -57,7 +60,7 @@ class ConnectQueueTests(unittest.TestCase):
         }
         self.speaker = MagicMock()
         self.speaker.player_name = "Sunroom"
-        self.speaker.ip_address = "10.4.20.97"
+        self.speaker.ip_address = "192.168.2.47"
         self.speaker.group.coordinator = self.speaker
         self.speaker.group.members = [self.speaker]
         self.speaker.get_current_transport_info.return_value = {
@@ -77,7 +80,7 @@ class ConnectQueueTests(unittest.TestCase):
 
     def test_only_private_lan_ipv4_is_accepted(self):
         """Reject DNS hostnames, loopback, public IPv4 and IPv6."""
-        self.assertEqual(private_sonos_ip("10.4.20.97"), "10.4.20.97")
+        self.assertEqual(private_sonos_ip("192.168.2.47"), "192.168.2.47")
         for address in ("localhost", "1.1.1.1", "127.0.0.1", "::1", "169.254.2.3"):
             self.assertIsNone(private_sonos_ip(address))
 
@@ -94,12 +97,12 @@ class ConnectQueueTests(unittest.TestCase):
             }
         )
         with patch("spotify_connect_queue.requests.Session", return_value=session):
-            name, kind, identity = get_receiver_id("10.4.20.97")
+            name, kind, identity = get_receiver_id("192.168.2.47")
         self.assertEqual((name, kind, identity), ("Sunroom", "SPEAKER", SONOS_ID))
         self.assertNotIn("secret", repr((name, kind, identity)))
         self.assertEqual(
             session.get.call_args.args[0],
-            "http://10.4.20.97:1400/spotifyzc",
+            "http://192.168.2.47:1400/spotifyzc",
         )
         self.assertFalse(session.get.call_args.kwargs["allow_redirects"])
         session.close.assert_called_once()
@@ -112,7 +115,7 @@ class ConnectQueueTests(unittest.TestCase):
         )
         with patch("spotify_connect_queue.requests.Session", return_value=session):
             with self.assertRaises(ConnectQueueError):
-                get_receiver_id("10.4.20.97")
+                get_receiver_id("192.168.2.47")
 
     def test_personal_web_api_token_is_refreshed_by_its_own_auth_manager(self):
         """Production manager retains authority over personal token refresh."""
@@ -143,7 +146,7 @@ class ConnectQueueTests(unittest.TestCase):
         command.assert_called_once()
         args, kwargs = command.call_args
         self.assertEqual(
-            args[0][2:7], ["add-sonos", "Sunroom", "10.4.20.97", SONOS_ID, TRACK_URI]
+            args[0][2:7], ["add-sonos", "Sunroom", "192.168.2.47", SONOS_ID, TRACK_URI]
         )
         self.assertEqual(args[0][-1], "--confirm-write")
         self.assertNotIn("personal-access", repr(args))
@@ -212,7 +215,7 @@ class ConnectQueueTests(unittest.TestCase):
             ),
             patch.dict(sys.modules, {"connect_playback_auth": self.playback_module}),
             patch("spotify_connect_queue.subprocess.run") as command,
-            self.assertRaises(ValueError),
+            self.assertRaises(ConnectQueueError),
         ):
             queue_restricted_sonos(TRACK_URI, self.playback, self.auth)
         command.assert_not_called()
