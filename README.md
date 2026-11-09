@@ -81,20 +81,20 @@ HA_ACCESS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 ### 🔐 Environmental variables
 
-| Variable Name           | Description                                                                            |
-| ----------------------- | -------------------------------------------------------------------------------------- |
-| `SPOTIPY_CLIENT_ID`     | Your Spotify app’s client ID used for API authentication.                              |
-| `SPOTIPY_CLIENT_SECRET` | Your Spotify app’s client secret.                                                      |
-| `SPOTIPY_REDIRECT_URI`  | Redirect URI registered with your Spotify app.                                         |
-| `DISCORD_BOT_TOKEN`     | Token for Björnify to access the Discord API.                                          |
-| `CHANNEL_ID`            | Discord channel ID where Björnify listens for `!` commands.                            |
-| `GUILD_ID`              | Optional: Discord guild ID where Björnify listens for `/` commands.                    |
-| `DEFAULT_DEVICE`        | Optional: Device used to start playback if no devices are currently playing.           |
+| Variable Name              | Description                                                                                         |
+| -------------------------- | --------------------------------------------------------------------------------------------------- |
+| `SPOTIPY_CLIENT_ID`        | Your Spotify app’s client ID used for API authentication.                                           |
+| `SPOTIPY_CLIENT_SECRET`    | Your Spotify app’s client secret.                                                                   |
+| `SPOTIPY_REDIRECT_URI`     | Redirect URI registered with your Spotify app.                                                      |
+| `DISCORD_BOT_TOKEN`        | Token for Björnify to access the Discord API.                                                       |
+| `CHANNEL_ID`               | Discord channel ID where Björnify listens for `!` commands.                                         |
+| `GUILD_ID`                 | Optional: Discord guild ID where Björnify listens for `/` commands.                                 |
+| `DEFAULT_DEVICE`           | Optional: Device used to start playback if no devices are currently playing.                        |
 | `BJORNIFY_CONNECT_ENABLED` | Optional: `true` (default) enables restricted-Sonos Connect queue fallback. Set `false` to disable. |
-| `LOG_OUTPUT`            | Optional: Comma-separated list to configure logging destinations: `console, file`.     |
-| `LOG_FORMAT`            | Optional: `plain` for human-readable, `json` for JSON.                                 |
-| `LOG_LEVEL`             | Optional: Log level for Björnify: `DEBUG` > `INFO` > `WARNING` > `ERROR` > `CRITICAL`. |
-| `LIB_LOG_LEVEL`         | Optional: Log level for `asyncio`, `discord`, `soco`, `spotipy`, and `urllib3`.        |
+| `LOG_OUTPUT`               | Optional: Comma-separated list to configure logging destinations: `console, file`.                  |
+| `LOG_FORMAT`               | Optional: `plain` for human-readable, `json` for JSON.                                              |
+| `LOG_LEVEL`                | Optional: Log level for Björnify: `DEBUG` > `INFO` > `WARNING` > `ERROR` > `CRITICAL`.              |
+| `LIB_LOG_LEVEL`            | Optional: Log level for `asyncio`, `discord`, `soco`, `spotipy`, and `urllib3`.                     |
 
 Routine Discord login and gateway messages are logged at `DEBUG`, while warnings and errors remain visible at normal verbosity. JSON timestamps include a timezone offset.
 
@@ -189,9 +189,9 @@ To get your own Discord token, please create a new application using the [Discor
 
 ### 💾 Persistent volumes
 
-| Volume         | Description                       |
-| -------------- | --------------------------------- |
-| `/app/logs`    | Location of logs                  |
+| Volume         | Description                                                           |
+| -------------- | --------------------------------------------------------------------- |
+| `/app/logs`    | Location of logs                                                      |
 | `/app/secrets` | Persistent Spotipy and separate Spotify Connect playback token caches |
 
 ### 🤖 Home Assistant conversation bot
