@@ -1,7 +1,7 @@
 #!/usr/bin/python
 """Load Björnify Discord.py bot"""
 
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code,too-many-lines
 
 import asyncio
 import logging
@@ -528,7 +528,7 @@ async def on_message(message):
 
 def player_add_track(
     uri, artist=None, name=None
-):  # pylint: disable=too-many-return-statements
+):  # pylint: disable=too-many-return-statements,too-many-branches
     """Add the track to the playback queue."""
     if artist and name:
         _LOGGER.debug("Adding: %s - %s (%s)", artist, name, uri)
