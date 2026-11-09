@@ -22,7 +22,8 @@ DEVICE_AUTHORIZE_URL = "https://accounts.spotify.com/oauth2/device/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 CACHE_PATH = Path(
     os.environ.get(
-        "BJORNIFY_CONNECT_TOKEN_CACHE_PATH", "/app/secrets/spotify_connect_playback.cache"
+        "BJORNIFY_CONNECT_TOKEN_CACHE_PATH",
+        "/app/secrets/spotify_connect_playback.cache",
     )
 )
 REQUEST_TIMEOUT = (4, 12)
