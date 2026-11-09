@@ -113,9 +113,11 @@ class ConnectQueueTests(unittest.TestCase):
         session.get.return_value = MockReply(
             {"remoteName": "Sunroom", "deviceID": "bad"}
         )
-        with patch("spotify_connect_queue.requests.Session", return_value=session):
-            with self.assertRaises(ConnectQueueError):
-                get_receiver_id("192.168.2.47")
+        with (
+            patch("spotify_connect_queue.requests.Session", return_value=session),
+            self.assertRaises(ConnectQueueError),
+        ):
+            get_receiver_id("192.168.2.47")
 
     def test_personal_web_api_token_is_refreshed_by_its_own_auth_manager(self):
         """Production manager retains authority over personal token refresh."""
