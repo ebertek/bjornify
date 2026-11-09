@@ -709,6 +709,8 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         interaction = MagicMock()
         interaction.user.name = "Test"
         interaction.response.send_message = AsyncMock()
+        interaction.response.defer = AsyncMock()
+        interaction.followup.send = AsyncMock()
         with patch.object(
             self.bjornify, "player_pause_playback", return_value="Access denied."
         ):
