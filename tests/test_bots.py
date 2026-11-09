@@ -122,6 +122,56 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         self.spotify.devices.assert_not_called()
         find.assert_not_called()
 
+    def test_restricted_sonos_uses_connect_queue_only_on_specific_403(self):
+        """An active restricted Sonos session can queue via Connect."""
+        playback = {
+            "is_playing": True,
+            "device": {
+                "name": "Sunroom",
+                "id": None,
+                "type": "Speaker",
+                "is_active": True,
+                "is_restricted": True,
+            },
+        }
+        self.spotify.current_playback.return_value = playback
+        self.spotify.add_to_queue.side_effect = SpotifyException(
+            403, -1, "Restricted device"
+        )
+        with patch.object(
+            self.bjornify, "queue_restricted_sonos", return_value=True
+        ) as connect:
+            result = self.bjornify.player_add_track(
+                "spotify:track:requested", "Slowdive", "Souvlaki Space Station"
+            )
+        self.assertEqual(
+            result,
+            "Queued: Slowdive - Souvlaki Space Station (Spotify Connect accepted request)",
+        )
+        connect.assert_called_once_with(
+            "spotify:track:requested", playback, self.bjornify.auth_manager
+        )
+        self.spotify.add_to_queue.assert_called_once_with("spotify:track:requested")
+
+    def test_connect_queue_failure_does_not_claim_success(self):
+        """If Connect refuses the queue, report failure and do not retry."""
+        self.spotify.current_playback.return_value = {"is_playing": True}
+        self.spotify.add_to_queue.side_effect = SpotifyException(
+            403, -1, "Restricted device"
+        )
+        with patch.object(
+            self.bjornify,
+            "queue_restricted_sonos",
+            side_effect=self.bjornify.ConnectQueueError(
+                "Connect authorization missing."
+            ),
+        ) as connect:
+            result = self.bjornify.player_add_track("spotify:track:requested")
+        self.assertIn("Connect authorization missing", result)
+        self.assertNotIn("Queued:", result)
+        connect.assert_called_once()
+        self.spotify.add_to_queue.assert_called_once()
+
     def test_unrelated_queue_403_still_reports_permission_errors(self):
         """A scope or allowlist error should not be called a device restriction."""
         self.spotify.current_playback.return_value = {"is_playing": True}
@@ -538,7 +588,8 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         """A failed playback action never yields a false-positive success."""
         interaction = MagicMock()
         interaction.user.name = "Test"
-        interaction.response.send_message = AsyncMock()
+        interaction.response.defer = AsyncMock()
+        interaction.followup.send = AsyncMock()
         self.spotify.track.return_value = {
             "name": "Song",
             "artists": [{"name": "Artist"}],
@@ -551,8 +602,33 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
             asyncio.run(
                 self.bjornify.add_slash.callback(interaction, query="spotify:track:123")
             )
-        interaction.response.send_message.assert_awaited_once_with(
+        interaction.response.defer.assert_awaited_once()
+        interaction.followup.send.assert_awaited_once_with(
             "❌ Spotify denied access (403).", ephemeral=True
+        )
+
+    def test_slash_add_connect_accepted_response_is_success(self):
+        """Slash /add reports a confirmed Connect endpoint acknowledgement."""
+        interaction = MagicMock()
+        interaction.user.name = "Test"
+        interaction.response.defer = AsyncMock()
+        interaction.followup.send = AsyncMock()
+        self.spotify.track.return_value = {
+            "name": "Song",
+            "artists": [{"name": "Artist"}],
+        }
+        with patch.object(
+            self.bjornify,
+            "player_add_track",
+            return_value="Queued: Artist - Song (Spotify Connect accepted request)",
+        ):
+            asyncio.run(
+                self.bjornify.add_slash.callback(interaction, query="spotify:track:123")
+            )
+        interaction.response.defer.assert_awaited_once()
+        interaction.followup.send.assert_awaited_once_with(
+            "✅ Queued: Artist - Song (Spotify Connect accepted request)",
+            delete_after=10,
         )
 
     def test_slash_pause_does_not_claim_success_on_failure(self):

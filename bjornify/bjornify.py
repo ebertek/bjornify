@@ -1,7 +1,7 @@
 #!/usr/bin/python
 """Load Björnify Discord.py bot"""
 
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code,too-many-lines
 
 import asyncio
 import logging
@@ -24,6 +24,7 @@ from spotify_auth import (
     SpotifyAuthorizationRequired,
     make_auth_manager,
 )
+from spotify_connect_queue import ConnectQueueError, queue_restricted_sonos
 from spotify_devices import select_fallback_device
 from spotify_discord_auth import SpotifyAuthorizations, start_spotify_callback
 from spotify_errors import is_sonos_device_restriction, spotify_forbidden_message
@@ -474,7 +475,7 @@ async def sync(ctx):
 async def add_track(ctx, *, query: str):
     """Add a track to the Spotify playback queue."""
     _LOGGER.debug("!add command by %s: %s", ctx.author.name, query)
-    response = player_add_item_to_playback_queue(query)
+    response = await asyncio.to_thread(player_add_item_to_playback_queue, query)
     await ctx.send(response)
 
 
@@ -527,7 +528,7 @@ async def on_message(message):
 
 def player_add_track(
     uri, artist=None, name=None
-):  # pylint: disable=too-many-return-statements
+):  # pylint: disable=too-many-return-statements,too-many-branches
     """Add the track to the playback queue."""
     if artist and name:
         _LOGGER.debug("Adding: %s - %s (%s)", artist, name, uri)
@@ -548,8 +549,27 @@ def player_add_track(
                 _LOGGER.info("Resumed paused Spotify playback on its current device")
 
             # Queue on the same active session after requesting resume.
-            spotify_request(spotify.add_to_queue, uri)
             queued = f"{artist} - {name}" if artist and name else uri
+            try:
+                spotify_request(spotify.add_to_queue, uri)
+            except spotipy.exceptions.SpotifyException as error:
+                if not is_sonos_device_restriction(error):
+                    raise
+                # Spotify's Web API cannot queue to a restricted Sonos player.
+                # Only the independently authenticated Connect backend can do so.
+                # Do not attempt a fallback for an unverified or paused session.
+                try:
+                    queue_restricted_sonos(uri, playback_results, auth_manager)
+                except ConnectQueueError as queue_error:
+                    _LOGGER.info("Connect queue fallback unavailable: %s", queue_error)
+                    return spotify_error_message(error) + " " + str(queue_error)
+                except Exception:  # pylint: disable=broad-exception-caught
+                    _LOGGER.exception("Unexpected restricted-Sonos Connect failure")
+                    return (
+                        "Spotify restricted this device. The Connect queue "
+                        "fallback failed; queue outcome is unconfirmed."
+                    )
+                return f"Queued: {queued} (Spotify Connect accepted request)"
             _LOGGER.info("Queued: %s", queued)
             if was_paused:
                 return f"Queued: {queued} (resumed paused playback)"
@@ -792,23 +812,24 @@ async def add_slash(interaction: discord.Interaction, query: str):
     def truncate(text: str, max_length: int = 100) -> str:
         return text if len(text) <= max_length else text[:97] + "..."
 
-    # If input is already a URI, queue directly
+    # If input is already a URI, defer before a potentially slow Connect write.
     if query.startswith("spotify:track:"):
+        await interaction.response.defer()
         try:
-            track = spotify_request(spotify.track, query)
+            track = await asyncio.to_thread(spotify_request, spotify.track, query)
             title = track["name"]
             artist = ", ".join(a["name"] for a in track["artists"])
-            result = player_add_track(query, artist, title)
+            result = await asyncio.to_thread(player_add_track, query, artist, title)
             if result.startswith(("Queued:", "Started playback:")):
-                await interaction.response.send_message(f"✅ {result}", delete_after=10)
+                await interaction.followup.send(f"✅ {result}", delete_after=10)
             else:
-                await interaction.response.send_message(f"❌ {result}", ephemeral=True)
+                await interaction.followup.send(f"❌ {result}", ephemeral=True)
         except (
             spotipy.exceptions.SpotifyException,
             SpotifyOauthError,
             SpotifyAuthorizationRequired,
         ) as error:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"❌ {spotify_error_message(error)}", ephemeral=True
             )
         return
@@ -849,13 +870,16 @@ async def add_slash(interaction: discord.Interaction, query: str):
             async def callback(self, interaction_dropdown: discord.Interaction):
                 """Disable menu and queue selected track."""
                 uri = self.values[0]
+                await interaction_dropdown.response.defer()
                 try:
-                    track = spotify_request(spotify.track, uri)
+                    track = await asyncio.to_thread(spotify_request, spotify.track, uri)
                     title = track["name"]
                     artist = ", ".join(a["name"] for a in track["artists"])
-                    result = player_add_track(uri, artist, title)
+                    result = await asyncio.to_thread(
+                        player_add_track, uri, artist, title
+                    )
                     if not result.startswith(("Queued:", "Started playback:")):
-                        await interaction_dropdown.response.send_message(
+                        await interaction_dropdown.followup.send(
                             f"❌ {result}", ephemeral=True
                         )
                         return
@@ -865,7 +889,7 @@ async def add_slash(interaction: discord.Interaction, query: str):
                     )
                     await interaction_dropdown.message.edit(view=self.parent_view)
 
-                    await interaction_dropdown.response.send_message(
+                    await interaction_dropdown.followup.send(
                         f"✅ {result}", delete_after=10
                     )
                     await interaction_dropdown.message.delete(delay=10)
@@ -874,7 +898,7 @@ async def add_slash(interaction: discord.Interaction, query: str):
                     SpotifyOauthError,
                     SpotifyAuthorizationRequired,
                 ) as error:
-                    await interaction_dropdown.response.send_message(
+                    await interaction_dropdown.followup.send(
                         f"❌ {spotify_error_message(error)}", ephemeral=True
                     )
 
