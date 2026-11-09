@@ -246,8 +246,7 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
 
         result = self.bjornify.player_add_track("spotify:track:requested")
 
-        self.assertIn("restricted device", result)
-        self.assertIn("NOT queued", result)
+        self.assertIn("Paused restricted Sonos", result)
         self.spotify.add_to_queue.assert_not_called()
         self.spotify.devices.assert_not_called()
         self.spotify.start_playback.assert_called_once_with(device_id="restricted")
@@ -432,8 +431,8 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
                 action_name="pause",
             )
 
-        self.assertEqual(result, "✅")
-        sonos_action.assert_called_once_with(speaker)
+        self.assertNotEqual(result, "✅")
+        sonos_action.assert_not_called()
 
     def test_restricted_device_without_sonos_returns_failure(self):
         """A 403 with no Sonos player returns an error reaction."""
@@ -714,9 +713,63 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
             self.bjornify, "player_pause_playback", return_value="Access denied."
         ):
             asyncio.run(self.bjornify.pause_slash.callback(interaction))
-        interaction.response.send_message.assert_awaited_once_with(
+        interaction.response.defer.assert_awaited_once_with(ephemeral=True)
+        interaction.followup.send.assert_awaited_once_with(
             "❌ Access denied.", ephemeral=True
         )
+
+    def test_restricted_sonos_control_targets_exact_room(self):
+        """A restricted device must not control an unrelated Sonos room."""
+        self.spotify.current_playback.return_value = {
+            "device": {"name": "Family room", "type": "Speaker"}
+        }
+        action = MagicMock(side_effect=SpotifyException(403, -1, "Restricted device"))
+        speaker = MagicMock()
+        control = MagicMock()
+        with patch.object(self.bjornify, "find_playing_speaker", return_value=speaker) as find:
+            result = self.bjornify.spotify_action_with_soco_fallback(
+                spotify_action=action, soco_action=control, action_name="pause"
+            )
+        self.assertEqual(result, "✅")
+        find.assert_called_once_with("Family room")
+        control.assert_called_once_with(speaker)
+
+    def test_track_uri_text_command_uses_same_queue_helper(self):
+        """Text commands support direct Spotify track URIs."""
+        self.spotify.track.return_value = {
+            "name": "Song", "artists": [{"name": "Artist"}]
+        }
+        with patch.object(self.bjornify, "player_add_track", return_value="Queued: Artist - Song") as add:
+            result = self.bjornify.player_add_item_to_playback_queue("spotify:track:123")
+        self.assertEqual(result, "Queued: Artist - Song")
+        add.assert_called_once_with("spotify:track:123", "Artist", "Song")
+
+    def test_device_specific_start_failure_tries_next_device(self):
+        """A known device-specific rejection permits trying another device."""
+        self.spotify.current_playback.return_value = None
+        self.spotify.devices.return_value = {"devices": [
+            {"name": "Everywhere", "id": "bad"},
+            {"name": "Kitchen", "id": "good"},
+        ]}
+        self.spotify.start_playback.side_effect = [
+            SpotifyException(403, -1, "Restricted device"), None
+        ]
+        result = self.bjornify.player_add_track("spotify:track:123")
+        self.assertTrue(result.startswith("Started playback:"))
+        self.assertEqual(self.spotify.start_playback.call_count, 2)
+
+    def test_sonos_ambiguous_rooms_fail_closed(self):
+        """Two active Spotify rooms must not be chosen arbitrarily."""
+        speakers = [MagicMock(), MagicMock()]
+        for speaker in speakers:
+            speaker.get_current_transport_info.return_value = {
+                "current_transport_state": "PLAYING"
+            }
+            speaker.get_current_track_info.return_value = {
+                "uri": "x-sonos-spotify:track:abc", "metadata": ""
+            }
+        with patch.object(self.bjornify.soco, "discover", return_value=speakers):
+            self.assertIsNone(self.bjornify.find_playing_speaker())
 
     def test_home_assistant_success(self):
         """Assist responses are extracted and authentication is supplied."""
