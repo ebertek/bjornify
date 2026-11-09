@@ -83,7 +83,7 @@ fn parse_target(value: &Value) -> Option<Target> {
     })
 }
 
-async fn get_active_target(token: &str) -> Result<Option<Target>, &'static str> {
+async fn get_playback(token: &str) -> Result<Option<Value>, &'static str> {
     let response = tokio::time::timeout(
         REQUEST_TIMEOUT,
         Client::new()
@@ -104,9 +104,51 @@ async fn get_active_target(token: &str) -> Result<Option<Target>, &'static str> 
         .json()
         .await
         .map_err(|_| "Spotify playback lookup returned invalid JSON")?;
-    parse_target(&value)
-        .map(Some)
-        .ok_or("Active playback is missing required device identity or restriction information")
+    Ok(Some(value))
+}
+
+/// Print only selected playback fields, never raw API JSON, tokens, or account data.
+fn playback_diagnostics(value: &Value) -> String {
+    let playing = value
+        .get("is_playing")
+        .and_then(Value::as_bool)
+        .map_or("unknown".to_string(), |b| b.to_string());
+
+    let Some(device) = value.get("device").filter(|d| d.is_object()) else {
+        return format!("PLAYBACK: playing={playing}; DEVICE: absent or null. READ ONLY.");
+    };
+
+    let name = device
+        .get("name")
+        .and_then(Value::as_str)
+        .map(|name| {
+            name.chars()
+                .map(|c| if c.is_control() { ' ' } else { c })
+                .collect::<String>()
+        })
+        .unwrap_or_else(|| "<missing>".to_string());
+    let id = match device.get("id") {
+        None => "<missing>".to_string(),
+        Some(Value::Null) => "<null>".to_string(),
+        Some(Value::String(id)) if valid_device_id(id) => id.clone(),
+        _ => "<present but unusable>".to_string(),
+    };
+    let active = device
+        .get("is_active")
+        .and_then(Value::as_bool)
+        .map_or("unknown".to_string(), |b| b.to_string());
+    let restricted = device
+        .get("is_restricted")
+        .and_then(Value::as_bool)
+        .map_or("unknown".to_string(), |b| b.to_string());
+    let kind = device
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or("<missing>");
+
+    format!(
+        "PLAYBACK: playing={playing}\nDEVICE: name={name}, type={kind}, id={id}, active={active}, restricted={restricted}\nREAD ONLY: no playback or queue commands sent."
+    )
 }
 
 async fn add_one(session: &Session, device_id: &str, uri: &str) -> Result<(), &'static str> {
@@ -172,15 +214,9 @@ async fn main() {
         Mode::AuthOnly => {
             println!("PASS: Spotify accepted a librespot session; no playback actions were sent.");
         }
-        Mode::Inspect => match get_active_target(token).await {
-            Ok(Some(device)) => {
-                println!(
-                    "ACTIVE DEVICE: {} | ID: {} | restricted: {} | active: {}",
-                    device.name, device.id, device.restricted, device.active
-                );
-                println!("READ ONLY: no playback or queue commands sent.");
-            }
-            Ok(None) => println!("NO ACTIVE DEVICE: no playback or queue commands sent."),
+        Mode::Inspect => match get_playback(token).await {
+            Ok(Some(playback)) => println!("{}", playback_diagnostics(&playback)),
+            Ok(None) => println!("NO PLAYBACK STATE: no playback or queue commands sent."),
             Err(msg) => {
                 eprintln!("FAIL: {msg}. No playback or queue commands sent.");
                 std::process::exit(1);
@@ -190,14 +226,22 @@ async fn main() {
             expected_device,
             track_uri,
         } => {
-            let current = match get_active_target(token).await {
-                Ok(Some(device)) => device,
+            let playback = match get_playback(token).await {
+                Ok(Some(value)) if value.get("is_playing").and_then(Value::as_bool) == Some(true) => value,
                 _ => {
-                    eprintln!("REFUSED: Could not verify the currently playing device.");
+                    eprintln!("REFUSED: Cannot verify that Spotify is currently playing.");
                     std::process::exit(1);
                 }
             };
-            if current.id != expected_device || !current.restricted || !current.active {
+            let Some(current) = parse_target(&playback) else {
+                eprintln!("REFUSED: Spotify did not provide a complete active device identity.");
+                std::process::exit(1);
+            };
+            if !valid_device_id(&current.id)
+                || current.id != expected_device
+                || !current.restricted
+                || !current.active
+            {
                 eprintln!(
                     "REFUSED: Active device must match the confirmed ID and be active + restricted. No queue command sent."
                 );
@@ -229,6 +273,44 @@ mod tests {
         assert!(!valid_track_uri(
             "spotify:track:4iV5W9uYEdYUVa79Axb7Rh:extra"
         ));
+    }
+
+    #[test]
+    fn inspection_reports_missing_fields_without_inventing_device_identity() {
+        let diag = playback_diagnostics(&json!({
+            "is_playing": true,
+            "device": {
+                "id": null,
+                "name": "Family room",
+                "type": "speaker",
+                "is_active": true
+            }
+        }));
+        assert!(diag.contains("playing=true"));
+        assert!(diag.contains("id=<null>"));
+        assert!(diag.contains("restricted=unknown"));
+        assert!(diag.contains("READ ONLY"));
+        assert!(parse_target(&json!({
+            "device": {
+                "id": null,
+                "name": "Family room",
+                "is_active": true,
+                "is_restricted": true
+            }
+        })).is_none());
+    }
+
+    #[test]
+    fn inspection_handles_missing_device_and_strips_control_characters() {
+        assert!(playback_diagnostics(&json!({"is_playing": false}))
+            .contains("DEVICE: absent or null"));
+        let diag = playback_diagnostics(&json!({
+            "device": {
+                "id": "0123456789abcdef",
+                "name": "Room\\nInjected"
+            }
+        }));
+        assert!(!diag.contains("\\nInjected"));
     }
 
     #[test]
