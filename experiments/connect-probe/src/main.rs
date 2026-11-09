@@ -521,7 +521,7 @@ async fn main() {
                     std::process::exit(1);
                 }
             }
-        },
+        }
         Mode::AddSonos {
             expected_name,
             address,
@@ -618,12 +618,20 @@ mod tests {
             track_uri: "spotify:track:4iV5W9uYEdYUVa79Axb7Rh".to_string(),
         };
         assert!(parse_tokens("singleaccesstoken123", &mode).is_err());
-        assert!(parse_tokens(r#"{"playback_token":"the-same-token","web_api_token":"the-same-token"}"#, &mode).is_err());
+        assert!(parse_tokens(
+            r#"{"playback_token":"the-same-token","web_api_token":"the-same-token"}"#,
+            &mode
+        )
+        .is_err());
         assert!(parse_tokens(r#"{"playback_token":"valid-playback-token"}"#, &mode).is_err());
         assert!(parse_tokens(r#"{"playback_token":"valid-playback-token","web_api_token":"different-web-api-token"}"#, &mode).is_ok());
         assert!(parse_tokens(r#"{"playback_token":"valid-playback-token","web_api_token":"different-web-api-token"}"#, &Mode::InspectDual).is_ok());
         assert!(parse_tokens("valid-playback-token", &Mode::Diagnose).is_ok());
-        assert!(parse_tokens(r#"{"playback_token":"valid-playback-token"}"#, &Mode::Diagnose).is_err());
+        assert!(parse_tokens(
+            r#"{"playback_token":"valid-playback-token"}"#,
+            &Mode::Diagnose
+        )
+        .is_err());
     }
 
     #[test]
