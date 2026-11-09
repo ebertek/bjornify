@@ -3,14 +3,17 @@
 
 use std::env;
 use std::io::{self, IsTerminal, Read};
+use std::net::Ipv4Addr;
 use std::time::Duration;
 
 use librespot_core::{authentication::Credentials, config::SessionConfig, session::Session};
-use reqwest::{Client, Method, StatusCode};
+use reqwest::{redirect::Policy, Client, Method, StatusCode};
 use serde_json::{json, Value};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
+const SONOS_TIMEOUT: Duration = Duration::from_secs(5);
+const SONOS_REPLY_MAX_BYTES: usize = 16 * 1024;
 
 enum Mode {
     AuthOnly,
@@ -19,11 +22,17 @@ enum Mode {
         expected_device: String,
         track_uri: String,
     },
+    AddSonos {
+        expected_name: String,
+        address: Ipv4Addr,
+        expected_device: String,
+        track_uri: String,
+    },
 }
 
 fn usage() -> ! {
     eprintln!(
-        "Usage: connect-probe CLIENT_ID [inspect | add EXPECTED_DEVICE_ID spotify:track:ID --confirm-write]"
+        "Usage: connect-probe CLIENT_ID [inspect | add DEVICE_ID TRACK_URI --confirm-write | add-sonos NAME PRIVATE_IPV4 DEVICE_ID TRACK_URI --confirm-write]"
     );
     std::process::exit(2);
 }
@@ -39,6 +48,14 @@ fn valid_track_uri(uri: &str) -> bool {
 
 fn valid_device_id(id: &str) -> bool {
     (10..=128).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+fn sonos_private_ipv4(raw: &str) -> Option<Ipv4Addr> {
+    raw.parse::<Ipv4Addr>().ok().filter(|address| address.is_private())
+}
+
+fn valid_device_name(name: &str) -> bool {
+    !name.is_empty() && name.len() <= 80 && name.chars().all(|c| !c.is_control())
 }
 
 fn mode(args: &[String]) -> (String, Mode) {
@@ -59,6 +76,25 @@ fn mode(args: &[String]) -> (String, Mode) {
             Mode::Add {
                 expected_device: args[3].clone(),
                 track_uri: args[4].clone(),
+            }
+        }
+        Some("add-sonos") if args.len() == 8 && args[7] == "--confirm-write" => {
+            let Some(address) = sonos_private_ipv4(&args[4]) else {
+                usage()
+            };
+            if !valid_device_name(&args[3])
+                || args[5].len() != 40
+                || !valid_device_id(&args[5])
+                || !valid_track_uri(&args[6])
+            {
+                eprintln!("Invalid Sonos target or track URI; no command sent.");
+                std::process::exit(2);
+            }
+            Mode::AddSonos {
+                expected_name: args[3].clone(),
+                address,
+                expected_device: args[5].clone(),
+                track_uri: args[6].clone(),
             }
         }
         _ => usage(),
@@ -151,6 +187,71 @@ fn playback_diagnostics(value: &Value) -> String {
     )
 }
 
+/// Validate the Sonos Connect device ID against the device itself.
+async fn sonos_get_info(address: Ipv4Addr) -> Result<Value, &'static str> {
+    if !address.is_private() {
+        return Err("Sonos address must be on a private IPv4 LAN");
+    }
+    // This client intentionally does not use proxy settings or follow redirects.
+    let client = Client::builder()
+        .no_proxy()
+        .redirect(Policy::none())
+        .timeout(SONOS_TIMEOUT)
+        .build()
+        .map_err(|_| "Could not create Sonos LAN client")?;
+    let url = format!("http://{address}:1400/spotifyzc?action=getInfo");
+    let mut response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|_| "Sonos did not respond to ZeroConf getInfo")?;
+    if response.status() != StatusCode::OK {
+        return Err("Sonos ZeroConf getInfo returned an unexpected HTTP status");
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|_| "Sonos ZeroConf response could not be read")?
+    {
+        if bytes.len().saturating_add(chunk.len()) > SONOS_REPLY_MAX_BYTES {
+            return Err("Sonos ZeroConf reply exceeds size limit");
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    serde_json::from_slice(&bytes).map_err(|_| "Sonos ZeroConf returned invalid JSON")
+}
+
+/// Require independent Spotify Web API and Sonos ZeroConf evidence for the same target.
+/// A missing Spotify ID is supported only when the user confirms an explicit LAN
+/// address and device ID; never infer the identity from a room name alone.
+fn sonos_identity_matches(
+    playback: &Value,
+    info: &Value,
+    expected_name: &str,
+    expected_device: &str,
+) -> bool {
+    let Some(device) = playback.get("device") else {
+        return false;
+    };
+    let spotify_id = device.get("id");
+    let spotify_id_matches =
+        matches!(spotify_id, Some(Value::Null) | None)
+            || spotify_id.and_then(Value::as_str) == Some(expected_device);
+
+    playback.get("is_playing").and_then(Value::as_bool) == Some(true)
+        && device.get("is_active").and_then(Value::as_bool) == Some(true)
+        && device.get("is_restricted").and_then(Value::as_bool) == Some(true)
+        && device.get("name").and_then(Value::as_str) == Some(expected_name)
+        && device.get("type").and_then(Value::as_str)
+            .is_some_and(|kind| kind.eq_ignore_ascii_case("speaker"))
+        && spotify_id_matches
+        && info.get("deviceID").and_then(Value::as_str) == Some(expected_device)
+        && info.get("remoteName").and_then(Value::as_str) == Some(expected_name)
+        && info.get("deviceType").and_then(Value::as_str)
+            .is_some_and(|kind| kind.eq_ignore_ascii_case("speaker"))
+}
+
 async fn add_one(session: &Session, device_id: &str, uri: &str) -> Result<(), &'static str> {
     // This is Spotify's private Connect-state route, not its documented Web API.
     // It is based on the restricted-Sonos implementation in crmne/spotifast.
@@ -222,6 +323,44 @@ async fn main() {
                 std::process::exit(1);
             }
         },
+        Mode::AddSonos {
+            expected_name,
+            address,
+            expected_device,
+            track_uri,
+        } => {
+            // GET only: prove the Connect identity using a caller-selected LAN
+            // endpoint before checking what Spotify currently reports as active.
+            let info = match sonos_get_info(address).await {
+                Ok(info) => info,
+                Err(message) => {
+                    eprintln!("REFUSED: {message}. No queue command sent.");
+                    std::process::exit(1);
+                }
+            };
+            let playback = match get_playback(token).await {
+                Ok(Some(value)) => value,
+                _ => {
+                    eprintln!("REFUSED: Could not verify Spotify's current playback.");
+                    std::process::exit(1);
+                }
+            };
+            if !sonos_identity_matches(&playback, &info, &expected_name, &expected_device) {
+                eprintln!(
+                    "REFUSED: Spotify's active restricted speaker does not match Sonos ZeroConf identity. No queue command sent."
+                );
+                std::process::exit(1);
+            }
+            match add_one(&session, &expected_device, &track_uri).await {
+                Ok(()) => println!(
+                    "SENT: one Connect-state queue command to {expected_name}. Verify the Spotify queue; delivery is not guaranteed."
+                ),
+                Err(message) => {
+                    eprintln!("FAIL: {message}. Queue outcome unknown; do not retry blindly.");
+                    std::process::exit(1);
+                }
+            }
+        }
         Mode::Add {
             expected_device,
             track_uri,
@@ -268,6 +407,57 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sonos_write_requires_matching_active_restricted_device_and_receiver() {
+        let playback = json!({
+            "is_playing": true,
+            "device": {
+                "name": "Sunroom",
+                "type": "Speaker",
+                "id": null,
+                "is_active": true,
+                "is_restricted": true
+            }
+        });
+        let info = json!({
+            "remoteName": "Sunroom",
+            "deviceType": "SPEAKER",
+            "deviceID": "d701104685fbde42166bed92607ce970a4c41eb5"
+        });
+        let id = "d701104685fbde42166bed92607ce970a4c41eb5";
+        assert!(sonos_identity_matches(&playback, &info, "Sunroom", id));
+        assert!(!sonos_identity_matches(&playback, &info, "Family room", id));
+        let mut changed = playback.clone();
+        changed["device"]["is_restricted"] = json!(false);
+        assert!(!sonos_identity_matches(&changed, &info, "Sunroom", id));
+        changed = playback.clone();
+        changed["is_playing"] = json!(false);
+        assert!(!sonos_identity_matches(&changed, &info, "Sunroom", id));
+        changed = playback.clone();
+        changed["device"]["id"] = json!("0123456789abcdef0123456789abcdef01234567");
+        assert!(!sonos_identity_matches(&changed, &info, "Sunroom", id));
+        let mut invalid_info = info.clone();
+        invalid_info["deviceID"] = json!("0123456789abcdef0123456789abcdef01234567");
+        assert!(!sonos_identity_matches(&playback, &invalid_info, "Sunroom", id));
+        invalid_info = info.clone();
+        invalid_info["remoteName"] = json!("Living room");
+        assert!(!sonos_identity_matches(&playback, &invalid_info, "Sunroom", id));
+    }
+
+    #[test]
+    fn sonos_write_accepts_only_private_ipv4_and_safe_names() {
+        assert_eq!(
+            sonos_private_ipv4("10.4.20.97"),
+            Some("10.4.20.97".parse().unwrap())
+        );
+        for address in ["8.8.8.8", "127.0.0.1", "169.254.1.2", "::1", "example.com"] {
+            assert!(sonos_private_ipv4(address).is_none());
+        }
+        assert!(valid_device_name("Sunroom"));
+        assert!(!valid_device_name(""));
+        assert!(!valid_device_name("Sunroom\\nInjected"));
+    }
 
     #[test]
     fn only_single_track_uris_are_accepted() {
