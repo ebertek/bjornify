@@ -49,7 +49,7 @@ def read_token(manager):
     manager.get_access_token(as_dict=False)
     token = manager.cache_handler.get_cached_token()
     if not isinstance(token, dict):
-        raise ValueError("No cached OAuth token available after refresh.")
+        raise TypeError("No cached OAuth token available after refresh.")
     granted = token.get("scope", "")
     granted_scopes = set(granted.split() if isinstance(granted, str) else granted)
     if "streaming" not in granted_scopes:
@@ -134,7 +134,7 @@ def main():
             return status()
         else:
             pipe_token()
-    except (OSError, ValueError, KeyError, RuntimeError, SpotifyOauthError) as error:
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError, SpotifyOauthError) as error:
         # Never include tokens or callback query parameters in the error.
         print(
             "Probe failed: "
