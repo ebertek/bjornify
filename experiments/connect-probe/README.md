@@ -2,9 +2,9 @@
 
 This is an **isolated Spotify Connect experiment**, not a production Sonos queue fix. The default mode and `inspect` mode are read-only. After a successful authentication test, the optional, explicitly confirmed `add` mode attempts **exactly one** queue command to the current restricted playback device.
 
-The probe does not start a Discord bot, register a playback device, transfer playback, or start/stop/skip songs. **Only the optional `add` mode may change Spotify's Connect queue.** It never targets the Sonos local queue.
+The probe does not start a Discord bot, register a playback device, transfer playback, or start/stop/skip songs. **Only the explicitly confirmed `add` and `add-sonos` modes may change Spotify's Connect queue.** It never targets the Sonos local queue.
 
-The additional OAuth approval uses the same Spotify client ID as Björnify, with an isolated cache at `/tmp/bjornify-connect-probe.cache`. It does **not** modify the production `/app/secrets/spotipy_token.cache`. The temporary grant is for testing; the goal is to reuse a single authorization flow if the Connect approach proves feasible.
+The **current** playback authentication is an isolated Spotify desktop-client grant paired using `spotify.com/pair` and cached at `/tmp/bjornify-connect-playback.cache`. Björnify's personal OAuth grant remains separate and is used solely for Web API playback inspection. The original `oauth_probe.py` instructions later in this document describe the **superseded** personal-client experiment, which Spotify now rejects at `login5`. Neither flow should modify the production `/app/secrets/spotipy_token.cache`.
 
 ## Current status: personal OAuth authentication is incompatible
 
@@ -119,7 +119,10 @@ Spotify will accept the queue request. Production Björnify and Discord
 For reference, the original personal-client grant and Sonos discovery
 instructions remain below as historical test documentation.
 
-## On Pleiades
+## Historical personal-client experiment (no longer compatible)
+
+**Do not repeat these authorization or queue-write steps; use the isolated
+playback grant and `inspect-dual` instructions above instead.**
 
 ### 1. Clone the experimental branch and build the checker
 
