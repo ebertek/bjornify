@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1
 # checkov:skip=CKV_DOCKER_3 Justification: UID is provided externally via Compose
 
+ARG PYTHON_VERSION=3.15-slim
+ARG DEBIAN=trixie
+
 # Build librespot once and ship only its command-line executable.
 # Use the same Debian release as the Python runtime for OpenSSL ABI compatibility.
 FROM rust:slim-trixie AS connect-build
@@ -15,8 +18,6 @@ COPY experiments/connect-probe/Cargo.toml ./Cargo.toml
 COPY experiments/connect-probe/src/ ./src/
 RUN cargo build --release
 
-ARG PYTHON_VERSION=3.15-slim
-ARG DEBIAN=trixie
 FROM python:${PYTHON_VERSION}-${DEBIAN}
 
 # Accept version as build argument.
