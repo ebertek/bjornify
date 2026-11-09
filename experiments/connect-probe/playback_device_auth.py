@@ -5,6 +5,7 @@ streaming-only Spotify desktop-client grant in /tmp (ephemeral on redeploy).
 Never copy the cache into a repository or paste tokens into chat.
 """
 
+import importlib
 import json
 import os
 import sys
@@ -53,7 +54,7 @@ def spotify_post(url, fields):
         raise ValueError("Unexpected OAuth HTTP status.")
     body = response.json()
     if not isinstance(body, dict):
-        raise ValueError("Unexpected OAuth response format.")
+        raise TypeError("Unexpected OAuth response format.")
     if response.status_code != 200:
         reason = body.get("error")
         if reason not in KNOWN_ERRORS:
@@ -82,8 +83,11 @@ def save_grant(payload, *, old_refresh_token=None):
         "scope": " ".join(granted),
     }
     with tempfile.NamedTemporaryFile(
-        mode="w", encoding="utf-8", dir=CACHE_PATH.parent,
-        prefix=".bjornify-connect-playback-", delete=False,
+        mode="w",
+        encoding="utf-8",
+        dir=CACHE_PATH.parent,
+        prefix=".bjornify-connect-playback-",
+        delete=False,
     ) as file:
         temp_name = file.name
         try:
@@ -105,7 +109,7 @@ def read_grant():
     with CACHE_PATH.open(encoding="utf-8") as file:
         payload = json.load(file)
     if not isinstance(payload, dict):
-        raise ValueError("Invalid experimental playback grant.")
+        raise TypeError("Invalid experimental playback grant.")
     return payload
 
 
@@ -144,12 +148,11 @@ def authorize():
     user_code = result.get("user_code")
     lifetime = result.get("expires_in")
     interval = result.get("interval", 5)
-    if (
-        not isinstance(device_code, str) or not device_code
-        or not isinstance(user_code, str) or not user_code.isalnum()
-        or not isinstance(lifetime, int) or lifetime < 1
-        or not isinstance(interval, int) or interval < 1
-    ):
+    code_ok = isinstance(device_code, str) and bool(device_code)
+    user_ok = isinstance(user_code, str) and user_code.isalnum()
+    expiry_ok = isinstance(lifetime, int) and lifetime > 0
+    interval_ok = isinstance(interval, int) and interval > 0
+    if not (code_ok and user_ok and expiry_ok and interval_ok):
         raise ValueError("Spotify returned an invalid pairing challenge.")
 
     print("Open https://spotify.com/pair and enter this temporary code:")
@@ -214,9 +217,7 @@ def dual_tokens():
     """
     if sys.stdout.isatty():
         raise ValueError("Refusing to print Spotify access tokens to the terminal.")
-    from spotify_auth import make_auth_manager  # pylint: disable=import-outside-toplevel
-
-    personal_manager = make_auth_manager()
+    personal_manager = importlib.import_module("spotify_auth").make_auth_manager()
     cached = personal_manager.cache_handler.get_cached_token()
     if (
         not isinstance(cached, dict)
@@ -239,34 +240,37 @@ def dual_tokens():
     sys.stdout.flush()
 
 
+def print_client_id():
+    """Print the public desktop client ID, never a token or secret."""
+    print(PLAYBACK_CLIENT_ID)
+
+
 def main():
     """Only explicit operations are supported; no ambient auth changes."""
     if len(sys.argv) != 2:
         print("Usage: connect_playback_auth.py authorize|status|client-id|pipe-token|pipe-dual")
         return 2
+    commands = {
+        "authorize": authorize,
+        "status": status,
+        "client-id": print_client_id,
+        "pipe-token": pipe_token,
+        "pipe-dual": dual_tokens,
+    }
+    operation = commands.get(sys.argv[1])
+    if operation is None:
+        print("Unknown operation.", file=sys.stderr)
+        return 2
     os.umask(0o077)
     try:
-        operation = sys.argv[1]
-        if operation == "authorize":
-            authorize()
-        elif operation == "status":
-            return status()
-        elif operation == "client-id":
-            print(PLAYBACK_CLIENT_ID)
-        elif operation == "pipe-token":
-            pipe_token()
-        elif operation == "pipe-dual":
-            dual_tokens()
-        else:
-            print("Unknown operation.", file=sys.stderr)
-            return 2
+        return operation() or 0
     except (ValueError, KeyError, TypeError, OSError, requests.RequestException) as error:
         # Never include raw OAuth responses, request payloads, or redirect URLs.
         if isinstance(error, ValueError):
             message = str(error)
             if not message.startswith((
                 "Playback pairing", "Playback OAuth refresh", "No experimental",
-                "Refusing to print",
+                "Refusing to print", "Personal Web API cache",
             )):
                 message = "invalid or unavailable playback grant"
         else:
