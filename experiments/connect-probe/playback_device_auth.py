@@ -139,10 +139,8 @@ def valid_grant():
     return save_grant(refreshed, old_refresh_token=data["refresh_token"])
 
 
-def authorize():
-    """Pair this experiment through Spotify, not Björnify's callback URL."""
-    if not sys.stdin.isatty():
-        raise ValueError("Run authorize interactively with docker exec -it.")
+def begin_pairing():
+    """Request a short-lived desktop playback pairing challenge, without CLI input."""
     result = spotify_post(
         DEVICE_AUTHORIZE_URL,
         {"client_id": PLAYBACK_CLIENT_ID, "scope": "streaming"},
@@ -155,25 +153,45 @@ def authorize():
     interval = result.get("interval", 5)
     code_ok = isinstance(device_code, str) and bool(device_code)
     user_ok = isinstance(user_code, str) and user_code.isalnum()
-    expiry_ok = isinstance(lifetime, int) and lifetime > 0
-    interval_ok = isinstance(interval, int) and interval > 0
+    expiry_ok = isinstance(lifetime, int) and 0 < lifetime <= 3600
+    interval_ok = isinstance(interval, int) and 0 < interval <= 60
     if not (code_ok and user_ok and expiry_ok and interval_ok):
         raise ValueError("Spotify returned an invalid pairing challenge.")
+    return {
+        "device_code": device_code,
+        "user_code": user_code,
+        "expires_in": min(lifetime, MAX_PAIRING_SECONDS),
+        "interval": interval,
+    }
 
+
+def poll_pairing(device_code):
+    """Make one polling attempt; no token is persisted until Spotify approves."""
+    if not isinstance(device_code, str) or not device_code:
+        raise ValueError("Invalid playback pairing state.")
+    return spotify_post(
+        TOKEN_URL,
+        {
+            "client_id": PLAYBACK_CLIENT_ID,
+            "grant_type": GRANT_TYPE,
+            "device_code": device_code,
+        },
+    )
+
+
+def authorize():
+    """Pair desktop playback interactively while reusing the Discord-safe flow."""
+    if not sys.stdin.isatty():
+        raise ValueError("Run authorize interactively with docker exec -it.")
+    challenge = begin_pairing()
     print("Open https://spotify.com/pair and enter this temporary code:")
-    print(user_code)
+    print(challenge["user_code"])
     print("Approve Spotify playback authentication; Björnify production is unchanged.")
-    deadline = time.monotonic() + min(lifetime, MAX_PAIRING_SECONDS)
+    interval = challenge["interval"]
+    deadline = time.monotonic() + challenge["expires_in"]
     while time.monotonic() < deadline:
         time.sleep(min(interval, max(0, deadline - time.monotonic())))
-        result = spotify_post(
-            TOKEN_URL,
-            {
-                "client_id": PLAYBACK_CLIENT_ID,
-                "grant_type": GRANT_TYPE,
-                "device_code": device_code,
-            },
-        )
+        result = poll_pairing(challenge["device_code"])
         if "error" not in result:
             save_grant(result)
             print("PASS: isolated playback grant saved. No playback commands sent.")
