@@ -7,7 +7,8 @@ Björnify is a Discord bot based on [discord.py](https://github.com/Rapptz/disco
 - Listens for `!add`, `!next`, `!pause`, and `!np` commands.
 - Uses [Spotipy](https://github.com/spotipy-dev/spotipy) to search tracks and manage playback via Spotify Web API.
 - Queues tracks on the current Spotify session. If playback is paused, resumes the existing song before queueing the requested track next; if no session exists, prefers `DEFAULT_DEVICE` and then the first eligible Spotify Connect device, skipping devices flagged `is_restricted` or lacking a device ID.
-- Falls back to controlling Sonos speakers via [SoCo](https://github.com/SoCo/SoCo) if Spotify playback fails due to device restrictions.
+- When an active, ungrouped Sonos speaker rejects queueing as a restricted device, uses a bundled [librespot](https://github.com/librespot-org/librespot) Connect fallback with separately paired credentials.
+- Falls back to [SoCo](https://github.com/SoCo/SoCo) for supported playback controls when Spotify rejects a restricted device.
 - Uses autocomplete and dropdown UI for enhanced slash command experience (`/add`).
 
 ## 🚀 Usage examples
@@ -89,6 +90,7 @@ HA_ACCESS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 | `CHANNEL_ID`            | Discord channel ID where Björnify listens for `!` commands.                            |
 | `GUILD_ID`              | Optional: Discord guild ID where Björnify listens for `/` commands.                    |
 | `DEFAULT_DEVICE`        | Optional: Device used to start playback if no devices are currently playing.           |
+| `BJORNIFY_CONNECT_ENABLED` | Optional: `true` (default) enables restricted-Sonos Connect queue fallback. Set `false` to disable. |
 | `LOG_OUTPUT`            | Optional: Comma-separated list to configure logging destinations: `console, file`.     |
 | `LOG_FORMAT`            | Optional: `plain` for human-readable, `json` for JSON.                                 |
 | `LOG_LEVEL`             | Optional: Log level for Björnify: `DEBUG` > `INFO` > `WARNING` > `ERROR` > `CRITICAL`. |
@@ -97,6 +99,61 @@ HA_ACCESS_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 Routine Discord login and gateway messages are logged at `DEBUG`, while warnings and errors remain visible at normal verbosity. JSON timestamps include a timezone offset.
 
 To get your own Spotify Client ID and secret, please create a new app using the [Spotify for Developers](https://developer.spotify.com/dashboard) Dashboard. You can add `http://127.0.0.1:3000` to _Redirect URIs_, and select `Web API` for _APIs used_.
+
+### 🎵 Sonos Spotify Connect queue fallback
+
+Björnify includes an optional Spotify Connect queue backend for Sonos speakers.
+It is **enabled by default** but does nothing unless a separate playback grant
+has been paired. Ordinary queue requests continue through Spotipy's Web API.
+If the Web API rejects an **actively playing** Sonos speaker with the specific
+`403 Restricted device` error, Björnify validates its current Spotify player
+and Sonos ZeroConf identity before sending **one** queue command through the
+bundled librespot binary.
+
+**One-time setup:** while the new container is running, authorize the desktop
+playback grant with Spotify's headless device pairing:
+
+```bash
+docker exec -it bjornify python /app/connect_playback_auth.py authorize
+```
+
+Visit [Spotify Pair](https://spotify.com/pair), enter the temporary pairing code,
+and approve. This is a **separate** grant from `/spotify connect`, using the
+desktop playback-client identity; no Spotify Developer Dashboard callback or
+client secret is required. After authorization, the grant and refresh token are
+stored as `/app/secrets/spotify_connect_playback.cache` with file mode `0600`.
+Because `/app/secrets` is already a persistent volume, the pairing survives
+container updates and restarts. The bot automatically refreshes the short-lived
+playback access token when necessary.
+
+Check the saved grant without printing credentials:
+
+```bash
+docker exec bjornify python /app/connect_playback_auth.py status
+```
+
+If you already completed the experimental pairing in an existing container,
+you can preserve that separate grant **before recreating the container**:
+
+```bash
+docker exec bjornify sh -c 'umask 077; cp /tmp/bjornify-connect-playback.cache /app/secrets/spotify_connect_playback.cache'
+```
+
+Only use the copy command if that experimental cache exists. Otherwise pair
+again after upgrading.
+
+For safety, the queue fallback refuses paused/unknown sessions, grouped Sonos
+rooms, ambiguous room names, and mismatching Connect identities. It never
+transfers or starts playback or retries an uncertain queue write. A private
+Spotify Connect-state endpoint is used; Spotify can change it without notice.
+An accepted command is **not independently verified** against the Spotify
+queue. If the request fails or times out, the bot reports that the outcome is
+unknown rather than claiming the song was queued.
+
+Set `BJORNIFY_CONNECT_ENABLED=false` to disable this optional backend while
+keeping normal Spotify queueing, Sonos pause/skip, and metadata functions
+unchanged. If the separate grant expires or is revoked, rerun the pairing
+command. **Never paste or commit OAuth cache contents.**
 
 ### 🔑 Connect Spotify
 
@@ -135,7 +192,7 @@ To get your own Discord token, please create a new application using the [Discor
 | Volume         | Description                       |
 | -------------- | --------------------------------- |
 | `/app/logs`    | Location of logs                  |
-| `/app/secrets` | Location of `spotipy_token.cache` |
+| `/app/secrets` | Persistent Spotipy and separate Spotify Connect playback token caches |
 
 ### 🤖 Home Assistant conversation bot
 
