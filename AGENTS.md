@@ -43,14 +43,13 @@ details from an earlier chat, branch, or deployment are still accurate.
 
 ## Authorization and secrets
 
-- Maintain **two independent OAuth grants**:
-  1. Personal Spotify Web API OAuth, cached in
-     `/app/secrets/spotipy_token.cache`. Discord: `/spotify connect`;
-     CLI: `python /app/spotify_auth.py authorize`.
-  2. Spotify Connect desktop playback grant, cached in
-     `/app/secrets/spotify_connect_playback.cache`. Discord:
-     `/spotify connect-playback`; CLI:
-     `python /app/connect_playback_auth.py authorize`.
+- Maintain **two independent OAuth grants**. Personal Spotify Web API OAuth
+  uses `/app/secrets/spotipy_token.cache`, `/spotify connect` in Discord,
+  and `python /app/spotify_auth.py authorize` in the CLI.
+- Spotify Connect desktop playback OAuth uses
+  `/app/secrets/spotify_connect_playback.cache`,
+  `/spotify connect-playback` in Discord, and
+  `python /app/connect_playback_auth.py authorize` in the CLI.
 - `/spotify status` reports both grants without exposing credentials.
   Discord authorization commands are owner-only; status and pairing codes
   are private/ephemeral. Playback device-code auth uses `spotify.com/pair`,
