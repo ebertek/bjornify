@@ -1,7 +1,7 @@
-"""Experimental Spotify Connect device-code grant, isolated from Björnify OAuth.
+"""Spotify Connect device-code grant, separate from Björnify Web API OAuth.
 
-This helper never starts playback. It is explicitly invoked, and saves a
-streaming-only Spotify desktop-client grant in /app/secrets (persistent volume).
+This helper never starts playback. It stores a streaming-only Spotify
+desktop-client grant in /app/secrets (persistent volume).
 Never copy the cache into a repository or paste tokens into chat.
 """
 
@@ -108,9 +108,9 @@ def save_grant(payload, *, old_refresh_token=None):
 
 
 def read_grant():
-    """Load only from the isolated experiment cache."""
+    """Load only from the dedicated Spotify Connect playback cache."""
     if not CACHE_PATH.is_file():
-        raise ValueError("No experimental playback grant; run authorize.")
+        raise ValueError("No saved Spotify Connect playback grant; run authorize.")
     with CACHE_PATH.open(encoding="utf-8") as file:
         payload = json.load(file)
     if not isinstance(payload, dict):
@@ -186,7 +186,9 @@ def authorize():
     challenge = begin_pairing()
     print("Open https://spotify.com/pair and enter this temporary code:")
     print(challenge["user_code"])
-    print("Approve Spotify playback authentication; Björnify production is unchanged.")
+    print(
+        "Approve Spotify playback authentication; Web API authorization stays separate."
+    )
     interval = challenge["interval"]
     deadline = time.monotonic() + challenge["expires_in"]
     while time.monotonic() < deadline:
@@ -210,7 +212,7 @@ def status():
     try:
         grant = read_grant()
     except ValueError:
-        print("No saved experimental playback grant.")
+        print("No saved Spotify Connect playback grant.")
         return 1
     valid_scope = "streaming" in grant.get("scope", "").split()
     not_expired = grant.get("expires_at", 0) > time.time()
@@ -236,7 +238,7 @@ def dual_tokens():
     """Pass separate Connect and personal Web API tokens through one private pipe.
 
     Reads the production Web API token cache without changing or refreshing it.
-    The output must be consumed only by the dedicated Rust experimental probe.
+    The output must be consumed only by the dedicated Rust Connect client.
     """
     if sys.stdout.isatty():
         raise ValueError("Refusing to print Spotify access tokens to the terminal.")
@@ -303,7 +305,7 @@ def main():
                 (
                     "Playback pairing",
                     "Playback OAuth refresh",
-                    "No experimental",
+                    "No saved Spotify Connect",
                     "Refusing to print",
                     "Personal Web API cache",
                 )

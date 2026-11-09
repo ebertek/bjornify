@@ -5,7 +5,7 @@
     {
       "description": "librespot-core 0.8.0 build.rs requires vergen 9.0.6; 9.1.0 changes vergen-lib's trait ABI. Remove this rule after librespot publishes a compatible version.",
       "matchManagers": ["cargo"],
-      "matchFileNames": ["experiments/connect-probe/Cargo.toml"],
+      "matchFileNames": ["spotify-connect/Cargo.toml"],
       "matchPackageNames": ["vergen"],
       "enabled": false
     }

@@ -1,5 +1,5 @@
 [package]
-name = "bjornify-connect-auth-probe"
+name = "bjornify-connect"
 version = "0.1.0"
 edition = "2021"
 publish = false
