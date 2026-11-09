@@ -6,7 +6,14 @@ use std::io::{self, IsTerminal, Read};
 use std::net::Ipv4Addr;
 use std::time::Duration;
 
-use librespot_core::{authentication::Credentials, config::SessionConfig, session::Session};
+use librespot_core::{
+    authentication::Credentials,
+    config::SessionConfig,
+    error::Error as ConnectError,
+    http_client::HttpClientError,
+    session::Session,
+    spclient::RequestStrategy,
+};
 use reqwest::{redirect::Policy, Client, Method, StatusCode};
 use serde_json::{json, Value};
 
@@ -257,7 +264,28 @@ fn sonos_identity_matches(
             .is_some_and(|kind| kind.eq_ignore_ascii_case("speaker"))
 }
 
-async fn add_one(session: &Session, device_id: &str, uri: &str) -> Result<(), &'static str> {
+/// Only expose a vetted error category and HTTP status. The underlying error
+/// may contain Spotify service URLs, sensitive IDs, or response metadata.
+fn safe_command_failure(error: &ConnectError) -> String {
+    if let Some(HttpClientError::StatusCode(status)) =
+        error.error.downcast_ref::<HttpClientError>()
+    {
+        let meaning = match status.as_u16() {
+            400 => "invalid Connect-state request",
+            401 => "Connect-state authentication rejected",
+            403 => "Connect-state permission denied",
+            404 => "Connect-state route or device not found",
+            409 => "Connect-state conflict",
+            429 => "Connect-state rate limited",
+            500..=599 => "Connect-state service error",
+            _ => "unexpected Connect-state HTTP response",
+        };
+        return format!("HTTP {} ({meaning})", status.as_u16());
+    }
+    format!("librespot error category: {:?}", error.kind)
+}
+
+async fn add_one(session: &Session, device_id: &str, uri: &str) -> Result<(), String> {
     // This is Spotify's private Connect-state route, not its documented Web API.
     // It is based on the restricted-Sonos implementation in crmne/spotifast.
     let path = format!(
@@ -268,15 +296,17 @@ async fn add_one(session: &Session, device_id: &str, uri: &str) -> Result<(), &'
         "command": {"endpoint": "add_to_queue", "track": {"uri": uri}}
     })
     .to_string();
+    // Keep a failed/ambiguous queue write from being automatically replayed.
+    // Spotify's generic spclient normally retries unavailable endpoints.
+    let client = session.spclient();
+    client.set_strategy(RequestStrategy::TryTimes(1));
     tokio::time::timeout(
         REQUEST_TIMEOUT,
-        session
-            .spclient()
-            .request(&Method::POST, &path, None, Some(body.as_bytes())),
+        client.request(&Method::POST, &path, None, Some(body.as_bytes())),
     )
     .await
-    .map_err(|_| "Connect-state queue command timed out")?
-    .map_err(|_| "Connect-state queue command was rejected")?;
+    .map_err(|_| "Connect-state queue command timed out".to_string())?
+    .map_err(|error| format!("Connect-state queue command failed: {}", safe_command_failure(&error)))?;
     Ok(())
 }
 
@@ -412,6 +442,32 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn queue_errors_reveal_http_status_without_including_private_message() {
+        let error = ConnectError::new(
+            librespot_core::error::ErrorKind::PermissionDenied,
+            HttpClientError::StatusCode(StatusCode::FORBIDDEN),
+        );
+        assert_eq!(
+            safe_command_failure(&error),
+            "HTTP 403 (Connect-state permission denied)"
+        );
+        let error = ConnectError::new(
+            librespot_core::error::ErrorKind::NotFound,
+            HttpClientError::StatusCode(StatusCode::NOT_FOUND),
+        );
+        assert_eq!(
+            safe_command_failure(&error),
+            "HTTP 404 (Connect-state route or device not found)"
+        );
+        let error = ConnectError::failed_precondition(
+            "credentials must not appear in diagnostics: secret-canary",
+        );
+        let output = safe_command_failure(&error);
+        assert!(output.contains("FailedPrecondition"));
+        assert!(!output.contains("secret-canary"));
+    }
 
     #[test]
     fn sonos_write_requires_matching_active_restricted_device_and_receiver() {
