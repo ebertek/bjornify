@@ -456,7 +456,7 @@ mod tests {
         }
         assert!(valid_device_name("Sunroom"));
         assert!(!valid_device_name(""));
-        assert!(!valid_device_name("Sunroom\\nInjected"));
+        assert!(!valid_device_name("Sunroom\nInjected"));
     }
 
     #[test]
