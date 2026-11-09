@@ -10,6 +10,7 @@ import importlib
 import ipaddress
 import json
 import logging
+import os
 import re
 import subprocess
 
@@ -91,7 +92,7 @@ def find_ungrouped_receiver(name):
             raise ConnectQueueError("Expected exactly one Sonos room with this name.")
         speaker = matches[0]
         group = speaker.group
-        if group.coordinator is not speaker or len(group.members) != 1:
+        if group.coordinator.ip_address != speaker.ip_address or len(group.members) != 1:
             raise ConnectQueueError(
                 "Grouped Sonos rooms are not supported for queue fallback."
             )
@@ -104,7 +105,7 @@ def find_ungrouped_receiver(name):
         return address
     except ConnectQueueError:
         raise
-    except (OSError, ValueError, soco.exceptions.SoCoException) as error:
+    except (OSError, ValueError, TypeError, soco.exceptions.SoCoException) as error:
         raise ConnectQueueError(
             "Sonos room discovery or state check failed."
         ) from error
@@ -129,6 +130,8 @@ def queue_restricted_sonos(uri, playback, auth_manager):
     Returns only after the command endpoint acknowledges the single addition.
     The Spotify app, rather than this private endpoint, confirms delivery.
     """
+    if os.getenv("BJORNIFY_CONNECT_ENABLED", "true").lower() not in {"true", "1", "yes"}:
+        raise ConnectQueueError("The Spotify Connect fallback is disabled.")
     if not VALID_TRACK_URI.fullmatch(uri):
         raise ConnectQueueError("Only one Spotify track URI is supported.")
     if not isinstance(playback, dict) or playback.get("is_playing") is not True:
@@ -157,7 +160,12 @@ def queue_restricted_sonos(uri, playback, auth_manager):
     # Web API grant. Neither credential appears in the subprocess arguments.
     web_token = personal_access_token(auth_manager)
     playback_auth = importlib.import_module("connect_playback_auth")
-    grant = playback_auth.valid_grant()
+    try:
+        grant = playback_auth.valid_grant()
+    except (ValueError, TypeError, OSError, KeyError, requests.RequestException) as error:
+        raise ConnectQueueError(
+            "Connect playback authorization is missing or expired; pair Spotify again."
+        ) from error
     playback_token = grant.get("access_token")
     if not isinstance(playback_token, str) or not playback_token:
         raise ConnectQueueError("Spotify Connect playback authorization is missing.")
