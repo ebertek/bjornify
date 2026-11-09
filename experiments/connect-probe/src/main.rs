@@ -284,6 +284,32 @@ fn safe_command_failure(error: &ConnectError) -> String {
 
 /// Read-only with respect to playback and queue: requests the same Spotify
 /// client/service tokens needed for a Connect command, without sending one.
+/// Map login5's narrowly defined server rejection enum into diagnostic labels.
+/// Never echo arbitrary error strings: they may contain account identifiers.
+fn safe_login5_failure(error: &ConnectError) -> String {
+    let detail = error.error.to_string();
+    const REJECTIONS: [&str; 9] = [
+        "UNKNOWN_ERROR",
+        "INVALID_CREDENTIALS",
+        "BAD_REQUEST",
+        "UNSUPPORTED_LOGIN_PROTOCOL",
+        "TIMEOUT",
+        "UNKNOWN_IDENTIFIER",
+        "TOO_MANY_ATTEMPTS",
+        "INVALID_PHONENUMBER",
+        "TRY_AGAIN_LATER",
+    ];
+    for rejection in REJECTIONS {
+        if detail == format!("Login request was denied: {rejection}") {
+            return format!("login5 denied stored credentials: {rejection}");
+        }
+    }
+    if detail.starts_with("Couldn't successfully authenticate after ") {
+        return "login5 exhausted authentication retries".to_string();
+    }
+    safe_command_failure(error)
+}
+
 async fn diagnose_service_auth(session: &Session) {
     println!("CONNECT LOGIN: PASS");
     println!(
@@ -321,7 +347,7 @@ async fn diagnose_service_auth(session: &Session) {
         Ok(Err(error)) => {
             println!(
                 "LOGIN5 SERVICE TOKEN: FAIL ({})",
-                safe_command_failure(&error)
+                safe_login5_failure(&error)
             );
             println!("READ ONLY: no Connect-state queue commands sent.");
             return;
@@ -507,6 +533,30 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn login5_rejection_is_whitelisted_and_never_leaks_service_errors() {
+        let denied = ConnectError::failed_precondition(
+            "Login request was denied: INVALID_CREDENTIALS",
+        );
+        assert_eq!(
+            safe_login5_failure(&denied),
+            "login5 denied stored credentials: INVALID_CREDENTIALS"
+        );
+        let denied = ConnectError::failed_precondition("Login request was denied: BAD_REQUEST");
+        assert_eq!(
+            safe_login5_failure(&denied),
+            "login5 denied stored credentials: BAD_REQUEST"
+        );
+        let unknown = ConnectError::failed_precondition(
+            "Login request was denied: SECRET_TOKEN_123",
+        );
+        assert_eq!(
+            safe_login5_failure(&unknown),
+            "librespot error category: FailedPrecondition"
+        );
+        assert!(!safe_login5_failure(&unknown).contains("SECRET_TOKEN_123"));
+    }
 
     #[test]
     fn diagnose_mode_is_read_only_and_has_no_track_or_device_arguments() {
