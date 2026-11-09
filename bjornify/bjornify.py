@@ -24,6 +24,11 @@ from spotify_auth import (
     SpotifyAuthorizationRequired,
     make_auth_manager,
 )
+from spotify_connect_discord_auth import (
+    DiscordPlaybackPairings,
+    PairingInProgress,
+    playback_grant_status,
+)
 from spotify_connect_queue import ConnectQueueError, queue_restricted_sonos
 from spotify_devices import select_fallback_device
 from spotify_discord_auth import SpotifyAuthorizations, start_spotify_callback
@@ -148,6 +153,7 @@ spotify = spotipy.Spotify(
 
 
 spotify_authorizations = SpotifyAuthorizations()
+spotify_playback_pairings = DiscordPlaybackPairings()
 
 
 # Set up Discord
@@ -268,6 +274,59 @@ async def spotify_connect(interaction):
     )
 
 
+@spotify_group.command(
+    name="connect-playback",
+    description="Pair Spotify Connect playback for Sonos queues (owner only)",
+)
+async def spotify_connect_playback(interaction):
+    """Pair the independent desktop playback grant through private Discord UI."""
+    if not await bot.is_owner(interaction.user):
+        await interaction.response.send_message(
+            "Only the bot owner can connect Spotify playback.", ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True)
+
+    async def on_complete(_success, message):
+        """Replace the private pairing code with only a safe completion message."""
+        await interaction.edit_original_response(content=message, view=None)
+
+    try:
+        challenge = await spotify_playback_pairings.begin(on_complete)
+    except PairingInProgress:
+        await interaction.edit_original_response(
+            content="A Spotify Connect pairing is already active. Approve it or retry after expiry."
+        )
+        return
+    except (ValueError, TypeError, OSError) as error:
+        _LOGGER.warning(
+            "Unable to begin Spotify Connect pairing (%s)", type(error).__name__
+        )
+        await interaction.edit_original_response(
+            content="Spotify Connect pairing could not start. Check bot logs and retry."
+        )
+        return
+
+    view = discord.ui.View(timeout=challenge["expires_in"])
+    view.add_item(
+        discord.ui.Button(
+            label="Open Spotify Pair",
+            style=discord.ButtonStyle.link,
+            url="https://spotify.com/pair",
+        )
+    )
+    await interaction.edit_original_response(
+        content=(
+            "**Spotify Connect playback pairing**\\n"
+            f"Enter code **`{challenge['user_code']}`** at Spotify Pair and approve.\\n"
+            f"This private code expires within {challenge['expires_in']} seconds. "
+            "Björnify will update this message automatically."
+        ).replace("\\\\n", "\\n"),
+        view=view,
+    )
+
+
 @spotify_group.command(name="status", description="Check Spotify login (owner only)")
 async def spotify_status(interaction):
     """Show only the authorization cache status, never secret tokens."""
@@ -283,7 +342,13 @@ async def spotify_status(interaction):
         if cached and cached.get("refresh_token")
         else "Spotify is not connected. Run /spotify connect."
     )
-    await interaction.response.send_message(status, ephemeral=True)
+    playback = playback_grant_status()
+    if spotify_playback_pairings.pending:
+        playback = "Pairing pending. Approve the code from /spotify connect-playback."
+    await interaction.response.send_message(
+        f"**Spotify Web API:** {status}\\n**Spotify Connect playback:** {playback}",
+        ephemeral=True,
+    )
 
 
 bot.tree.add_command(spotify_group)
