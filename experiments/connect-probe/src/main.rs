@@ -146,7 +146,7 @@ fn parse_tokens(raw: &str, mode: &Mode) -> Result<ProbeTokens, &'static str> {
             })
         }
         _ => {
-            if !valid_token(raw) {
+            if raw.starts_with('{') || raw.starts_with('[') || !valid_token(raw) {
                 return Err("Expected single access token for read-only mode");
             }
             Ok(ProbeTokens {
