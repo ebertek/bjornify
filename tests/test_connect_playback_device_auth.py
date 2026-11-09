@@ -14,11 +14,10 @@ from unittest.mock import MagicMock, patch
 
 PATH = (
     Path(__file__).resolve().parents[1]
-    / "experiments"
-    / "connect-probe"
-    / "playback_device_auth.py"
+    / "bjornify"
+    / "connect_playback_auth.py"
 )
-SPEC = importlib.util.spec_from_file_location("connect_playback_device_auth", PATH)
+SPEC = importlib.util.spec_from_file_location("connect_playback_auth", PATH)
 if SPEC is None or SPEC.loader is None:
     raise RuntimeError("Could not load Connect device-code helper")
 helper = importlib.util.module_from_spec(SPEC)
@@ -178,7 +177,7 @@ class PlaybackDeviceAuthTests(unittest.TestCase):
         self.assertFalse(self.cache.exists())
 
     def test_refresh_keeps_existing_refresh_token_when_not_rotated(self):
-        """Token renewal remains isolated to the experimental cache."""
+        """Token renewal remains isolated to the separate playback cache."""
         helper.save_grant(
             {
                 "access_token": "old-access",

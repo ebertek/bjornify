@@ -1,4 +1,4 @@
-//! Experimental, explicitly gated remote Spotify Connect queue probe.
+//! Guarded Spotify Connect queue commands for Björnify.
 //! Normal invocation is read-only. This program never transfers or starts playback.
 
 use std::env;
@@ -37,7 +37,7 @@ enum Mode {
 
 fn usage() -> ! {
     eprintln!(
-        "Usage: connect-probe CLIENT_ID [inspect | inspect-dual | diagnose | add DEVICE_ID TRACK_URI --confirm-write | add-sonos NAME PRIVATE_IPV4 DEVICE_ID TRACK_URI --confirm-write]"
+        "Usage: bjornify-connect CLIENT_ID [inspect | inspect-dual | diagnose | add DEVICE_ID TRACK_URI --confirm-write | add-sonos NAME PRIVATE_IPV4 DEVICE_ID TRACK_URI --confirm-write]"
     );
     std::process::exit(2);
 }

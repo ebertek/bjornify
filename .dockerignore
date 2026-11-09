@@ -18,4 +18,3 @@ tests
 docs
 README.md
 *.md
-!experiments/connect-probe/Cargo.toml

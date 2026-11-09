@@ -25,17 +25,16 @@ details from an earlier chat, branch, or deployment are still accurate.
   callback (`/spotify connect`).
 - `bjornify/spotify_connect_discord_auth.py`: owner-only device-code pairing
   for Connect playback (`/spotify connect-playback`).
-- `experiments/connect-probe/playback_device_auth.py`: **production-used**
-  Connect playback OAuth/pairing and refresh logic; the Dockerfile installs
-  it as `/app/connect_playback_auth.py`.
+- `bjornify/connect_playback_auth.py`: Connect playback OAuth, device pairing,
+  and refresh logic; Docker installs it as `/app/connect_playback_auth.py`.
 - `bjornify/spotify_connect_queue.py`: guarded Sonos queue fallback.
 - `bjornify/spotify_devices.py`: choose a usable device when nothing plays.
 - `bjornify/spotify_errors.py`: classify Spotify API failures.
 - `bjornify/spotify_notifications.py`: reauthorization notifications.
 - `bjornify/bot_logging.py`: structured logging and noise filtering.
-- `experiments/connect-probe/src/main.rs`: Rust Connect-state command and
-  preflight checks; **production-used** despite its directory name.
-- `experiments/connect-probe/Cargo.toml`: Rust dependencies.
+- `spotify-connect/src/main.rs`: Rust Connect-state client and guarded
+  preflight checks.
+- `spotify-connect/Cargo.toml`: Rust dependencies.
 - `bjornify/Dockerfile`: multi-stage production image with the Rust binary.
 - `bjornify/wrapper.sh`: starts the main bot and optional HA bot, healthcheck.
 - `tests/`: mocked tests; `.github/workflows/`: lint, Rust/Docker validation,
@@ -93,9 +92,9 @@ python -m unittest discover -s tests -v
 python -m pip install -r .github/requirements-lint.txt
 ruff check --extend-select UP,TRY,BLE,DTZ,EXE,I bjornify scripts tests
 black --check bjornify scripts tests
-cargo fmt --manifest-path experiments/connect-probe/Cargo.toml --all -- --check
-cargo check --manifest-path experiments/connect-probe/Cargo.toml
-cargo test --manifest-path experiments/connect-probe/Cargo.toml
+cargo fmt --manifest-path spotify-connect/Cargo.toml --all -- --check
+cargo check --manifest-path spotify-connect/Cargo.toml
+cargo test --manifest-path spotify-connect/Cargo.toml
 docker build -f bjornify/Dockerfile -t bjornify:local .
 ```
 
@@ -104,8 +103,8 @@ docker build -f bjornify/Dockerfile -t bjornify:local .
   uncertain queue outcomes. Never require live Spotify, Discord, Sonos, or
   real credentials for CI tests.
 - The Docker build context is the **repository root**, not `bjornify/`.
-  The production image copies the Python playback helper and Rust binary
-  from `experiments/connect-probe/`. Validate both when editing those paths.
+  The production image includes `bjornify/connect_playback_auth.py` and builds
+  the Rust binary from `spotify-connect/`. Validate both when editing them.
 - The Rust dependency `vergen = "=9.0.6"` is intentionally pinned for the
   `librespot-core = "=0.8.0"` build-script compatibility issue. Keep the
   matching scoped Renovate exception until a compatible upstream release

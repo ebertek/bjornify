@@ -13,9 +13,9 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     ca-certificates pkg-config libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /probe
-COPY experiments/connect-probe/Cargo.toml ./Cargo.toml
-COPY experiments/connect-probe/src/ ./src/
+WORKDIR /connect
+COPY spotify-connect/Cargo.toml ./Cargo.toml
+COPY spotify-connect/src/ ./src/
 RUN cargo build --release
 
 FROM python:${PYTHON_VERSION}-${DEBIAN}
@@ -79,9 +79,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 # Copy only the runtime code. The build context is the repository root.
 COPY bjornify/ .
-# Keep the desktop OAuth refresh and pairing code shared with the tested probe.
-COPY experiments/connect-probe/playback_device_auth.py /app/connect_playback_auth.py
-COPY --from=connect-build /probe/target/release/bjornify-connect-auth-probe /usr/local/bin/bjornify-connect
+COPY --from=connect-build /connect/target/release/bjornify-connect /usr/local/bin/bjornify-connect
 
 # Make entrypoint script executable and create required directories.
 RUN chmod +x wrapper.sh && \
