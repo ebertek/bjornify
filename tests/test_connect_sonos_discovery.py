@@ -40,7 +40,8 @@ class SonosDiscoveryTests(unittest.TestCase):
     """Never treat an unverified remote device as a writable queue target."""
 
     def test_only_rfc1918_ips_can_be_requested(self):
-        self.assertEqual(discovery.lan_ipv4("10.4.20.101"), "10.4.20.101")
+        """Reject public, loopback and hostname HTTP targets."""
+        self.assertEqual(discovery.lan_ipv4("192.168.2.47"), "192.168.2.47")
         for ip in (
             "127.0.0.1",
             "169.254.0.10",
@@ -52,9 +53,10 @@ class SonosDiscoveryTests(unittest.TestCase):
             self.assertIsNone(discovery.lan_ipv4(ip))
 
     def test_only_intended_non_secret_fields_are_extracted(self):
+        """Only the public receiver identity may leave the ZeroConf reply."""
         info = discovery.extract_info(
             {
-                "remoteName": "Sunroom",
+                "remoteName": "Test speaker",
                 "deviceType": "SPEAKER",
                 "deviceID": "0123456789abcdef0123456789abcdef01234567",
                 "activeUser": "private-account",
@@ -65,7 +67,7 @@ class SonosDiscoveryTests(unittest.TestCase):
         self.assertEqual(
             info,
             {
-                "remote_name": "Sunroom",
+                "remote_name": "Test speaker",
                 "device_type": "SPEAKER",
                 "id": "0123456789abcdef0123456789abcdef01234567",
             },
@@ -74,29 +76,32 @@ class SonosDiscoveryTests(unittest.TestCase):
         self.assertNotIn("DO_NOT_PRINT", repr(info))
 
     def test_invalid_ids_are_not_treated_as_connect_device_ids(self):
+        """Reject malformed and missing Connect device identifiers."""
         for device_id in (None, "bogus", "fake/id/too/short", "AA\\n", ""):
             self.assertIsNone(discovery.extract_info({"deviceID": device_id})["id"])
 
     def test_getinfo_is_read_only_and_never_follows_redirects(self):
+        """Read only the intended endpoint without redirects or secret output."""
         client = MagicMock()
         client.get.return_value = FakeReply(
             {
                 "deviceID": "0123456789abcdef0123456789abcdef01234567",
-                "remoteName": "Sunroom",
+                "remoteName": "Test speaker",
                 "publicKey": "SECRET",
             }
         )
-        info, error = discovery.zero_conf_info("10.4.20.101", session=client)
+        info, error = discovery.zero_conf_info("192.168.2.47", session=client)
         self.assertIsNone(error)
-        self.assertEqual(info["remote_name"], "Sunroom")
+        self.assertEqual(info["remote_name"], "Test speaker")
         self.assertEqual(info["id"], "0123456789abcdef0123456789abcdef01234567")
         _args, kwargs = client.get.call_args
-        self.assertEqual(_args[0], "http://10.4.20.101:1400/spotifyzc")
+        self.assertEqual(_args[0], "http://192.168.2.47:1400/spotifyzc")
         self.assertEqual(kwargs["params"], {"action": "getInfo"})
         self.assertFalse(kwargs["allow_redirects"])
         self.assertNotIn("SECRET", repr(info))
 
     def test_public_address_never_triggers_http(self):
+        """Do not send HTTP requests to public IP addresses."""
         client = MagicMock()
         info, error = discovery.zero_conf_info("1.1.1.1", session=client)
         self.assertIsNone(info)
@@ -104,9 +109,10 @@ class SonosDiscoveryTests(unittest.TestCase):
         client.get.assert_not_called()
 
     def test_oversized_response_is_rejected_without_disclosing_body(self):
+        """Bound untrusted Sonos response size and never print its contents."""
         client = MagicMock()
         client.get.return_value = FakeReply(body=b"A" * 20000)
-        info, error = discovery.zero_conf_info("10.4.20.101", session=client)
+        info, error = discovery.zero_conf_info("192.168.2.47", session=client)
         self.assertIsNone(info)
         self.assertEqual(error, "Response too large")
 
