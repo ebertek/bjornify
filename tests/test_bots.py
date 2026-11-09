@@ -636,7 +636,9 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         interaction = MagicMock()
         interaction.response.send_message = AsyncMock()
         with (
-            patch.object(self.bjornify.bot, "is_owner", new_callable=AsyncMock) as owner,
+            patch.object(
+                self.bjornify.bot, "is_owner", new_callable=AsyncMock
+            ) as owner,
             patch.object(
                 self.bjornify.spotify_playback_pairings,
                 "begin",
@@ -658,7 +660,9 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         interaction.response.defer = AsyncMock()
         interaction.edit_original_response = AsyncMock()
         with (
-            patch.object(self.bjornify.bot, "is_owner", new_callable=AsyncMock) as owner,
+            patch.object(
+                self.bjornify.bot, "is_owner", new_callable=AsyncMock
+            ) as owner,
             patch.object(
                 self.bjornify.spotify_playback_pairings,
                 "begin",
@@ -681,7 +685,9 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         interaction = MagicMock()
         interaction.response.send_message = AsyncMock()
         with (
-            patch.object(self.bjornify.bot, "is_owner", new_callable=AsyncMock) as owner,
+            patch.object(
+                self.bjornify.bot, "is_owner", new_callable=AsyncMock
+            ) as owner,
             patch.object(self.bjornify, "playback_grant_status") as status,
             patch.object(self.bjornify, "auth_manager") as auth,
         ):
@@ -695,7 +701,9 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         self.assertIn("Spotify Web API", output)
         self.assertIn("Spotify Connect playback", output)
         self.assertNotIn("webapi-private-refresh-secret", output)
-        self.assertTrue(interaction.response.send_message.await_args.kwargs["ephemeral"])
+        self.assertTrue(
+            interaction.response.send_message.await_args.kwargs["ephemeral"]
+        )
 
     def test_slash_pause_does_not_claim_success_on_failure(self):
         """Pause slash command reports authentication failures accurately."""
