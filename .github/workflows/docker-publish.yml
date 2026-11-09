@@ -39,9 +39,6 @@ jobs:
           test "$(git rev-parse HEAD)" = "$VALIDATED_SHA"
           echo "Publishing validated commit $VALIDATED_SHA"
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
