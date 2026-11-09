@@ -186,7 +186,9 @@ def authorize():
     challenge = begin_pairing()
     print("Open https://spotify.com/pair and enter this temporary code:")
     print(challenge["user_code"])
-    print("Approve Spotify playback authentication; Web API authorization stays separate.")
+    print(
+        "Approve Spotify playback authentication; Web API authorization stays separate."
+    )
     interval = challenge["interval"]
     deadline = time.monotonic() + challenge["expires_in"]
     while time.monotonic() < deadline:

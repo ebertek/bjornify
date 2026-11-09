@@ -12,11 +12,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-PATH = (
-    Path(__file__).resolve().parents[1]
-    / "bjornify"
-    / "connect_playback_auth.py"
-)
+PATH = Path(__file__).resolve().parents[1] / "bjornify" / "connect_playback_auth.py"
 SPEC = importlib.util.spec_from_file_location("connect_playback_auth", PATH)
 if SPEC is None or SPEC.loader is None:
     raise RuntimeError("Could not load Connect device-code helper")
