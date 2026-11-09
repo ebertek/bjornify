@@ -3,6 +3,7 @@
 No test contacts Spotify, Sonos, Discord, or a real librespot process.
 """
 
+import importlib
 import json
 import subprocess
 import sys
@@ -13,13 +14,12 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bjornify"))
 
-from spotify_connect_queue import (  # pylint: disable=wrong-import-position
-    ConnectQueueError,
-    get_receiver_id,
-    personal_access_token,
-    private_sonos_ip,
-    queue_restricted_sonos,
-)
+connect_queue = importlib.import_module("spotify_connect_queue")
+ConnectQueueError = connect_queue.ConnectQueueError
+get_receiver_id = connect_queue.get_receiver_id
+personal_access_token = connect_queue.personal_access_token
+private_sonos_ip = connect_queue.private_sonos_ip
+queue_restricted_sonos = connect_queue.queue_restricted_sonos
 
 SONOS_ID = "0123456789abcdef0123456789abcdef01234567"
 TRACK_URI = "spotify:track:76JhicgPtW4zbN72tpnMyA"
