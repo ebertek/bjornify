@@ -60,6 +60,30 @@ The access token travels through a local stdin pipe, not a command-line argument
 
 Spotify's published `streaming` scope is intended for its Web Playback SDK, so approval of that scope does not guarantee compatibility with librespot.
 
+## Read-only diagnostic for a failed Connect-state write
+
+If a guarded queue-write attempt returns `librespot error category:
+FailedPrecondition`, do **not** retry the track yet. This category can arise
+before the Spotify Connect-state request is sent. A successful `Session::connect`
+does not prove the separate Spotify `login5` service-token exchange works.
+
+After updating the experimental branch and rebuilding the standalone probe,
+run this **read-only** prerequisite test with the existing isolated OAuth grant:
+
+```bash
+set -o pipefail
+docker exec -i bjornify python /app/spotify_connect_probe.py pipe-token | \
+  docker run --rm -i bjornify-connect-auth-probe \
+    "$(docker exec bjornify printenv SPOTIPY_CLIENT_ID)" diagnose
+```
+
+It reports only whether the reusable login credential is present and whether
+Spotify client-token issuance, login5 service-token issuance, and service
+endpoint resolution succeed. Token **values**, account IDs, service URLs, and
+raw error messages are never printed. This makes authentication-related
+requests only; it does **not** register a player, change playback, or attempt
+any queue write. Share the diagnostic result, not an OAuth token.
+
 ## Optional phase 2: one guarded queue-write experiment
 
 **Do not run this phase before the read-only authentication test returns PASS.** This is an undocumented Spotify Connect-state endpoint based on the Sonos implementation merged into [Spotifast PR #823](https://github.com/crmne/spotifast/pull/823). It may change without notice and a successful request is **not proof** the item appeared in the queue.
