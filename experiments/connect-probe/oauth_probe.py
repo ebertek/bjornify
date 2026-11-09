@@ -44,7 +44,12 @@ def make_probe_manager(*, state=None):
 
 def read_token(manager):
     """Refresh if necessary, and verify the Spotify streaming permission."""
-    token = manager.get_access_token(as_dict=True)
+    # Let Spotipy refresh the access token, then read its cached metadata.
+    # as_dict=True is deprecated and produces a warning on every probe run.
+    manager.get_access_token(as_dict=False)
+    token = manager.cache_handler.get_cached_token()
+    if not isinstance(token, dict):
+        raise ValueError("No cached OAuth token available after refresh.")
     granted = token.get("scope", "")
     granted_scopes = set(granted.split() if isinstance(granted, str) else granted)
     if "streaming" not in granted_scopes:
@@ -83,7 +88,7 @@ def authorize():
         raise ValueError("OAuth state mismatch; no token was exchanged.")
     if not code:
         raise ValueError("No OAuth authorization code returned.")
-    manager.get_access_token(code=code, check_cache=False, as_dict=True)
+    manager.get_access_token(code=code, check_cache=False, as_dict=False)
     token = read_token(manager)
     CACHE_PATH.chmod(0o600)
     print("Granted scopes:", " ".join(sorted(token["scope"].split())))
