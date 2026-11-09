@@ -4,12 +4,12 @@ Björnify is a Discord music bot that searches Spotify, queues tracks, and contr
 
 ## Commands
 
-| Text | Slash | Action |
-| --- | --- | --- |
-| `!add <song>` | `/add` | Search and queue a song |
-| `!next` | `/next` | Skip to the next track |
-| `!pause` | `/pause` | Pause playback |
-| `!np` | `/np` | Show what's playing |
+| Text          | Slash    | Action                  |
+| ------------- | -------- | ----------------------- |
+| `!add <song>` | `/add`   | Search and queue a song |
+| `!next`       | `/next`  | Skip to the next track  |
+| `!pause`      | `/pause` | Pause playback          |
+| `!np`         | `/np`    | Show what's playing     |
 
 `/add` supports search autocomplete. If playback is paused, Björnify resumes it before queueing. If nothing is playing, it tries an available Spotify device. For an active, ungrouped Sonos player that Spotify reports as restricted, Björnify can queue through Spotify Connect instead.
 
@@ -50,11 +50,11 @@ For Discord-based Spotify Web API authorization, register the exact HTTPS `SPOTI
 
 Only the Discord application owner can use these commands:
 
-| Discord command | Purpose |
-| --- | --- |
-| `/spotify connect` | Authorize the Spotify Web API using the HTTPS callback |
+| Discord command             | Purpose                                                                   |
+| --------------------------- | ------------------------------------------------------------------------- |
+| `/spotify connect`          | Authorize the Spotify Web API using the HTTPS callback                    |
 | `/spotify connect-playback` | Pair Spotify Connect through [spotify.com/pair](https://spotify.com/pair) |
-| `/spotify status` | Check both connections |
+| `/spotify status`           | Check both connections                                                    |
 
 Follow the private instructions in Discord. The Web API and Connect playback use separate credentials.
 
