@@ -6,6 +6,72 @@ The probe does not start a Discord bot, register a playback device, transfer pla
 
 The additional OAuth approval uses the same Spotify client ID as Björnify, with an isolated cache at `/tmp/bjornify-connect-probe.cache`. It does **not** modify the production `/app/secrets/spotipy_token.cache`. The temporary grant is for testing; the goal is to reuse a single authorization flow if the Connect approach proves feasible.
 
+## Current status: personal OAuth authentication is incompatible
+
+On November 9, 2026, Pleiades reported `LOGIN5 SERVICE TOKEN: FAIL
+(login5 denied stored credentials: BAD_REQUEST)` using the personal
+`SPOTIPY_CLIENT_ID` and `spotify_connect_probe.py` helper. This matches
+an upstream Spotify change reported since August 10, 2026:
+[librespot issue #1737](https://github.com/librespot-org/librespot/issues/1737)
+and [go-librespot issue #364](https://github.com/devgianlu/go-librespot/issues/364).
+Login succeeds initially, but login5 refuses credentials derived from a
+third-party client ID.
+
+**Do not retry the historical `add` or `add-sonos` examples below.**
+They still demonstrate the pre-existing safety guards but use the now-failing
+personal grant. The experimentally supported next step is **read-only
+validation** of a **separate playback OAuth grant**.
+
+### Next: headless Spotify playback device authorization
+
+The new `playback_device_auth.py` uses the OAuth device authorization flow
+documented by [librespot](https://github.com/librespot-org/librespot/blob/dev/docs/device-authorization.md).
+It requests only `streaming` with librespot's built-in Spotify desktop
+client identity. The independent grant is stored at
+`/tmp/bjornify-connect-playback.cache`. No callback, browser redirect,
+Spotify client secret, or production token cache is involved.
+
+With the experimental branch checked out on Pleiades:
+
+```bash
+git pull --ff-only
+docker cp experiments/connect-probe/playback_device_auth.py \
+  bjornify:/app/connect_playback_auth.py
+docker exec -it bjornify python /app/connect_playback_auth.py authorize
+```
+
+Open **https://spotify.com/pair**, enter the displayed temporary code,
+and approve. **Never post a pairing code, access token, or refresh token
+to the repository.** The grant is isolated and ephemeral across container
+recreation; production's Spotify OAuth grant remains unchanged.
+
+The **first test must be read-only**. Rebuild the existing standalone Rust
+probe after pulling the branch, then run:
+
+```bash
+docker build -t bjornify-connect-auth-probe \
+  -f experiments/connect-probe/Dockerfile .
+set -o pipefail
+docker exec -i bjornify \
+  python /app/connect_playback_auth.py pipe-token | \
+  docker run --rm -i bjornify-connect-auth-probe \
+  "$(docker exec bjornify python /app/connect_playback_auth.py client-id)" \
+  diagnose
+```
+
+The `diagnose` command checks client-token and login5 service-token
+prerequisites without issuing Connect-state queue writes or controlling
+Spotify playback. It may report PASS, FAIL or TIMEOUT. **Do not run
+`add-sonos` after this test**, even if it passes: the existing Sonos
+identity guard uses Spotify's Web API playback endpoint and must be updated
+to use Björnify's **separate personal Web API grant** for that read.
+Spotify's desktop Connect playback grant does not reliably support Web API
+requests. This dual-token separation should be designed and tested before
+any further queue writes.
+
+For reference, the original personal-client grant and Sonos discovery
+instructions remain below as historical test documentation.
+
 ## On Pleiades
 
 ### 1. Clone the experimental branch and build the checker
@@ -210,7 +276,8 @@ The probe's regular invocation with just `CLIENT_ID` remains read-only; `inspect
 
 ```bash
 docker exec bjornify rm -f /tmp/bjornify-connect-probe.cache \
-  /app/spotify_connect_probe.py
+  /tmp/bjornify-connect-playback.cache \
+  /app/spotify_connect_probe.py /app/connect_playback_auth.py
 docker image rm bjornify-connect-auth-probe
 ```
 
