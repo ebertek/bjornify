@@ -108,7 +108,7 @@ The `add` command still requires an independently verified active Spotify
 device ID and will refuse an incomplete Web API identity. Do not manually
 substitute the discovered ID into a write command while this guard remains.
 
-The optional queue test is *deliberately manual*. Only try it if the output is
+The optional queue test is _deliberately manual_. Only try it if the output is
 for your expected Sonos room, with both `restricted: true` and `active: true`.
 Pick one short test track and replace both placeholders below.
 
