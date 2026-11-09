@@ -875,7 +875,9 @@ async def add_slash(interaction: discord.Interaction, query: str):
                     track = await asyncio.to_thread(spotify_request, spotify.track, uri)
                     title = track["name"]
                     artist = ", ".join(a["name"] for a in track["artists"])
-                    result = await asyncio.to_thread(player_add_track, uri, artist, title)
+                    result = await asyncio.to_thread(
+                        player_add_track, uri, artist, title
+                    )
                     if not result.startswith(("Queued:", "Started playback:")):
                         await interaction_dropdown.followup.send(
                             f"❌ {result}", ephemeral=True
