@@ -248,7 +248,9 @@ def print_client_id():
 def main():
     """Only explicit operations are supported; no ambient auth changes."""
     if len(sys.argv) != 2:
-        print("Usage: connect_playback_auth.py authorize|status|client-id|pipe-token|pipe-dual")
+        print(
+            "Usage: connect_playback_auth.py authorize|status|client-id|pipe-token|pipe-dual"
+        )
         return 2
     commands = {
         "authorize": authorize,
@@ -264,14 +266,25 @@ def main():
     os.umask(0o077)
     try:
         return operation() or 0
-    except (ValueError, KeyError, TypeError, OSError, requests.RequestException) as error:
+    except (
+        ValueError,
+        KeyError,
+        TypeError,
+        OSError,
+        requests.RequestException,
+    ) as error:
         # Never include raw OAuth responses, request payloads, or redirect URLs.
         if isinstance(error, ValueError):
             message = str(error)
-            if not message.startswith((
-                "Playback pairing", "Playback OAuth refresh", "No experimental",
-                "Refusing to print", "Personal Web API cache",
-            )):
+            if not message.startswith(
+                (
+                    "Playback pairing",
+                    "Playback OAuth refresh",
+                    "No experimental",
+                    "Refusing to print",
+                    "Personal Web API cache",
+                )
+            ):
                 message = "invalid or unavailable playback grant"
         else:
             message = type(error).__name__
