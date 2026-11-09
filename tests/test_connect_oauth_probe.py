@@ -52,7 +52,7 @@ class ConnectOAuthProbeTests(unittest.TestCase):
     def test_missing_streaming_scope_is_rejected(self):
         """A standard Björnify grant is insufficient for Connect login."""
         manager = MagicMock()
-        manager.get_access_token.return_value = {
+        manager.cache_handler.get_cached_token.return_value = {
             "access_token": "private",
             "scope": "user-modify-playback-state",
         }
@@ -66,8 +66,9 @@ class ConnectOAuthProbeTests(unittest.TestCase):
             "access_token": "private",
             "scope": "user-modify-playback-state streaming",
         }
-        manager.get_access_token.return_value = token
+        manager.cache_handler.get_cached_token.return_value = token
         self.assertIs(probe.read_token(manager), token)
+        manager.get_access_token.assert_called_once_with(as_dict=False)
 
     def test_refuse_to_print_access_token_to_terminal(self):
         """Never print a Spotify secret when a user omits the pipe."""
