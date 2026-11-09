@@ -135,6 +135,19 @@ is in the queue. Check your Spotify app queue afterward. A timeout
 leaves the outcome unknown; do not blindly retry or you may enqueue
 the same track twice. This command never transfers, pauses or skips playback.
 
+If the command fails, the CLI reports a **safe HTTP status and category**
+(e.g. `HTTP 403 (Connect-state permission denied)`) or a generic librespot
+error category. It deliberately never prints service URLs, raw response
+bodies, access tokens, or other sensitive error details. It also prevents
+librespot's automatic retries of this queue POST to reduce duplicate writes.
+
+An authenticated librespot login alone may not create a registered Connect
+playback session. Spotifast keeps a full playback engine running and
+registers its Connect state; this small experimental CLI currently does not.
+A failed queue command does **not** establish that Spotify forbids all
+unofficial Connect-state control from this account. Do not assume a 403 is
+caused by OAuth scope without additional evidence.
+
 The optional queue test is _deliberately manual_. Only try it if the output is
 for your expected Sonos room, with both `restricted: true` and `active: true`.
 Pick one short test track and replace both placeholders below.
