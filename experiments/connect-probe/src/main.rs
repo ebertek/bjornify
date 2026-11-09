@@ -452,7 +452,12 @@ mod tests {
         ));
         invalid_info = info.clone();
         invalid_info["remoteName"] = json!("Other room");
-        assert!(!sonos_identity_matches(&playback, &invalid_info, "Test speaker", id));
+        assert!(!sonos_identity_matches(
+            &playback,
+            &invalid_info,
+            "Test speaker",
+            id
+        ));
     }
 
     #[test]
