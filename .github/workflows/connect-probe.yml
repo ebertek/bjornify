@@ -1,10 +1,12 @@
 ---
-name: Experimental Spotify Connect OAuth probe
+name: Spotify Connect build validation
 
 on: # yamllint disable-line rule:truthy
   pull_request:
     paths:
       - "experiments/connect-probe/**"
+      - "bjornify/**"
+      - ".dockerignore"
       - ".github/workflows/connect-probe.yml"
   workflow_dispatch:
 
@@ -31,3 +33,8 @@ jobs:
         run: cargo build --release --manifest-path experiments/connect-probe/Cargo.toml
       - name: Verify standalone Docker image builds
         run: docker build --file experiments/connect-probe/Dockerfile --tag bjornify-connect-auth-probe:ci .
+      - name: Verify production Docker image includes librespot
+        run: |
+          docker build --file bjornify/Dockerfile --tag bjornify:connect-ci .
+          docker run --rm --entrypoint /usr/bin/test bjornify:connect-ci -x /usr/local/bin/bjornify-connect
+          docker run --rm --entrypoint /usr/bin/test bjornify:connect-ci -f /app/connect_playback_auth.py
