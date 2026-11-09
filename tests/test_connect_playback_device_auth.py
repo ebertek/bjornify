@@ -5,9 +5,11 @@ import io
 import json
 import os
 import tempfile
+import time
+import types
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 PATH = (
     Path(__file__).resolve().parents[1]
@@ -151,6 +153,62 @@ class PlaybackDeviceAuthTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 helper.pipe_token()
         self.assertEqual(output.getvalue(), "")
+
+    def test_dual_pipe_contains_both_grants_without_refreshing_web_api_cache(self):
+        """Read-only Web API grant and isolated playback grant stay independent."""
+        manager = MagicMock()
+        manager.cache_handler.get_cached_token.return_value = {
+            "access_token": "personal-api-token",
+            "scope": "user-read-playback-state",
+            "expires_at": time.time() + 3600,
+        }
+        auth = types.ModuleType("spotify_auth")
+        auth.make_auth_manager = MagicMock(return_value=manager)
+        with (
+            patch.dict(helper.sys.modules, {"spotify_auth": auth}),
+            patch.object(
+                helper,
+                "valid_grant",
+                return_value={"access_token": "playback-grant-token"},
+            ),
+            patch.object(helper.sys, "stdout", io.StringIO()) as output,
+        ):
+            helper.dual_tokens()
+            payload = json.loads(output.getvalue())
+        self.assertEqual(payload["web_api_token"], "personal-api-token")
+        self.assertEqual(payload["playback_token"], "playback-grant-token")
+        manager.get_access_token.assert_not_called()
+        manager.cache_handler.get_cached_token.assert_called_once_with()
+
+    def test_dual_pipe_refuses_expired_personal_cache_and_terminal_output(self):
+        """Never silently refresh production credentials or print tokens to a TTY."""
+        manager = MagicMock()
+        manager.cache_handler.get_cached_token.return_value = {
+            "access_token": "stale-web-token",
+            "scope": "user-read-playback-state",
+            "expires_at": time.time() - 1,
+        }
+        auth = types.ModuleType("spotify_auth")
+        auth.make_auth_manager = MagicMock(return_value=manager)
+        with (
+            patch.dict(helper.sys.modules, {"spotify_auth": auth}),
+            patch.object(
+                helper,
+                "valid_grant",
+                return_value={"access_token": "playback-grant-token"},
+            ),
+            patch.object(helper.sys, "stdout", io.StringIO()) as output,
+        ):
+            with self.assertRaises(ValueError):
+                helper.dual_tokens()
+            self.assertEqual(output.getvalue(), "")
+        manager.get_access_token.assert_not_called()
+
+        with patch.object(helper.sys, "stdout", io.StringIO()) as output:
+            output.isatty = lambda: True
+            with self.assertRaises(ValueError):
+                helper.dual_tokens()
+            self.assertEqual(output.getvalue(), "")
 
     def test_client_id_is_public_but_not_a_playback_secret(self):
         """The desktop client ID is independent of the user's Web API app."""
