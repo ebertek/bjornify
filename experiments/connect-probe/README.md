@@ -4,7 +4,12 @@ This is an **isolated Spotify Connect experiment**, not a production Sonos queue
 
 The probe does not start a Discord bot, register a playback device, transfer playback, or start/stop/skip songs. **Only the explicitly confirmed `add` and `add-sonos` modes may change Spotify's Connect queue.** It never targets the Sonos local queue.
 
-The **current** playback authentication is an isolated Spotify desktop-client grant paired using `spotify.com/pair` and cached at `/tmp/bjornify-connect-playback.cache`. Björnify's personal OAuth grant remains separate and is used solely for Web API playback inspection. The original `oauth_probe.py` instructions later in this document describe the **superseded** personal-client experiment, which Spotify now rejects at `login5`. Neither flow should modify the production `/app/secrets/spotipy_token.cache`.
+The **current** playback authentication uses an isolated Spotify desktop-client grant
+paired through `spotify.com/pair`, cached at `/tmp/bjornify-connect-playback.cache`.
+Björnify's personal OAuth grant remains separate and is used only for Web API playback
+inspection. The `oauth_probe.py` instructions later in this document describe the
+**superseded** personal-client experiment, which Spotify rejects at `login5`.
+Neither flow should modify the production `/app/secrets/spotipy_token.cache`.
 
 ## Current status: personal OAuth authentication is incompatible
 
