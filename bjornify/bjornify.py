@@ -429,7 +429,7 @@ def _playback_diagnostics(playback):
     }
 
 
-def _is_spotify_sonos_track(uri, metadata, expected_name):
+def _is_spotify_sonos_track(uri, metadata):
     """Recognize Sonos Spotify transports without trusting unrelated rooms."""
     if "x-sonos-spotify:" in uri or "x-sonos-spotify:" in metadata:
         return True
@@ -462,7 +462,7 @@ def find_playing_speaker(expected_name=None, allow_paused=False):
             source_metadata = (
                 str(metadata) + " " + str(media.get("CurrentURIMetaData") or "")
             )
-            recognized = _is_spotify_sonos_track(uri, source_metadata, expected_name)
+            recognized = _is_spotify_sonos_track(uri, source_metadata)
             _LOGGER.debug(
                 "Sonos candidate: name=%s state=%s transport=%s spotify_evidence=%s",
                 speaker.player_name,
@@ -738,7 +738,7 @@ def player_add_track(
                 if not is_sonos_device_restriction(error) and error.http_status != 404:
                     raise
                 _LOGGER.info(
-                    "Playback path=device_fallback error_class=device_unavailable status=%s candidates_left=%d",
+                    "Playback fallback unavailable: status=%s candidates_left=%d",
                     error.http_status,
                     len(remaining),
                 )
