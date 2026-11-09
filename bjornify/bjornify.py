@@ -433,7 +433,7 @@ def find_playing_speaker(expected_name=None, allow_paused=False):
                 or "x-sonos-spotify:" in metadata
                 or (uri.startswith("x-sonos-vli:") and (
                     "spotify:" in uri or "spotify:" in metadata
-                    or (expected_name and speaker.music_source == "SPOTIFY_CONNECT")
+                    or expected_name
                 ))
             ):
                 matches.append(speaker)
