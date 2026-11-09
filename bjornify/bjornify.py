@@ -431,13 +431,19 @@ def find_playing_speaker(expected_name=None, allow_paused=False):
             if (
                 "x-sonos-spotify:" in uri
                 or "x-sonos-spotify:" in metadata
-                or (uri.startswith("x-sonos-vli:") and (
-                    "spotify:" in uri or "spotify:" in metadata
-                    or expected_name
-                ))
+                or (
+                    uri.startswith("x-sonos-vli:")
+                    and ("spotify:" in uri or "spotify:" in metadata or expected_name)
+                )
             ):
                 matches.append(speaker)
-        except (OSError, ValueError, TypeError, AttributeError, soco.exceptions.SoCoException):
+        except (
+            OSError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            soco.exceptions.SoCoException,
+        ):
             _LOGGER.debug("Could not inspect Sonos room %s", speaker.player_name)
     return matches[0] if len(matches) == 1 else None
 
@@ -524,7 +530,10 @@ async def add_track(ctx, *, query: str):
     """Add a track to the Spotify playback queue."""
     _LOGGER.debug("!add command by %s: %s", ctx.author.name, query)
     response = await asyncio.to_thread(player_add_item_to_playback_queue, query)
-    await ctx.send(("✅ " if response.startswith(("Queued:", "Started playback:")) else "❌ ") + response)
+    await ctx.send(
+        ("✅ " if response.startswith(("Queued:", "Started playback:")) else "❌ ")
+        + response
+    )
 
 
 @bot.command(name="pause", aliases=["stop"])
@@ -600,10 +609,14 @@ def player_add_track(
                         raise
                     target = spotify_sonos_target(playback_results)
                     speaker = (
-                        find_playing_speaker(target, allow_paused=True) if target else None
+                        find_playing_speaker(target, allow_paused=True)
+                        if target
+                        else None
                     )
                     if speaker is None:
-                        return "Paused restricted Sonos playback cannot be resumed safely."
+                        return (
+                            "Paused restricted Sonos playback cannot be resumed safely."
+                        )
                     speaker.play()
                 _LOGGER.info("Resumed paused Spotify playback on its current device")
 
@@ -624,7 +637,9 @@ def player_add_track(
                     queue_restricted_sonos(uri, playback_results, auth_manager)
                 except ConnectQueueError as queue_error:
                     _LOGGER.info("Connect queue fallback unavailable: %s", queue_error)
-                    return "Restricted Sonos queue fallback unavailable: " + str(queue_error)
+                    return "Restricted Sonos queue fallback unavailable: " + str(
+                        queue_error
+                    )
                 except Exception:  # pylint: disable=broad-exception-caught
                     _LOGGER.exception("Unexpected restricted-Sonos Connect failure")
                     return (
@@ -646,11 +661,15 @@ def player_add_track(
                 break
             remaining.remove(target)
             try:
-                spotify_request(spotify.start_playback, device_id=target["id"], uris=[uri])
+                spotify_request(
+                    spotify.start_playback, device_id=target["id"], uris=[uri]
+                )
             except spotipy.exceptions.SpotifyException as error:
                 if not is_sonos_device_restriction(error) and error.http_status != 404:
                     raise
-                _LOGGER.info("Playback device %s unavailable; trying another", target.get("name"))
+                _LOGGER.info(
+                    "Playback device %s unavailable; trying another", target.get("name")
+                )
                 continue
             queued = f"{artist} - {name}" if artist and name else uri
             return f"Started playback: {queued}"
@@ -673,7 +692,9 @@ def player_add_item_to_playback_queue(query):
         if query.startswith("spotify:track:"):
             track = spotify_request(spotify.track, query)
             return player_add_track(
-                query, ", ".join(artist["name"] for artist in track["artists"]), track["name"]
+                query,
+                ", ".join(artist["name"] for artist in track["artists"]),
+                track["name"],
             )
         search_results = spotify_request(spotify.search, q=query, limit=1, type="track")
         search_items = search_results["tracks"]["items"]

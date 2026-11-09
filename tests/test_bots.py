@@ -728,7 +728,9 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         action = MagicMock(side_effect=SpotifyException(403, -1, "Restricted device"))
         speaker = MagicMock()
         control = MagicMock()
-        with patch.object(self.bjornify, "find_playing_speaker", return_value=speaker) as find:
+        with patch.object(
+            self.bjornify, "find_playing_speaker", return_value=speaker
+        ) as find:
             result = self.bjornify.spotify_action_with_soco_fallback(
                 spotify_action=action, soco_action=control, action_name="pause"
             )
@@ -739,22 +741,30 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
     def test_track_uri_text_command_uses_same_queue_helper(self):
         """Text commands support direct Spotify track URIs."""
         self.spotify.track.return_value = {
-            "name": "Song", "artists": [{"name": "Artist"}]
+            "name": "Song",
+            "artists": [{"name": "Artist"}],
         }
-        with patch.object(self.bjornify, "player_add_track", return_value="Queued: Artist - Song") as add:
-            result = self.bjornify.player_add_item_to_playback_queue("spotify:track:123")
+        with patch.object(
+            self.bjornify, "player_add_track", return_value="Queued: Artist - Song"
+        ) as add:
+            result = self.bjornify.player_add_item_to_playback_queue(
+                "spotify:track:123"
+            )
         self.assertEqual(result, "Queued: Artist - Song")
         add.assert_called_once_with("spotify:track:123", "Artist", "Song")
 
     def test_device_specific_start_failure_tries_next_device(self):
         """A known device-specific rejection permits trying another device."""
         self.spotify.current_playback.return_value = None
-        self.spotify.devices.return_value = {"devices": [
-            {"name": "Everywhere", "id": "bad"},
-            {"name": "Kitchen", "id": "good"},
-        ]}
+        self.spotify.devices.return_value = {
+            "devices": [
+                {"name": "Everywhere", "id": "bad"},
+                {"name": "Kitchen", "id": "good"},
+            ]
+        }
         self.spotify.start_playback.side_effect = [
-            SpotifyException(403, -1, "Restricted device"), None
+            SpotifyException(403, -1, "Restricted device"),
+            None,
         ]
         result = self.bjornify.player_add_track("spotify:track:123")
         self.assertTrue(result.startswith("Started playback:"))
@@ -768,7 +778,8 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
                 "current_transport_state": "PLAYING"
             }
             speaker.get_current_track_info.return_value = {
-                "uri": "x-sonos-spotify:track:abc", "metadata": ""
+                "uri": "x-sonos-spotify:track:abc",
+                "metadata": "",
             }
         with patch.object(self.bjornify.soco, "discover", return_value=speakers):
             self.assertIsNone(self.bjornify.find_playing_speaker())
