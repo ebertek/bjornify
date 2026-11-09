@@ -51,7 +51,9 @@ fn valid_device_id(id: &str) -> bool {
 }
 
 fn sonos_private_ipv4(raw: &str) -> Option<Ipv4Addr> {
-    raw.parse::<Ipv4Addr>().ok().filter(|address| address.is_private())
+    raw.parse::<Ipv4Addr>()
+        .ok()
+        .filter(|address| address.is_private())
 }
 
 fn valid_device_name(name: &str) -> bool {
@@ -235,20 +237,23 @@ fn sonos_identity_matches(
         return false;
     };
     let spotify_id = device.get("id");
-    let spotify_id_matches =
-        matches!(spotify_id, Some(Value::Null) | None)
-            || spotify_id.and_then(Value::as_str) == Some(expected_device);
+    let spotify_id_matches = matches!(spotify_id, Some(Value::Null) | None)
+        || spotify_id.and_then(Value::as_str) == Some(expected_device);
 
     playback.get("is_playing").and_then(Value::as_bool) == Some(true)
         && device.get("is_active").and_then(Value::as_bool) == Some(true)
         && device.get("is_restricted").and_then(Value::as_bool) == Some(true)
         && device.get("name").and_then(Value::as_str) == Some(expected_name)
-        && device.get("type").and_then(Value::as_str)
+        && device
+            .get("type")
+            .and_then(Value::as_str)
             .is_some_and(|kind| kind.eq_ignore_ascii_case("speaker"))
         && spotify_id_matches
         && info.get("deviceID").and_then(Value::as_str) == Some(expected_device)
         && info.get("remoteName").and_then(Value::as_str) == Some(expected_name)
-        && info.get("deviceType").and_then(Value::as_str)
+        && info
+            .get("deviceType")
+            .and_then(Value::as_str)
             .is_some_and(|kind| kind.eq_ignore_ascii_case("speaker"))
 }
 
@@ -439,7 +444,12 @@ mod tests {
         assert!(!sonos_identity_matches(&changed, &info, "Test speaker", id));
         let mut invalid_info = info.clone();
         invalid_info["deviceID"] = json!("fedcba9876543210fedcba9876543210fedcba98");
-        assert!(!sonos_identity_matches(&playback, &invalid_info, "Test speaker", id));
+        assert!(!sonos_identity_matches(
+            &playback,
+            &invalid_info,
+            "Test speaker",
+            id
+        ));
         invalid_info = info.clone();
         invalid_info["remoteName"] = json!("Other room");
         assert!(!sonos_identity_matches(&playback, &invalid_info, "Test speaker", id));
