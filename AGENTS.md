@@ -10,7 +10,7 @@ details from an earlier chat, branch, or deployment are still accurate.
   conversation bot shares its Docker image.
 - Normal Spotify search, metadata, and playback control use Spotipy.
 - Sonos control uses SoCo where supported.
-- When Spotify's Web API returns a *specific* restricted-device error for an
+- When Spotify's Web API returns a _specific_ restricted-device error for an
   active Sonos session, Björnify can queue through a separately authenticated
   librespot/Spotify Connect backend.
 - Both `!` commands and Discord `/` commands are supported. Keep their
@@ -69,7 +69,7 @@ details from an earlier chat, branch, or deployment are still accurate.
 - Resume paused playback before ordinary queueing. If there is no active
   playback, prefer `DEFAULT_DEVICE`, then a usable nonrestricted device;
   skip restricted devices and entries without a usable Spotify device ID.
-- The Connect fallback requires verified *active, playing, restricted*
+- The Connect fallback requires verified _active, playing, restricted_
   Spotify speaker state, a uniquely matched ungrouped/playing Sonos room,
   private-LAN receiver identity via ZeroConf, and separate Web API and
   playback credentials. Fail closed on any mismatch or uncertainty.
