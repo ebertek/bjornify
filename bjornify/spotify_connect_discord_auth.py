@@ -51,7 +51,10 @@ class DiscordPlaybackPairings:
         interval = challenge["interval"]
         deadline = time.monotonic() + challenge["expires_in"]
         success = False
-        message = "Spotify Connect pairing expired or was declined. Retry /spotify connect-playback."
+        message = (
+            "Spotify Connect pairing expired or was declined. "
+            "Retry /spotify connect-playback."
+        )
         try:
             while time.monotonic() < deadline:
                 await asyncio.sleep(min(interval, max(0, deadline - time.monotonic())))
@@ -68,19 +71,23 @@ class DiscordPlaybackPairings:
                     continue
                 if error:
                     # Spotify may supply identifiers in error_description; never print it.
-                    message = "Spotify Connect pairing was not approved. Retry /spotify connect-playback."
+                    message = (
+                        "Spotify Connect pairing was not approved. "
+                        "Retry /spotify connect-playback."
+                    )
                     break
                 await asyncio.to_thread(helper.save_grant, reply)
                 success = True
-                message = "✅ Spotify Connect playback is connected. Sonos queue fallback is available."
+                message = (
+                    "✅ Spotify Connect playback is connected. "
+                    "Sonos queue fallback is available."
+                )
                 _LOGGER.info("Spotify Connect playback pairing completed")
                 break
-        except asyncio.CancelledError:
-            raise
         except (OSError, ValueError, TypeError, KeyError) as error:
             _LOGGER.warning("Spotify Connect pairing failed (%s)", type(error).__name__)
             message = "Spotify Connect pairing failed. Retry /spotify connect-playback."
-        except Exception as error:  # pylint: disable=broad-exception-caught
+        except Exception as error:  # noqa: BLE001  # pylint: disable=broad-exception-caught
             _LOGGER.error(
                 "Unexpected Spotify Connect pairing failure (%s)", type(error).__name__
             )
@@ -88,7 +95,7 @@ class DiscordPlaybackPairings:
         finally:
             try:
                 await on_complete(success, message)
-            except Exception:  # pylint: disable=broad-exception-caught
+            except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
                 _LOGGER.warning("Could not update the private Spotify pairing message")
 
 
