@@ -113,12 +113,12 @@ fn mode(args: &[String]) -> (String, Mode) {
 
 /// Separate Connect/playback credentials from read-only Web API credentials.
 /// Refuse any queue write without both independently supplied grants.
-struct ProbeTokens {
+struct ConnectTokens {
     playback: String,
     web_api: Option<String>,
 }
 
-fn parse_tokens(raw: &str, mode: &Mode) -> Result<ProbeTokens, &'static str> {
+fn parse_tokens(raw: &str, mode: &Mode) -> Result<ConnectTokens, &'static str> {
     let raw = raw.trim();
     if raw.is_empty() || raw.len() > 16 * 1024 {
         return Err("No valid OAuth credentials received on stdin");
@@ -140,7 +140,7 @@ fn parse_tokens(raw: &str, mode: &Mode) -> Result<ProbeTokens, &'static str> {
             if playback == web_api {
                 return Err("Playback and Web API grants must be distinct");
             }
-            Ok(ProbeTokens {
+            Ok(ConnectTokens {
                 playback: playback.to_owned(),
                 web_api: Some(web_api.to_owned()),
             })
@@ -149,7 +149,7 @@ fn parse_tokens(raw: &str, mode: &Mode) -> Result<ProbeTokens, &'static str> {
             if raw.starts_with('{') || raw.starts_with('[') || !valid_token(raw) {
                 return Err("Expected single access token for read-only mode");
             }
-            Ok(ProbeTokens {
+            Ok(ConnectTokens {
                 playback: raw.to_owned(),
                 web_api: None,
             })
