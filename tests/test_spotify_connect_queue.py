@@ -123,22 +123,28 @@ class ConnectQueueTests(unittest.TestCase):
     def test_one_connect_queue_write_when_all_checks_match(self):
         """Desktop token goes to Connect and personal token only to Web API."""
         result = subprocess.CompletedProcess(
-            args=[], returncode=0,
+            args=[],
+            returncode=0,
             stdout="SENT: one Connect-state queue command to Sunroom.",
             stderr="",
         )
         with (
             patch("spotify_connect_queue.soco.discover", return_value={self.speaker}),
-            patch("spotify_connect_queue.get_receiver_id", return_value=("Sunroom", "SPEAKER", SONOS_ID)),
+            patch(
+                "spotify_connect_queue.get_receiver_id",
+                return_value=("Sunroom", "SPEAKER", SONOS_ID),
+            ),
             patch.dict(sys.modules, {"connect_playback_auth": self.playback_module}),
-            patch("spotify_connect_queue.subprocess.run", return_value=result) as command,
+            patch(
+                "spotify_connect_queue.subprocess.run", return_value=result
+            ) as command,
         ):
             self.assertTrue(queue_restricted_sonos(TRACK_URI, self.playback, self.auth))
         command.assert_called_once()
         args, kwargs = command.call_args
-        self.assertEqual(args[0][2:7], [
-            "add-sonos", "Sunroom", "10.4.20.97", SONOS_ID, TRACK_URI
-        ])
+        self.assertEqual(
+            args[0][2:7], ["add-sonos", "Sunroom", "10.4.20.97", SONOS_ID, TRACK_URI]
+        )
         self.assertEqual(args[0][-1], "--confirm-write")
         self.assertNotIn("personal-access", repr(args))
         self.assertNotIn("playback-access", repr(args))
@@ -179,7 +185,10 @@ class ConnectQueueTests(unittest.TestCase):
         """A failed private API response must not cause duplicate queue writes."""
         with (
             patch("spotify_connect_queue.soco.discover", return_value={self.speaker}),
-            patch("spotify_connect_queue.get_receiver_id", return_value=("Sunroom", "SPEAKER", SONOS_ID)),
+            patch(
+                "spotify_connect_queue.get_receiver_id",
+                return_value=("Sunroom", "SPEAKER", SONOS_ID),
+            ),
             patch.dict(sys.modules, {"connect_playback_auth": self.playback_module}),
             patch(
                 "spotify_connect_queue.subprocess.run",
@@ -192,10 +201,15 @@ class ConnectQueueTests(unittest.TestCase):
 
     def test_missing_playback_grant_never_starts_process(self):
         """Explicit device pairing is required before any Connect write."""
-        self.playback_module.valid_grant.side_effect = ValueError("Missing playback cache")
+        self.playback_module.valid_grant.side_effect = ValueError(
+            "Missing playback cache"
+        )
         with (
             patch("spotify_connect_queue.soco.discover", return_value={self.speaker}),
-            patch("spotify_connect_queue.get_receiver_id", return_value=("Sunroom", "SPEAKER", SONOS_ID)),
+            patch(
+                "spotify_connect_queue.get_receiver_id",
+                return_value=("Sunroom", "SPEAKER", SONOS_ID),
+            ),
             patch.dict(sys.modules, {"connect_playback_auth": self.playback_module}),
             patch("spotify_connect_queue.subprocess.run") as command,
             self.assertRaises(ValueError),
