@@ -87,7 +87,9 @@ class DiscordPlaybackPairings:
         except (OSError, ValueError, TypeError, KeyError) as error:
             _LOGGER.warning("Spotify Connect pairing failed (%s)", type(error).__name__)
             message = "Spotify Connect pairing failed. Retry /spotify connect-playback."
-        except Exception as error:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+        except (
+            Exception
+        ) as error:  # noqa: BLE001  # pylint: disable=broad-exception-caught
             _LOGGER.error(
                 "Unexpected Spotify Connect pairing failure (%s)", type(error).__name__
             )
