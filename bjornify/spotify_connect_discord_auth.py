@@ -4,6 +4,8 @@ The public Spotify device code appears only in an ephemeral Discord response.
 The device secret, access token and refresh token never leave the bot process.
 """
 
+# pylint: disable=broad-exception-caught
+
 import asyncio
 import importlib
 import logging
@@ -87,7 +89,7 @@ class DiscordPlaybackPairings:
         except (OSError, ValueError, TypeError, KeyError) as error:
             _LOGGER.warning("Spotify Connect pairing failed (%s)", type(error).__name__)
             message = "Spotify Connect pairing failed. Retry /spotify connect-playback."
-        except Exception as error:  # pylint: disable=broad-exception-caught
+        except Exception as error:  # noqa: BLE001
             _LOGGER.error(
                 "Unexpected Spotify Connect pairing failure (%s)", type(error).__name__
             )
@@ -95,7 +97,7 @@ class DiscordPlaybackPairings:
         finally:
             try:
                 await on_complete(success, message)
-            except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
+            except Exception:  # noqa: BLE001
                 _LOGGER.warning("Could not update the private Spotify pairing message")
 
 
