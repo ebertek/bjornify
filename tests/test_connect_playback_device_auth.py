@@ -142,9 +142,7 @@ class PlaybackDeviceAuthTests(unittest.TestCase):
             result = helper.valid_grant()
         self.assertEqual(result["access_token"], "new-access")
         self.assertEqual(result["refresh_token"], "old-refresh")
-        self.assertEqual(
-            call.call_args.args[1]["grant_type"], "refresh_token"
-        )
+        self.assertEqual(call.call_args.args[1]["grant_type"], "refresh_token")
 
     def test_pipe_refuses_terminal_output(self):
         """No access token may be pasted accidentally to a terminal."""
