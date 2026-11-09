@@ -7,11 +7,12 @@ publish = false
 [dependencies]
 librespot-core = "=0.8.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-tls-native-roots"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 serde_json = "1"
 
-# librespot-core 0.8.0 build script requires vergen-lib 0.1.x.
-# Pin its vergen peer to avoid the incompatible vergen 9.1.x minor bump.
-# Upstream fix: https://github.com/librespot-org/librespot/pull/1683
+# librespot-core 0.8.0 requires vergen 9.0.6 for its build-script ABI.
+# Version 9.1.0 resolves an incompatible vergen-lib API (see upstream fix).
+# Renovate intentionally excludes ONLY this build dependency until a compatible
+# librespot-core release is published: https://github.com/librespot-org/librespot/pull/1683
 [build-dependencies]
 vergen = "=9.0.6"
