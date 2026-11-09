@@ -536,9 +536,8 @@ mod tests {
 
     #[test]
     fn login5_rejection_is_whitelisted_and_never_leaks_service_errors() {
-        let denied = ConnectError::failed_precondition(
-            "Login request was denied: INVALID_CREDENTIALS",
-        );
+        let denied =
+            ConnectError::failed_precondition("Login request was denied: INVALID_CREDENTIALS");
         assert_eq!(
             safe_login5_failure(&denied),
             "login5 denied stored credentials: INVALID_CREDENTIALS"
@@ -548,9 +547,8 @@ mod tests {
             safe_login5_failure(&denied),
             "login5 denied stored credentials: BAD_REQUEST"
         );
-        let unknown = ConnectError::failed_precondition(
-            "Login request was denied: SECRET_TOKEN_123",
-        );
+        let unknown =
+            ConnectError::failed_precondition("Login request was denied: SECRET_TOKEN_123");
         assert_eq!(
             safe_login5_failure(&unknown),
             "librespot error category: FailedPrecondition"
