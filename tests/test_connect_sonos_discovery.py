@@ -33,6 +33,7 @@ class FakeReply:
         return False
 
     def iter_content(self, _size):
+        """Expose a single simulated streamed HTTP chunk."""
         yield self.body
 
 
