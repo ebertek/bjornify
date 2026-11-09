@@ -104,9 +104,36 @@ docker exec bjornify python /app/sonos_discovery.py
 The discovery helper is read-only and makes no Spotify queue commands.
 A ZeroConf device ID alone **does not prove** it is the device actively
 playing the account's Spotify session, especially in a grouped Sonos system.
-The `add` command still requires an independently verified active Spotify
-device ID and will refuse an incomplete Web API identity. Do not manually
-substitute the discovered ID into a write command while this guard remains.
+The generic `add` command still refuses missing Web API device IDs.
+
+The experimental `add-sonos` mode provides an explicitly gated alternative.
+It queries the specified private-LAN Sonos receiver's ZeroConf endpoint
+and checks the name, type, and Connect ID against the user's inputs.
+It then checks Spotify's current playback is **playing** on an **active,
+restricted speaker** with the same name, and that any Spotify-reported
+ID agrees with the receiver. A mismatch stops the command before any write.
+The matching name is not a cryptographic proof of the active Connect session;
+on grouped/renamed speakers or if playback switches between checks, avoid the
+write test. A Connect-cluster identity check may still be needed for production.
+
+**Only run this with a single test track when you're happy to modify
+the active Spotify queue.** With Spotify playing on the inspected Sonos
+room, insert the room's LAN address and 40-character ZeroConf ID:
+
+```bash
+set -o pipefail
+docker exec -i bjornify python /app/spotify_connect_probe.py pipe-token | \
+  docker run --rm -i bjornify-connect-auth-probe \
+    "$(docker exec bjornify printenv SPOTIPY_CLIENT_ID)" \
+    add-sonos "ROOM_NAME" "PRIVATE_IPV4" "SONOS_CONNECT_ID" \
+    "spotify:track:22_CHARACTER_TRACK_ID" --confirm-write
+```
+
+It sends one Connect-state `add_to_queue` command if all checks pass.
+`SENT` only means Spotify acknowledged the command, not that the track
+is in the queue. Check your Spotify app queue afterward. A timeout
+leaves the outcome unknown; do not blindly retry or you may enqueue
+the same track twice. This command never transfers, pauses or skips playback.
 
 The optional queue test is _deliberately manual_. Only try it if the output is
 for your expected Sonos room, with both `restricted: true` and `active: true`.
