@@ -783,6 +783,138 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         with patch.object(self.bjornify.soco, "discover", return_value=speakers):
             self.assertIsNone(self.bjornify.find_playing_speaker())
 
+    def test_vli_name_match_without_spotify_metadata_fails_closed(self):
+        """A matching room name alone does not prove VLI is Spotify."""
+        speaker = MagicMock()
+        speaker.player_name = "Family room"
+        speaker.get_current_transport_info.return_value = {
+            "current_transport_state": "PLAYING"
+        }
+        speaker.get_current_track_info.return_value = {
+            "uri": "x-sonos-vli:opaque",
+            "metadata": "",
+        }
+        speaker.get_current_media_info.return_value = {"CurrentURIMetaData": ""}
+        with patch.object(self.bjornify.soco, "discover", return_value=[speaker]):
+            self.assertIsNone(self.bjornify.find_playing_speaker("Family room"))
+
+    def test_vli_metadata_proves_spotify_source(self):
+        """VLI can be selected when Sonos media metadata identifies Spotify."""
+        speaker = MagicMock()
+        speaker.player_name = "Family room"
+        speaker.get_current_transport_info.return_value = {
+            "current_transport_state": "PLAYING"
+        }
+        speaker.get_current_track_info.return_value = {
+            "uri": "x-sonos-vli:opaque",
+            "metadata": "",
+        }
+        speaker.get_current_media_info.return_value = {
+            "CurrentURIMetaData": "spotify:track:synthetic"
+        }
+        with patch.object(self.bjornify.soco, "discover", return_value=[speaker]):
+            self.assertIs(self.bjornify.find_playing_speaker("Family room"), speaker)
+
+    def test_duplicate_room_names_fail_closed_even_with_target(self):
+        """Two matching names are not sufficient to choose a room."""
+        speakers = [MagicMock(), MagicMock()]
+        for speaker in speakers:
+            speaker.player_name = "Family room"
+            speaker.get_current_transport_info.return_value = {
+                "current_transport_state": "PLAYING"
+            }
+            speaker.get_current_track_info.return_value = {
+                "uri": "x-sonos-spotify:track:synthetic",
+                "metadata": "",
+            }
+        with patch.object(self.bjornify.soco, "discover", return_value=speakers):
+            self.assertIsNone(self.bjornify.find_playing_speaker("Family room"))
+
+    def test_playback_diagnostics_exclude_identifiers_and_tokens(self):
+        """Debug payloads expose device type and state, not actual device IDs."""
+        diagnostics = (
+            self.bjornify._playback_diagnostics(  # pylint: disable=protected-access
+                {
+                    "is_playing": False,
+                    "access_token": "secret",
+                    "device": {
+                        "id": "private-device-id",
+                        "type": "Speaker",
+                        "is_restricted": True,
+                        "name": "Private room",
+                    },
+                }
+            )
+        )
+        self.assertEqual(diagnostics["playback_state"], "paused")
+        self.assertEqual(diagnostics["device_type"], "Speaker")
+        self.assertTrue(diagnostics["device_id_present"])
+        self.assertTrue(diagnostics["device_restricted"])
+        self.assertNotIn("private-device-id", str(diagnostics))
+        self.assertNotIn("secret", str(diagnostics))
+
+    def test_text_and_slash_add_share_failure_feedback(self):
+        """Both command styles must classify a failed URI add as failure."""
+        context = MagicMock()
+        context.author.name = "Test"
+        context.send = AsyncMock()
+        interaction = MagicMock()
+        interaction.user.name = "Test"
+        interaction.response.defer = AsyncMock()
+        interaction.followup.send = AsyncMock()
+        self.spotify.track.return_value = {
+            "name": "Song",
+            "artists": [{"name": "Artist"}],
+        }
+        with patch.object(
+            self.bjornify, "player_add_track", return_value="No available devices."
+        ):
+            asyncio.run(
+                self.bjornify.add_track.callback(
+                    context, query="spotify:track:synthetic"
+                )
+            )
+            asyncio.run(
+                self.bjornify.add_slash.callback(
+                    interaction, query="spotify:track:synthetic"
+                )
+            )
+        context.send.assert_awaited_once_with("❌ No available devices.")
+        interaction.followup.send.assert_awaited_once_with(
+            "❌ No available devices.", ephemeral=True
+        )
+
+    def test_text_and_slash_pause_share_restricted_sonos_fallback(self):
+        """Both pause commands use the same guarded playback helper."""
+        context = MagicMock()
+        context.author.name = "Test"
+        context.message.add_reaction = AsyncMock()
+        context.send = AsyncMock()
+        interaction = MagicMock()
+        interaction.user.name = "Test"
+        interaction.response.defer = AsyncMock()
+        interaction.followup.send = AsyncMock()
+        self.spotify.current_playback.return_value = {
+            "is_playing": True,
+            "device": {"name": "Family room", "type": "Speaker"},
+        }
+        self.spotify.pause_playback.side_effect = SpotifyException(
+            403, -1, "Restricted device"
+        )
+        speaker = MagicMock()
+        speaker.player_name = "Family room"
+        with patch.object(
+            self.bjornify, "find_playing_speaker", return_value=speaker
+        ) as find:
+            asyncio.run(self.bjornify.pause_track.callback(context))
+            asyncio.run(self.bjornify.pause_slash.callback(interaction))
+        self.assertEqual(find.call_count, 2)
+        self.assertEqual(speaker.pause.call_count, 2)
+        context.message.add_reaction.assert_awaited_once_with("✅")
+        interaction.followup.send.assert_awaited_once_with(
+            "✅ Paused playback.", ephemeral=True
+        )
+
     def test_home_assistant_success(self):
         """Assist responses are extracted and authentication is supplied."""
         response = MagicMock(status_code=200)

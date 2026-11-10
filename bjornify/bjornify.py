@@ -413,12 +413,30 @@ def spotify_error_message(error):  # pylint: disable=too-many-return-statements
     return "Spotify is unavailable. Try again later."
 
 
-def _is_spotify_sonos_track(uri, metadata, expected_name):
+def _playback_diagnostics(playback):
+    """Return non-sensitive device and playback fields for diagnostics."""
+    device = (playback or {}).get("device") or {}
+    device_id = device.get("id")
+    return {
+        "device_id_present": bool(device_id),
+        "device_type": str(device.get("type") or "unknown"),
+        "device_restricted": bool(device.get("is_restricted")),
+        "playback_state": (
+            "playing"
+            if (playback or {}).get("is_playing") is True
+            else "paused" if (playback or {}).get("is_playing") is False else "unknown"
+        ),
+    }
+
+
+def _is_spotify_sonos_track(uri, metadata):
     """Recognize Sonos Spotify transports without trusting unrelated rooms."""
     if "x-sonos-spotify:" in uri or "x-sonos-spotify:" in metadata:
         return True
-    return uri.startswith("x-sonos-vli:") and bool(
-        "spotify:" in uri or "spotify:" in metadata or expected_name
+    # Room-name agreement alone does not establish the stream's source.
+    # Some VLI sessions lack a Spotify marker; fail closed in that case.
+    return uri.startswith("x-sonos-vli:") and (
+        "spotify:" in uri or "spotify:" in metadata
     )
 
 
@@ -435,9 +453,24 @@ def find_playing_speaker(expected_name=None, allow_paused=False):
                 continue
             track = speaker.get_current_track_info()
             uri = track.get("uri", "")
-            metadata = track.get("metadata", "")
-            # Spotify Connect's virtual line-in may not expose a Spotify URI.
-            if _is_spotify_sonos_track(uri, metadata, expected_name):
+            metadata = track.get("metadata", "") or ""
+            media = (
+                speaker.get_current_media_info()
+                if uri.startswith("x-sonos-vli:")
+                else {}
+            )
+            source_metadata = (
+                str(metadata) + " " + str(media.get("CurrentURIMetaData") or "")
+            )
+            recognized = _is_spotify_sonos_track(uri, source_metadata)
+            _LOGGER.debug(
+                "Sonos candidate: name=%s state=%s transport=%s spotify_evidence=%s",
+                speaker.player_name,
+                state,
+                uri.split(":", 1)[0] if isinstance(uri, str) else "unknown",
+                recognized,
+            )
+            if recognized:
                 matches.append(speaker)
         except (
             OSError,
@@ -473,16 +506,29 @@ def spotify_action_with_soco_fallback(
         playback = spotify_request(spotify.current_playback)
         if playback is None:
             return "No active Spotify playback found."
+        _LOGGER.debug(
+            "Playback action=%s path=spotify details=%s",
+            action_name,
+            _playback_diagnostics(playback),
+        )
         spotify_request(spotify_action)
         _LOGGER.info("%s via Spotify", action_name)
         return "✅"
     except spotipy.exceptions.SpotifyException as error:
         if is_sonos_device_restriction(error):
-            _LOGGER.info("Device restriction during %s; trying Sonos", action_name)
+            _LOGGER.info(
+                "Playback action=%s error_class=restricted_device path=soco",
+                action_name,
+            )
             try:
                 target = spotify_sonos_target(playback)
                 speaker = find_playing_speaker(target) if target else None
                 if speaker is not None:
+                    _LOGGER.debug(
+                        "Playback action=%s selected_sonos_room=%s",
+                        action_name,
+                        speaker.player_name,
+                    )
                     soco_action(speaker)
                     _LOGGER.info("%s via Sonos", action_name)
                     return "✅"
@@ -603,6 +649,9 @@ def player_add_track(
     try:
         # GET /me/player
         playback_results = spotify_request(spotify.current_playback)
+        _LOGGER.debug(
+            "Add track playback snapshot: %s", _playback_diagnostics(playback_results)
+        )
         if playback_results is not None:
             was_paused = playback_results.get("is_playing") is False
             if was_paused:
@@ -646,9 +695,12 @@ def player_add_track(
                         "Attempting guarded Connect queue fallback; paused=%s",
                         was_paused,
                     )
+                    _LOGGER.debug("Queue path=connect error_class=restricted_device")
                     queue_restricted_sonos(uri, playback_results, auth_manager)
                 except ConnectQueueError as queue_error:
-                    _LOGGER.info("Connect queue fallback unavailable: %s", queue_error)
+                    _LOGGER.info(
+                        "Queue path=connect error_class=%s", type(queue_error).__name__
+                    )
                     return "Restricted Sonos queue fallback unavailable: " + str(
                         queue_error
                     )
@@ -659,6 +711,7 @@ def player_add_track(
                         "fallback failed; queue outcome is unconfirmed."
                     )
                 return f"Queued: {queued} (Spotify Connect accepted request)"
+            _LOGGER.debug("Queue path=spotify result=accepted")
             _LOGGER.info("Queued: %s", queued)
             if was_paused:
                 return f"Queued: {queued} (resumed paused playback)"
@@ -685,7 +738,9 @@ def player_add_track(
                 if not is_sonos_device_restriction(error) and error.http_status != 404:
                     raise
                 _LOGGER.info(
-                    "Playback device %s unavailable; trying another", target.get("name")
+                    "Playback fallback unavailable: status=%s candidates_left=%d",
+                    error.http_status,
+                    len(remaining),
                 )
                 continue
             queued = f"{artist} - {name}" if artist and name else uri
