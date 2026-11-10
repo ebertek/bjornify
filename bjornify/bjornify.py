@@ -449,7 +449,10 @@ def wait_for_resumed_sonos_playback(original, attempts=4, interval=0.4):
         if attempt:
             time.sleep(interval)
         current = spotify_request(spotify.current_playback)
-        active = (current or {}).get("device") or {}
+        if current is None:
+            _LOGGER.debug("Sonos resume pending: no Spotify playback snapshot")
+            continue
+        active = current.get("device") or {}
         if (
             active.get("name") != expected_name
             or active.get("is_restricted") is not True
