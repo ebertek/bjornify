@@ -766,7 +766,7 @@ def player_add_track(
                         "Spotify restricted this device. The Connect queue "
                         "fallback failed; queue outcome is unconfirmed."
                     )
-                return f"Queued: {queued} (Spotify Connect accepted request)"
+                return f"Queued: {queued}"
             _LOGGER.debug("Queue path=spotify result=accepted")
             _LOGGER.info("Queued: %s", queued)
             if was_paused:
