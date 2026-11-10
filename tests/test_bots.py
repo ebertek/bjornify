@@ -185,18 +185,23 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         self.assertIn("Premium", result)
         self.assertNotIn("NOT queued", result)
 
+    @staticmethod
+    def _paused_sonos_snapshot():
+        """Restricted paused Sunroom playback fixture."""
+        return {
+            "is_playing": False,
+            "device": {
+                "name": "Sunroom",
+                "type": "Speaker",
+                "is_active": True,
+                "is_restricted": True,
+                "id": None,
+            },
+        }
+
     def test_paused_sonos_queue_waits_for_playing_snapshot(self):
         """A delayed Spotify snapshot must not block a verified Sonos queue."""
-        paused = {
-            "is_playing": False,
-            "device": dict(
-                name="Sunroom",
-                type="Speaker",
-                is_active=True,
-                is_restricted=True,
-                id=None,
-            ),
-        }
+        paused = self._paused_sonos_snapshot()
         playing = {**paused, "is_playing": True}
         self.spotify.current_playback.side_effect = [paused, paused, playing]
         self.spotify.start_playback.side_effect = SpotifyException(
@@ -223,16 +228,7 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
 
     def test_paused_sonos_queue_rejects_device_switch(self):
         """Never queue to another speaker after the original one resumes."""
-        paused = {
-            "is_playing": False,
-            "device": dict(
-                name="Sunroom",
-                type="Speaker",
-                is_active=True,
-                is_restricted=True,
-                id=None,
-            ),
-        }
+        paused = self._paused_sonos_snapshot()
         changed = {
             "is_playing": True,
             "device": {**paused["device"], "name": "Living room"},
@@ -256,16 +252,7 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
 
     def test_paused_sonos_queue_timeout_does_not_write(self):
         """Never send Connect queue command if playback stays paused."""
-        paused = {
-            "is_playing": False,
-            "device": dict(
-                name="Sunroom",
-                type="Speaker",
-                is_active=True,
-                is_restricted=True,
-                id=None,
-            ),
-        }
+        paused = self._paused_sonos_snapshot()
         self.spotify.current_playback.return_value = paused
         self.spotify.start_playback.side_effect = SpotifyException(
             403, -1, "Restricted device"
