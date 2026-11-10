@@ -212,7 +212,7 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
             patch.object(self.bjornify.time, "sleep") as sleep,
         ):
             result = self.bjornify.player_add_track("spotify:track:requested")
-        self.assertIn("Spotify Connect accepted", result)
+        self.assertEqual(result, "Queued: spotify:track:requested")
         queue.assert_called_once_with(
             "spotify:track:requested", playing, self.bjornify.auth_manager
         )
