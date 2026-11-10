@@ -8,6 +8,7 @@ import logging
 import os
 import signal
 import sys
+import time
 from contextlib import suppress
 
 import discord
@@ -429,6 +430,57 @@ def _playback_diagnostics(playback):
     }
 
 
+def wait_for_resumed_sonos_playback(original, attempts=4, interval=0.4):
+    """Wait for Spotify to confirm the same restricted Sonos session resumed.
+
+    Read-only polling; never send another queue write. Reject device switches.
+    """
+    device = (original or {}).get("device") or {}
+    expected_name = device.get("name")
+    if (
+        not isinstance(expected_name, str)
+        or not expected_name
+        or device.get("is_restricted") is not True
+        or str(device.get("type", "")).lower() != "speaker"
+    ):
+        raise ConnectQueueError("Original paused Sonos identity is not verified.")
+
+    for attempt in range(attempts):
+        if attempt:
+            time.sleep(interval)
+        current = spotify_request(spotify.current_playback)
+        active = (current or {}).get("device") or {}
+        if (
+            active.get("name") != expected_name
+            or active.get("is_restricted") is not True
+            or str(active.get("type", "")).lower() != "speaker"
+            or active.get("is_active") is not True
+        ):
+            _LOGGER.info(
+                "Sonos resume verification failed: error_class=device_changed"
+            )
+            raise ConnectQueueError(
+                "Spotify playback moved or the Sonos identity changed after resume."
+            )
+        if current.get("is_playing") is True:
+            _LOGGER.debug(
+                "Sonos resume verified: room=%s attempts=%d",
+                expected_name,
+                attempt + 1,
+            )
+            return current
+        _LOGGER.debug(
+            "Sonos resume pending: room=%s attempt=%d",
+            expected_name,
+            attempt + 1,
+        )
+
+    _LOGGER.info("Sonos resume verification failed: error_class=state_timeout")
+    raise ConnectQueueError(
+        "Spotify did not confirm resumed Sonos playback in time; track not queued."
+    )
+
+
 def _is_spotify_sonos_track(uri, metadata):
     """Recognize Sonos Spotify transports without trusting unrelated rooms."""
     if "x-sonos-spotify:" in uri or "x-sonos-spotify:" in metadata:
@@ -690,7 +742,9 @@ def player_add_track(
                 try:
                     # A paused-session snapshot cannot authorize a Connect write.
                     if was_paused:
-                        playback_results = spotify_request(spotify.current_playback)
+                        playback_results = wait_for_resumed_sonos_playback(
+                            playback_results
+                        )
                     _LOGGER.debug(
                         "Attempting guarded Connect queue fallback; paused=%s",
                         was_paused,
@@ -699,7 +753,8 @@ def player_add_track(
                     queue_restricted_sonos(uri, playback_results, auth_manager)
                 except ConnectQueueError as queue_error:
                     _LOGGER.info(
-                        "Queue path=connect error_class=%s", type(queue_error).__name__
+                        "Queue path=connect error_class=%s",
+                        str(queue_error),
                     )
                     return "Restricted Sonos queue fallback unavailable: " + str(
                         queue_error
