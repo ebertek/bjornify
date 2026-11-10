@@ -4,6 +4,8 @@ Third-party clients are installed as in production, but all external I/O is mock
 No Discord, Spotify, Sonos, or Home Assistant credentials are required.
 """
 
+# pylint: disable=too-many-lines
+
 import asyncio
 import importlib.util
 import logging
@@ -145,7 +147,7 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
             )
         self.assertEqual(
             result,
-            "Queued: Slowdive - Souvlaki Space Station (Spotify Connect accepted request)",
+            "Queued: Slowdive - Souvlaki Space Station",
         )
         connect.assert_called_once_with(
             "spotify:track:requested", playback, self.bjornify.auth_manager
