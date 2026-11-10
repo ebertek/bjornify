@@ -183,6 +183,91 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         self.assertIn("Premium", result)
         self.assertNotIn("NOT queued", result)
 
+    def test_paused_sonos_queue_waits_for_playing_snapshot(self):
+        """A delayed Spotify snapshot must not block a verified Sonos queue."""
+        paused = {
+            "is_playing": False,
+            "device": {
+                "name": "Sunroom", "type": "Speaker",
+                "is_active": True, "is_restricted": True, "id": None,
+            },
+        }
+        playing = {**paused, "is_playing": True}
+        self.spotify.current_playback.side_effect = [paused, paused, playing]
+        self.spotify.start_playback.side_effect = SpotifyException(
+            403, -1, "Restricted device"
+        )
+        self.spotify.add_to_queue.side_effect = SpotifyException(
+            403, -1, "Restricted device"
+        )
+        speaker = MagicMock()
+        with (
+            patch.object(self.bjornify, "find_playing_speaker", return_value=speaker),
+            patch.object(self.bjornify, "queue_restricted_sonos", return_value=True) as queue,
+            patch.object(self.bjornify.time, "sleep") as sleep,
+        ):
+            result = self.bjornify.player_add_track("spotify:track:requested")
+        self.assertIn("Spotify Connect accepted", result)
+        queue.assert_called_once_with(
+            "spotify:track:requested", playing, self.bjornify.auth_manager
+        )
+        speaker.play.assert_called_once()
+        sleep.assert_called_once()
+
+    def test_paused_sonos_queue_rejects_device_switch(self):
+        """Never queue to another speaker after the original one resumes."""
+        paused = {
+            "is_playing": False,
+            "device": {
+                "name": "Sunroom", "type": "Speaker",
+                "is_active": True, "is_restricted": True, "id": None,
+            },
+        }
+        changed = {
+            "is_playing": True,
+            "device": {**paused["device"], "name": "Living room"},
+        }
+        self.spotify.current_playback.side_effect = [paused, changed]
+        self.spotify.start_playback.side_effect = SpotifyException(
+            403, -1, "Restricted device"
+        )
+        self.spotify.add_to_queue.side_effect = SpotifyException(
+            403, -1, "Restricted device"
+        )
+        with (
+            patch.object(self.bjornify, "find_playing_speaker", return_value=MagicMock()),
+            patch.object(self.bjornify, "queue_restricted_sonos") as queue,
+        ):
+            result = self.bjornify.player_add_track("spotify:track:requested")
+        self.assertIn("identity changed", result)
+        queue.assert_not_called()
+
+    def test_paused_sonos_queue_timeout_does_not_write(self):
+        """Never send Connect queue command if playback stays paused."""
+        paused = {
+            "is_playing": False,
+            "device": {
+                "name": "Sunroom", "type": "Speaker",
+                "is_active": True, "is_restricted": True, "id": None,
+            },
+        }
+        self.spotify.current_playback.return_value = paused
+        self.spotify.start_playback.side_effect = SpotifyException(
+            403, -1, "Restricted device"
+        )
+        self.spotify.add_to_queue.side_effect = SpotifyException(
+            403, -1, "Restricted device"
+        )
+        with (
+            patch.object(self.bjornify, "find_playing_speaker", return_value=MagicMock()),
+            patch.object(self.bjornify, "queue_restricted_sonos") as queue,
+            patch.object(self.bjornify.time, "sleep") as sleep,
+        ):
+            result = self.bjornify.player_add_track("spotify:track:requested")
+        self.assertIn("did not confirm", result)
+        queue.assert_not_called()
+        self.assertEqual(sleep.call_count, 3)
+
     def test_paused_playback_resumes_original_song_then_queues_next(self):
         """Keep the paused track and target device; never play the new URI now."""
         self.spotify.current_playback.return_value = {
