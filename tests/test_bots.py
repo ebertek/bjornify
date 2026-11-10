@@ -189,13 +189,13 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         """A delayed Spotify snapshot must not block a verified Sonos queue."""
         paused = {
             "is_playing": False,
-            "device": {
-                "name": "Sunroom",
-                "type": "Speaker",
-                "is_active": True,
-                "is_restricted": True,
-                "id": None,
-            },
+            "device": dict(
+                name="Sunroom",
+                type="Speaker",
+                is_active=True,
+                is_restricted=True,
+                id=None,
+            ),
         }
         playing = {**paused, "is_playing": True}
         self.spotify.current_playback.side_effect = [paused, paused, playing]
@@ -225,13 +225,13 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         """Never queue to another speaker after the original one resumes."""
         paused = {
             "is_playing": False,
-            "device": {
-                "name": "Sunroom",
-                "type": "Speaker",
-                "is_active": True,
-                "is_restricted": True,
-                "id": None,
-            },
+            "device": dict(
+                name="Sunroom",
+                type="Speaker",
+                is_active=True,
+                is_restricted=True,
+                id=None,
+            ),
         }
         changed = {
             "is_playing": True,
@@ -258,13 +258,13 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         """Never send Connect queue command if playback stays paused."""
         paused = {
             "is_playing": False,
-            "device": {
-                "name": "Sunroom",
-                "type": "Speaker",
-                "is_active": True,
-                "is_restricted": True,
-                "id": None,
-            },
+            "device": dict(
+                name="Sunroom",
+                type="Speaker",
+                is_active=True,
+                is_restricted=True,
+                id=None,
+            ),
         }
         self.spotify.current_playback.return_value = paused
         self.spotify.start_playback.side_effect = SpotifyException(
