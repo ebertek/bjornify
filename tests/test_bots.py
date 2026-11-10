@@ -193,8 +193,8 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
             "type": "Speaker",
             "is_active": True,
             "is_restricted": True,
-            "id": None,
         }
+        device["id"] = None
         return {"is_playing": False, "device": device}
 
     def test_paused_sonos_queue_waits_for_playing_snapshot(self):
