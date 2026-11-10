@@ -203,7 +203,9 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         speaker = MagicMock()
         with (
             patch.object(self.bjornify, "find_playing_speaker", return_value=speaker),
-            patch.object(self.bjornify, "queue_restricted_sonos", return_value=True) as queue,
+            patch.object(
+                self.bjornify, "queue_restricted_sonos", return_value=True
+            ) as queue,
             patch.object(self.bjornify.time, "sleep") as sleep,
         ):
             result = self.bjornify.player_add_track("spotify:track:requested")
@@ -235,7 +237,9 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
             403, -1, "Restricted device"
         )
         with (
-            patch.object(self.bjornify, "find_playing_speaker", return_value=MagicMock()),
+            patch.object(
+                self.bjornify, "find_playing_speaker", return_value=MagicMock()
+            ),
             patch.object(self.bjornify, "queue_restricted_sonos") as queue,
         ):
             result = self.bjornify.player_add_track("spotify:track:requested")
