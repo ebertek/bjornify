@@ -188,8 +188,11 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         paused = {
             "is_playing": False,
             "device": {
-                "name": "Sunroom", "type": "Speaker",
-                "is_active": True, "is_restricted": True, "id": None,
+                "name": "Sunroom",
+                "type": "Speaker",
+                "is_active": True,
+                "is_restricted": True,
+                "id": None,
             },
         }
         playing = {**paused, "is_playing": True}
@@ -221,8 +224,11 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         paused = {
             "is_playing": False,
             "device": {
-                "name": "Sunroom", "type": "Speaker",
-                "is_active": True, "is_restricted": True, "id": None,
+                "name": "Sunroom",
+                "type": "Speaker",
+                "is_active": True,
+                "is_restricted": True,
+                "id": None,
             },
         }
         changed = {
@@ -251,8 +257,11 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         paused = {
             "is_playing": False,
             "device": {
-                "name": "Sunroom", "type": "Speaker",
-                "is_active": True, "is_restricted": True, "id": None,
+                "name": "Sunroom",
+                "type": "Speaker",
+                "is_active": True,
+                "is_restricted": True,
+                "id": None,
             },
         }
         self.spotify.current_playback.return_value = paused
@@ -263,7 +272,9 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
             403, -1, "Restricted device"
         )
         with (
-            patch.object(self.bjornify, "find_playing_speaker", return_value=MagicMock()),
+            patch.object(
+                self.bjornify, "find_playing_speaker", return_value=MagicMock()
+            ),
             patch.object(self.bjornify, "queue_restricted_sonos") as queue,
             patch.object(self.bjornify.time, "sleep") as sleep,
         ):

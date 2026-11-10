@@ -459,9 +459,7 @@ def wait_for_resumed_sonos_playback(original, attempts=4, interval=0.4):
             or str(active.get("type", "")).lower() != "speaker"
             or active.get("is_active") is not True
         ):
-            _LOGGER.info(
-                "Sonos resume verification failed: error_class=device_changed"
-            )
+            _LOGGER.info("Sonos resume verification failed: error_class=device_changed")
             raise ConnectQueueError(
                 "Spotify playback moved or the Sonos identity changed after resume."
             )
