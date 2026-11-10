@@ -188,16 +188,14 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
     @staticmethod
     def _paused_sonos_snapshot():
         """Restricted paused Sunroom playback fixture."""
-        return {
-            "is_playing": False,
-            "device": {
-                "name": "Sunroom",
-                "type": "Speaker",
-                "is_active": True,
-                "is_restricted": True,
-                "id": None,
-            },
+        device = {
+            "name": "Sunroom",
+            "type": "Speaker",
+            "is_active": True,
+            "is_restricted": True,
+            "id": None,
         }
+        return {"is_playing": False, "device": device}
 
     def test_paused_sonos_queue_waits_for_playing_snapshot(self):
         """A delayed Spotify snapshot must not block a verified Sonos queue."""
