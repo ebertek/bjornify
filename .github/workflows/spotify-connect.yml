@@ -25,14 +25,27 @@ jobs:
           components: rustfmt
       - name: Check formatting
         run: cargo fmt --manifest-path spotify-connect/Cargo.toml --all -- --check
-      - name: Compile Spotify Connect client
-        run: cargo check --manifest-path spotify-connect/Cargo.toml
+      - name: Cache Rust dependencies and test build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: spotify-connect
+          cache-on-failure: true
       - name: Test guarded Connect command and URI validation
         run: cargo test --manifest-path spotify-connect/Cargo.toml
-      - name: Build production Connect executable
-        run: cargo build --release --manifest-path spotify-connect/Cargo.toml
+      # The Docker build below already compiles the production release executable.
+      # Avoid building it separately on the runner.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build production Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: bjornify/Dockerfile
+          load: true
+          tags: bjornify:connect-ci
+          cache-from: type=gha,scope=spotify-connect-ci
+          cache-to: type=gha,scope=spotify-connect-ci,mode=max
       - name: Verify production Docker image includes librespot
         run: |
-          docker build --file bjornify/Dockerfile --tag bjornify:connect-ci .
           docker run --rm --entrypoint /usr/bin/test bjornify:connect-ci -x /usr/local/bin/bjornify-connect
           docker run --rm --entrypoint /usr/bin/test bjornify:connect-ci -f /app/connect_playback_auth.py
