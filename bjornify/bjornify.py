@@ -430,6 +430,29 @@ def _playback_diagnostics(playback):
     }
 
 
+def current_playback_with_retry(action, attempts=3, interval=0.4):
+    """Retry missing playback snapshots briefly before treating a session as absent."""
+    for attempt in range(1, attempts + 1):
+        playback = spotify_request(spotify.current_playback)
+        _LOGGER.debug(
+            "Playback lookup action=%s attempt=%d/%d details=%s",
+            action,
+            attempt,
+            attempts,
+            _playback_diagnostics(playback),
+        )
+        if playback is not None:
+            return playback
+        if attempt < attempts:
+            time.sleep(interval)
+    _LOGGER.info(
+        "Playback lookup action=%s result=no_snapshot attempts=%d",
+        action,
+        attempts,
+    )
+    return None
+
+
 def wait_for_resumed_sonos_playback(original, attempts=4, interval=0.4):
     """Wait for Spotify to confirm the same restricted Sonos session resumed.
 
@@ -556,8 +579,9 @@ def spotify_action_with_soco_fallback(
 ):  # pylint: disable=too-many-return-statements
     """Use Spotify first, then Sonos only for a known device restriction."""
     try:
-        playback = spotify_request(spotify.current_playback)
+        playback = current_playback_with_retry(action_name)
         if playback is None:
+            _LOGGER.info("Playback action=%s result=no_active_session", action_name)
             return "No active Spotify playback found."
         _LOGGER.debug(
             "Playback action=%s path=spotify details=%s",
@@ -701,7 +725,7 @@ def player_add_track(
 
     try:
         # GET /me/player
-        playback_results = spotify_request(spotify.current_playback)
+        playback_results = current_playback_with_retry("add")
         _LOGGER.debug(
             "Add track playback snapshot: %s", _playback_diagnostics(playback_results)
         )
@@ -776,6 +800,21 @@ def player_add_track(
         # GET /me/player/devices
         devices = spotify_request(spotify.devices)
         remaining = list((devices or {}).get("devices") or [])
+        _LOGGER.debug(
+            "Add fallback discovery: candidates=%s preferred_configured=%s",
+            [
+                {
+                    "name": d.get("name"),
+                    "type": d.get("type"),
+                    "active": d.get("is_active"),
+                    "restricted": d.get("is_restricted"),
+                    "has_id": bool(d.get("id")),
+                }
+                for d in remaining
+                if isinstance(d, dict)
+            ],
+            DEFAULT_DEVICE,
+        )
         while remaining:
             target = select_fallback_device({"devices": remaining}, DEFAULT_DEVICE)
             if not target:
@@ -799,8 +838,14 @@ def player_add_track(
                     len(remaining),
                 )
                 continue
+            _LOGGER.info(
+                "Add fallback result=accepted device=%s type=%s",
+                target.get("name"),
+                target.get("type"),
+            )
             queued = f"{artist} - {name}" if artist and name else uri
             return f"Started playback: {queued}"
+        _LOGGER.info("Add fallback result=no_usable_device")
         return "No available devices to start playback."
     except (
         spotipy.exceptions.SpotifyException,
