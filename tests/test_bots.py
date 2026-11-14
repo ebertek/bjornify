@@ -87,6 +87,42 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         self.spotify_patch.start()
         self.addCleanup(self.spotify_patch.stop)
 
+    def test_playback_lookup_recovers_after_transient_missing_snapshot(self):
+        """CarPlay may briefly disappear from the playback endpoint after pause."""
+        snapshot = {
+            "is_playing": False,
+            "device": {"name": "iPhone", "id": "iphone-test", "type": "Smartphone"},
+        }
+        self.spotify.current_playback.side_effect = [None, snapshot]
+        with patch.object(self.bjornify.time, "sleep") as sleep:
+            result = self.bjornify.current_playback_with_retry("next")
+
+        self.assertEqual(result, snapshot)
+        self.assertEqual(self.spotify.current_playback.call_count, 2)
+        sleep.assert_called_once_with(0.4)
+
+    def test_playback_lookup_exhausts_missing_snapshots(self):
+        """A genuinely unavailable session remains unavailable after retries."""
+        self.spotify.current_playback.return_value = None
+        with patch.object(self.bjornify.time, "sleep") as sleep:
+            result = self.bjornify.current_playback_with_retry("next")
+
+        self.assertIsNone(result)
+        self.assertEqual(self.spotify.current_playback.call_count, 3)
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_skip_recovers_from_transient_missing_carplay_snapshot(self):
+        """Skip should proceed if a paused iPhone session reappears."""
+        self.spotify.current_playback.side_effect = [
+            None,
+            {"is_playing": False, "device": {"name": "iPhone", "id": "iphone-test"}},
+        ]
+        with patch.object(self.bjornify.time, "sleep"):
+            result = self.bjornify.player_skip_to_next()
+
+        self.assertEqual(result, "✅")
+        self.spotify.next_track.assert_called_once_with()
+
     def test_queue_track_when_playback_is_active(self):
         """An active player uses Spotify add_to_queue."""
         self.spotify.current_playback.return_value = {"is_playing": True}
