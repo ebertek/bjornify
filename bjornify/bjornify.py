@@ -9,8 +9,8 @@ import os
 import signal
 import sys
 import time
-from threading import Lock
 from contextlib import suppress
+from threading import Lock
 
 import discord
 import soco
@@ -181,7 +181,10 @@ def remember_playback(playback):
         _LAST_PLAYBACK = hint
     _LOGGER.debug(
         "Playback hint updated: name=%s type=%s restricted=%s state=%s",
-        hint["name"], hint["type"], hint["restricted"], hint["is_playing"],
+        hint["name"],
+        hint["type"],
+        hint["restricted"],
+        hint["is_playing"],
     )
 
 
@@ -195,7 +198,11 @@ def recent_playback_hint():
     _LOGGER.debug(
         "Playback hint lookup: name=%s type=%s age_seconds=%.1f "
         "restricted=%s last_playing=%s",
-        hint["name"], hint["type"], age, hint["restricted"], hint["is_playing"],
+        hint["name"],
+        hint["type"],
+        age,
+        hint["restricted"],
+        hint["is_playing"],
     )
     return hint if age <= SESSION_HINT_TTL else None
 
@@ -208,27 +215,38 @@ def recover_missing_session(action, method):
         return "No active Spotify playback found."
     if hint["restricted"]:
         _LOGGER.info("Playback recovery action=%s result=restricted_hint", action)
-        return "Spotify cannot verify the paused restricted device. Resume it in Spotify."
+        return (
+            "Spotify cannot verify the paused restricted device. Resume it in Spotify."
+        )
     devices = spotify_request(spotify.devices)
     visible = next(
-        (device for device in (devices or {}).get("devices", [])
-         if device.get("id") == hint["id"]), None
+        (
+            device
+            for device in (devices or {}).get("devices", [])
+            if device.get("id") == hint["id"]
+        ),
+        None,
     )
     _LOGGER.debug(
         "Playback recovery action=%s cached_device=%s visible=%s",
-        action, hint["name"], visible is not None,
+        action,
+        hint["name"],
+        visible is not None,
     )
     try:
         spotify_request(method, device_id=hint["id"])
     except spotipy.exceptions.SpotifyException as error:
         _LOGGER.info(
             "Playback recovery action=%s result=rejected http_status=%s",
-            action, error.http_status,
+            action,
+            error.http_status,
         )
         return spotify_error_message(error)
     _LOGGER.info(
         "Playback recovery action=%s result=accepted device=%s visible=%s",
-        action, hint["name"], visible is not None,
+        action,
+        hint["name"],
+        visible is not None,
     )
     return "✅"
 
@@ -880,7 +898,9 @@ def player_add_track(
         if hint is not None:
             _LOGGER.info(
                 "Add result=missing_recent_session device=%s type=%s restricted=%s",
-                hint["name"], hint["type"], hint["restricted"],
+                hint["name"],
+                hint["type"],
+                hint["restricted"],
             )
             return (
                 "Spotify lost the recent playback session on "

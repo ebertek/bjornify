@@ -90,10 +90,12 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
 
     def test_recent_paused_iphone_prevents_unrelated_add_fallback(self):
         """A vanished iPhone session must not start music on Alexa."""
-        self.bjornify.remember_playback({
-            "is_playing": False,
-            "device": {"id": "iphone-test", "name": "iPhone", "type": "Smartphone"},
-        })
+        self.bjornify.remember_playback(
+            {
+                "is_playing": False,
+                "device": {"id": "iphone-test", "name": "iPhone", "type": "Smartphone"},
+            }
+        )
         self.spotify.current_playback.return_value = None
         with patch.object(self.bjornify.time, "sleep"):
             response = self.bjornify.player_add_track("spotify:track:test")
@@ -103,10 +105,12 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
 
     def test_next_targets_recent_iphone_when_snapshot_disappears(self):
         """A missing playback snapshot can recover via explicit device ID."""
-        self.bjornify.remember_playback({
-            "is_playing": False,
-            "device": {"id": "iphone-test", "name": "iPhone", "type": "Smartphone"},
-        })
+        self.bjornify.remember_playback(
+            {
+                "is_playing": False,
+                "device": {"id": "iphone-test", "name": "iPhone", "type": "Smartphone"},
+            }
+        )
         self.spotify.current_playback.return_value = None
         self.spotify.devices.return_value = {"devices": []}
         with patch.object(self.bjornify.time, "sleep"):
@@ -116,13 +120,17 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
 
     def test_restricted_cached_device_cannot_be_controlled_blindly(self):
         """Restricted Sonos sessions require a fresh verified snapshot."""
-        self.bjornify.remember_playback({
-            "is_playing": False,
-            "device": {
-                "id": "sonos-test", "name": "Sunroom",
-                "type": "Speaker", "is_restricted": True,
-            },
-        })
+        self.bjornify.remember_playback(
+            {
+                "is_playing": False,
+                "device": {
+                    "id": "sonos-test",
+                    "name": "Sunroom",
+                    "type": "Speaker",
+                    "is_restricted": True,
+                },
+            }
+        )
         self.spotify.current_playback.return_value = None
         with patch.object(self.bjornify.time, "sleep"):
             response = self.bjornify.player_skip_to_next()
