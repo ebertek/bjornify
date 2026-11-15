@@ -898,7 +898,9 @@ def player_add_track(
         if hint is not None:
             _LOGGER.info(
                 "Add recovery candidate=%s type=%s restricted=%s",
-                hint["name"], hint["type"], hint["restricted"],
+                hint["name"],
+                hint["type"],
+                hint["restricted"],
             )
             if not hint["restricted"]:
                 try:
@@ -908,14 +910,13 @@ def player_add_track(
                 except spotipy.exceptions.SpotifyException as error:
                     _LOGGER.info(
                         "Add recovery result=rejected device=%s http_status=%s",
-                        hint["name"], error.http_status,
+                        hint["name"],
+                        error.http_status,
                     )
                     if error.http_status not in (403, 404):
                         raise
                 else:
-                    _LOGGER.info(
-                        "Add recovery result=accepted device=%s", hint["name"]
-                    )
+                    _LOGGER.info("Add recovery result=accepted device=%s", hint["name"])
                     queued = f"{artist} - {name}" if artist and name else uri
                     return f"Started playback: {queued}"
             else:
