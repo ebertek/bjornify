@@ -88,8 +88,8 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         self.spotify_patch.start()
         self.addCleanup(self.spotify_patch.stop)
 
-    def test_recent_paused_iphone_prevents_unrelated_add_fallback(self):
-        """A vanished iPhone session must not start music on Alexa."""
+    def test_recent_paused_iphone_automatically_starts_requested_track(self):
+        """A vanished iPhone session must recover without starting Alexa."""
         self.bjornify.remember_playback(
             {
                 "is_playing": False,
@@ -99,8 +99,10 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
         self.spotify.current_playback.return_value = None
         with patch.object(self.bjornify.time, "sleep"):
             response = self.bjornify.player_add_track("spotify:track:test")
-        self.assertIn("iPhone", response)
-        self.spotify.start_playback.assert_not_called()
+        self.assertEqual(response, "Started playback: spotify:track:test")
+        self.spotify.start_playback.assert_called_once_with(
+            device_id="iphone-test", uris=["spotify:track:test"]
+        )
         self.spotify.add_to_queue.assert_not_called()
 
     def test_next_targets_recent_iphone_when_snapshot_disappears(self):
