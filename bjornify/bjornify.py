@@ -892,20 +892,36 @@ def player_add_track(
                 return f"Queued: {queued} (resumed paused playback)"
             return f"Queued: {queued}"
 
-        # A disappearing session after a recent pause is not permission to
-        # start an unrelated device (for example, the configured Alexa group).
+        # Spotify may hide paused sessions. Honor the !add request by
+        # starting its track on the last verified nonrestricted device.
         hint = recent_playback_hint()
         if hint is not None:
             _LOGGER.info(
-                "Add result=missing_recent_session device=%s type=%s restricted=%s",
-                hint["name"],
-                hint["type"],
-                hint["restricted"],
+                "Add recovery candidate=%s type=%s restricted=%s",
+                hint["name"], hint["type"], hint["restricted"],
             )
-            return (
-                "Spotify lost the recent playback session on "
-                f"{hint['name']}. Resume playback there and retry !add."
-            )
+            if not hint["restricted"]:
+                try:
+                    spotify_request(
+                        spotify.start_playback, device_id=hint["id"], uris=[uri]
+                    )
+                except spotipy.exceptions.SpotifyException as error:
+                    _LOGGER.info(
+                        "Add recovery result=rejected device=%s http_status=%s",
+                        hint["name"], error.http_status,
+                    )
+                    if error.http_status not in (403, 404):
+                        raise
+                else:
+                    _LOGGER.info(
+                        "Add recovery result=accepted device=%s", hint["name"]
+                    )
+                    queued = f"{artist} - {name}" if artist and name else uri
+                    return f"Started playback: {queued}"
+            else:
+                _LOGGER.debug(
+                    "Add recovery skipping restricted cached device=%s", hint["name"]
+                )
 
         # GET /me/player/devices
         devices = spotify_request(spotify.devices)
