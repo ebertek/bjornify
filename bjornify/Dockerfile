@@ -59,16 +59,10 @@ ENV PIP_NO_CACHE_DIR=1
 # Set working directory.
 WORKDIR /app
 
-# Create a non-privileged user that the app will run under.
+# Use a numeric, non-root default identity. Docker Compose may override
+# it with a runtime UID:GID; NSS wrapper supplies that identity's display name.
+# Do not create a separate appuser that is never used in such deployments.
 ARG UID=10001
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/app" \
-    --shell "/sbin/nologin" \
-    --no-create-home \
-    --uid "${UID}" \
-    appuser
 
 # Download dependencies as a separate step to take advantage of Docker's caching.
 # Leverage a cache mount to /root/.cache/pip to speed up subsequent builds.
@@ -94,7 +88,7 @@ RUN chmod +x wrapper.sh && \
     printf '%s\n' '#!/bin/sh' 'exec python /app/cli.py "$@"' > /usr/local/bin/bjornify && \
     chmod +x /usr/local/bin/bjornify && \
     mkdir -p /app/logs /app/secrets /tmp/bjornify-identity && \
-    chown -R appuser:appuser /app && \
+    chown -R "${UID}:${UID}" /app && \
     cp /etc/passwd /tmp/bjornify-identity/passwd && \
     cp /etc/group /tmp/bjornify-identity/group && \
     chmod 0644 /tmp/bjornify-identity/passwd /tmp/bjornify-identity/group && \
@@ -107,10 +101,10 @@ ENV LD_PRELOAD=libnss_wrapper.so \
     NSS_WRAPPER_PASSWD=/tmp/bjornify-identity/passwd \
     NSS_WRAPPER_GROUP=/tmp/bjornify-identity/group
 
-# Switch to the non-privileged user to run the application.
-# The named user is created earlier in this image; its UID is build-time configurable.
+# Run non-root even when Compose does not specify a user. The startup
+# wrapper creates a matching NSS identity for both default and overridden UIDs.
 # hadolint ignore=DL3066
-USER appuser
+USER ${UID}:${UID}
 
 # Healthcheck.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD ["/app/wrapper.sh", "healthcheck"]
