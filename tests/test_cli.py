@@ -36,12 +36,21 @@ class UnifiedCliTests(unittest.TestCase):
             main.assert_called_once_with(["authorize"])
 
     def test_connect_commands_preserve_existing_handlers(self):
-        """Token-pipe operations still use the original TTY protection."""
+        """The public CLI delegates pairing and status to the grant module."""
         with patch.object(cli.connect_playback_auth, "main", return_value=0) as main:
-            for operation in ("authorize", "status", "pipe-token", "pipe-dual"):
+            for operation in ("authorize", "status", "client-id"):
                 self.assertEqual(cli.main(["connect", operation]), 0)
                 main.assert_called_with([operation])
-            self.assertEqual(main.call_count, 4)
+            self.assertEqual(main.call_count, 3)
+
+    def test_private_token_pipes_remain_internal_only(self):
+        """Keep raw token operations out of the administrator CLI."""
+        with (
+            contextlib.redirect_stderr(io.StringIO()),
+            self.assertRaises(SystemExit) as error,
+        ):
+            cli.main(["connect", "pipe-dual"])
+        self.assertEqual(error.exception.code, 2)
 
     def test_sonos_discovery_hides_addresses_by_default(self):
         """Sonos information stays readable without leaking private network data."""
