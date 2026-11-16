@@ -9,9 +9,8 @@ import argparse
 import json
 import sys
 
-import soco
-
 import connect_playback_auth
+import soco
 import spotify_auth
 
 

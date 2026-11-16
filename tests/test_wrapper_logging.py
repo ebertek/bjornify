@@ -19,9 +19,9 @@ class WrapperLoggingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             passwd = Path(directory) / "nss" / "passwd"
             group = Path(directory) / "nss" / "group"
-            script = WRAPPER.read_text(encoding="utf-8").split(
-                'PID_FILE=', maxsplit=1
-            )[0]
+            script = WRAPPER.read_text(encoding="utf-8").split("PID_FILE=", maxsplit=1)[
+                0
+            ]
             script += "\nsetup_runtime_identity\n"
             subprocess.run(
                 ["bash", "-c", script],
