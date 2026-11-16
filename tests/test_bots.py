@@ -761,9 +761,11 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
                 429, -1, "Rate limited", headers={"Retry-After": "30"}
             )
         )
-        with patch.object(self.bjornify.time, "sleep") as sleep:
-            with self.assertRaises(SpotifyException) as caught:
-                self.bjornify.spotify_request(request)
+        with (
+            patch.object(self.bjornify.time, "sleep") as sleep,
+            self.assertRaises(SpotifyException) as caught,
+        ):
+            self.bjornify.spotify_request(request)
         self.assertEqual(caught.exception.http_status, 429)
         request.assert_called_once()
         sleep.assert_not_called()
