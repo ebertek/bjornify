@@ -43,6 +43,7 @@ class SpotifyAuthTests(unittest.TestCase):
             "https://"
         ).max_retries  # pylint: disable=protected-access
         self.assertFalse(retry.respect_retry_after_header)
+        self.assertFalse(retry.raise_on_status)
         self.assertNotIn(429, retry.status_forcelist)
         self.assertEqual(retry.allowed_methods, frozenset({"GET"}))
         client._session.close()  # pylint: disable=protected-access
