@@ -83,6 +83,7 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
     def setUp(self):
         """Patch the global Spotify instance for each test independently."""
         self.bjornify._LAST_PLAYBACK = None  # pylint: disable=protected-access
+        self.bjornify._SPOTIFY_RATE_UNTIL = 0  # pylint: disable=protected-access
         self.spotify = MagicMock()
         self.spotify_patch = patch.object(self.bjornify, "spotify", self.spotify)
         self.spotify_patch.start()
@@ -737,6 +738,44 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
             )
         self.assertIn("Premium", response)
         find.assert_not_called()
+
+    def test_429_zero_seconds_retries_with_bounded_backoff(self):
+        """A definitive Spotify 429 can be retried after a minimum delay."""
+        request = MagicMock(
+            side_effect=[
+                SpotifyException(429, -1, "Rate limited", headers={"Retry-After": "0"}),
+                {"ok": True},
+            ]
+        )
+        with patch.object(self.bjornify.time, "sleep") as sleep:
+            response = self.bjornify.spotify_request(request)
+        self.assertEqual(response, {"ok": True})
+        self.assertEqual(request.call_count, 2)
+        sleep.assert_called_once()
+        self.assertGreaterEqual(sleep.call_args.args[0], 0.9)
+
+    def test_429_long_retry_after_does_not_block_command(self):
+        """A long rate-limit interval is surfaced without repeated writes."""
+        request = MagicMock(
+            side_effect=SpotifyException(
+                429, -1, "Rate limited", headers={"Retry-After": "30"}
+            )
+        )
+        with (
+            patch.object(self.bjornify.time, "sleep") as sleep,
+            self.assertRaises(SpotifyException) as caught,
+        ):
+            self.bjornify.spotify_request(request)
+        self.assertEqual(caught.exception.http_status, 429)
+        request.assert_called_once()
+        sleep.assert_not_called()
+
+    def test_500_playback_write_not_repeated(self):
+        """Only definitive 429s, never uncertain server errors, are replayed."""
+        request = MagicMock(side_effect=SpotifyException(500, -1, "Server error"))
+        with self.assertRaises(SpotifyException):
+            self.bjornify.spotify_request(request)
+        request.assert_called_once()
 
     def test_rate_limit_includes_retry_delay(self):
         """429 errors report Retry-After instead of a generic queue failure."""

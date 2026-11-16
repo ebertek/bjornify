@@ -5,6 +5,7 @@
 
 import asyncio
 import logging
+import math
 import os
 import signal
 import sys
@@ -25,6 +26,7 @@ from discord.ext import commands
 from spotify_auth import (
     SpotifyAuthorizationRequired,
     make_auth_manager,
+    make_spotify_client,
 )
 from spotify_connect_discord_auth import (
     DiscordPlaybackPairings,
@@ -146,12 +148,9 @@ DEFAULT_DEVICE = os.getenv("DEFAULT_DEVICE", "Everywhere")
 # Share one OAuth cache with the owner's interactive authorization command.
 # Never attempt to prompt for authorization inside the Discord bot.
 auth_manager = make_auth_manager()
-# Let 429 responses reach us intact: Spotipy's default retry loop hides the
-# QUOTA_EXCEEDED response body that Spotify uses for Development Mode limits.
-spotify = spotipy.Spotify(
-    auth_manager=auth_manager,
-    status_forcelist=(500, 502, 503, 504),
-)
+# 429 responses must reach the bot intact so it can apply bounded backoff
+# without Spotipy/urllib3 silently repeating playback writes.
+spotify = make_spotify_client(auth_manager)
 
 
 spotify_authorizations = SpotifyAuthorizations()
@@ -161,6 +160,9 @@ spotify_playback_pairings = DiscordPlaybackPairings()
 _LAST_PLAYBACK = None
 _LAST_PLAYBACK_LOCK = Lock()
 SESSION_HINT_TTL = 120
+_SPOTIFY_RATE_LOCK = Lock()
+_SPOTIFY_RATE_UNTIL = 0.0
+_SPOTIFY_RATE_MAX_WAIT = 5
 
 
 def remember_playback(playback):
@@ -463,8 +465,21 @@ def refresh_spotify_token(force: bool = False):
         auth_manager.refresh_access_token(token_info["refresh_token"])
 
 
-def spotify_request(method, *args, **kwargs):
-    """Retry an API request once after a Spotify 401 authentication response."""
+def _spotify_cooldown_remaining():
+    """Return remaining API-wide cooldown without exposing request metadata."""
+    with _SPOTIFY_RATE_LOCK:
+        return max(0.0, _SPOTIFY_RATE_UNTIL - time.monotonic())
+
+
+def _record_spotify_cooldown(seconds):
+    """Share Spotify's retry delay across simultaneous Discord commands."""
+    global _SPOTIFY_RATE_UNTIL  # pylint: disable=global-statement
+    with _SPOTIFY_RATE_LOCK:
+        _SPOTIFY_RATE_UNTIL = max(_SPOTIFY_RATE_UNTIL, time.monotonic() + seconds)
+
+
+def _spotify_request_once(method, *args, **kwargs):
+    """Retry once on 401 only, after refreshing the shared access token."""
     try:
         return method(*args, **kwargs)
     except spotipy.exceptions.SpotifyException as error:
@@ -473,6 +488,46 @@ def spotify_request(method, *args, **kwargs):
         _LOGGER.warning("Spotify returned 401; refreshing token and retrying once")
         refresh_spotify_token(force=True)
         return method(*args, **kwargs)
+
+
+def spotify_request(method, *args, **kwargs):
+    """Back off on explicit HTTP 429 only; never retry ambiguous request failures.
+
+    A 429 is a definitive rejection. Do not retry 5xx, transport timeouts, or
+    other uncertain results for queue and playback control operations.
+    """
+    for attempt in range(3):
+        remaining = _spotify_cooldown_remaining()
+        if remaining > _SPOTIFY_RATE_MAX_WAIT:
+            _LOGGER.info(
+                "Spotify API cooldown active: remaining_seconds=%d",
+                math.ceil(remaining),
+            )
+            raise spotipy.exceptions.SpotifyException(
+                429,
+                -1,
+                "Spotify API cooldown active",
+                headers={"Retry-After": str(math.ceil(remaining))},
+            )
+        if remaining > 0:
+            _LOGGER.debug("Waiting %.1fs for Spotify API cooldown", remaining)
+            time.sleep(remaining)
+        try:
+            return _spotify_request_once(method, *args, **kwargs)
+        except spotipy.exceptions.SpotifyException as error:
+            if error.http_status != 429 or error.reason == "QUOTA_EXCEEDED":
+                raise
+            header = (error.headers or {}).get("Retry-After")
+            delay = max(1, int(header)) if str(header).isdecimal() else 2**attempt
+            _record_spotify_cooldown(delay)
+            _LOGGER.warning(
+                "Spotify HTTP 429: attempt=%d/3 retry_after_seconds=%d",
+                attempt + 1,
+                delay,
+            )
+            if attempt == 2 or delay > _SPOTIFY_RATE_MAX_WAIT:
+                raise
+    raise RuntimeError("Spotify retry loop unexpectedly exhausted")
 
 
 def spotify_error_message(error):  # pylint: disable=too-many-return-statements
@@ -501,7 +556,10 @@ def spotify_error_message(error):  # pylint: disable=too-many-return-statements
                 return "Spotify Development Mode API quota exceeded. Try again later."
             retry_after = (error.headers or {}).get("Retry-After", "")
             if str(retry_after).isdecimal():
-                return f"Spotify is rate-limited. Try again in {retry_after} seconds."
+                return (
+                    "Spotify is rate-limited. Try again in "
+                    f"{max(1, int(retry_after))} seconds."
+                )
             return "Spotify is rate-limited. Try again shortly."
 
     _LOGGER.error("Spotify request failed: %s", type(error).__name__)

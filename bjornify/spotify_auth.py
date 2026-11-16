@@ -6,14 +6,19 @@ inside the container to create or renew the six-month Spotify authorization.
 
 import getpass
 import hmac
+import json
 import os
 import secrets
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from spotipy.exceptions import SpotifyOauthError
+import requests
+import spotipy
+from requests.adapters import HTTPAdapter
+from spotipy.exceptions import SpotifyException, SpotifyOauthError
 from spotipy.oauth2 import CacheFileHandler, SpotifyOAuth
+from urllib3.util.retry import Retry
 
 DEFAULT_REDIRECT_URI = "http://127.0.0.1:3000"
 TOKEN_CACHE_PATH = Path("/app/secrets/spotipy_token.cache")
@@ -25,6 +30,7 @@ SCOPE = [
     "user-modify-playback-state",
 ]
 AUTHORIZE_COMMAND = "docker exec -it bjornify python /app/spotify_auth.py authorize"
+DIAGNOSTICS_COMMAND = "docker exec bjornify python /app/spotify_auth.py diagnostics"
 REAUTH_MESSAGE = "Spotify authorization required; the bot owner must reconnect Spotify."
 
 
@@ -105,6 +111,89 @@ def make_auth_manager(state=None):
     )
 
 
+def make_spotify_client(auth_manager=None):
+    """Use one retry policy for the bot and CLI, without hidden 429 retries.
+
+    Spotify's Retry-After header can trigger urllib3's default 429 retry even
+    when 429 is absent from status_forcelist. Only retry transient GET 5xx:
+    a playback write must never be implicitly replayed by the HTTP adapter.
+    """
+    session = requests.Session()
+    retry = Retry(
+        total=2,
+        connect=1,
+        read=False,
+        other=0,
+        status=2,
+        allowed_methods=frozenset({"GET"}),
+        status_forcelist=(500, 502, 503, 504),
+        respect_retry_after_header=False,
+        raise_on_status=False,
+        backoff_factor=0.4,
+    )
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+    return spotipy.Spotify(
+        auth_manager=auth_manager or make_auth_manager(),
+        requests_session=session,
+    )
+
+
+def summarize_diagnostics(devices, playback):
+    """Summarize playback without printing device identifiers or credentials."""
+    available = (devices or {}).get("devices") or []
+    result = {
+        "devices": [
+            {
+                "name": device.get("name"),
+                "type": device.get("type"),
+                "is_active": device.get("is_active"),
+                "is_restricted": device.get("is_restricted"),
+                "device_id_available": bool(device.get("id")),
+                "supports_volume": device.get("supports_volume"),
+                "volume_percent": device.get("volume_percent"),
+            }
+            for device in available
+            if isinstance(device, dict)
+        ],
+        "current_playback": None,
+    }
+    if playback is not None:
+        item = playback.get("item") or {}
+        device = playback.get("device") or {}
+        result["current_playback"] = {
+            "device_name": device.get("name"),
+            "device_type": device.get("type"),
+            "is_playing": playback.get("is_playing"),
+            "track": item.get("name"),
+            "artists": [artist.get("name") for artist in item.get("artists") or []],
+            "progress_ms": playback.get("progress_ms"),
+            "duration_ms": item.get("duration_ms"),
+            "context_type": (playback.get("context") or {}).get("type"),
+            "actions": playback.get("actions"),
+        }
+    return result
+
+
+def show_diagnostics(full=False):
+    """Inspect current Spotify devices and playback using the saved OAuth grant."""
+    client = make_spotify_client()
+    devices = client.devices()
+    playback = client.current_playback()
+    if full:
+        print("=== AVAILABLE DEVICES ===")
+        print(json.dumps(devices, indent=2, ensure_ascii=False))
+        print("=== CURRENT PLAYBACK ===")
+        print(json.dumps(playback, indent=2, ensure_ascii=False))
+    else:
+        print(
+            json.dumps(
+                summarize_diagnostics(devices, playback),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+
+
 def authorize_interactively():
     """Exchange a manually copied redirect URL for a new cached token."""
     if not sys.stdin.isatty():
@@ -147,21 +236,34 @@ def authorize_interactively():
 
 def main():
     """Run only when explicitly invoked from a terminal by the owner."""
-    if sys.argv[1:] != ["authorize"]:
-        print(f"Usage: {AUTHORIZE_COMMAND}", file=sys.stderr)
+    args = sys.argv[1:]
+    if args not in (["authorize"], ["diagnostics"], ["diagnostics", "--full"]):
+        print(
+            f"Usage: {AUTHORIZE_COMMAND} OR {DIAGNOSTICS_COMMAND} [--full]",
+            file=sys.stderr,
+        )
         return 2
     # Prevent creation of a world-readable token file when a new cache is saved.
     os.umask(0o077)
     try:
-        authorize_interactively()
+        if args[0] == "authorize":
+            authorize_interactively()
+        else:
+            show_diagnostics(full="--full" in args)
     except SpotifyOauthError as error:
         print(
             f"Spotify authorization failed ({error.error or 'OAuth error'}).",
             file=sys.stderr,
         )
         return 1
+    except SpotifyException as error:
+        print(
+            f"Spotify diagnostics failed: HTTP {error.http_status}.",
+            file=sys.stderr,
+        )
+        return 1
     except (OSError, ValueError, SpotifyAuthorizationRequired) as error:
-        print(f"Spotify authorization failed: {error}", file=sys.stderr)
+        print(f"Spotify command failed: {error}", file=sys.stderr)
         return 1
     return 0
 
