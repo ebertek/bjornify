@@ -91,7 +91,7 @@ COPY --from=connect-build /connect/target/release/bjornify-connect /usr/local/bi
 
 # The CLI is one command, backed by the single /app/cli.py entry point.
 RUN chmod +x wrapper.sh && \
-    printf '%s\\n' '#!/bin/sh' 'exec python /app/cli.py "$@"' > /usr/local/bin/bjornify && \
+    printf '%s\n' '#!/bin/sh' 'exec python /app/cli.py "$@"' > /usr/local/bin/bjornify && \
     chmod +x /usr/local/bin/bjornify && \
     mkdir -p /app/logs /app/secrets && \
     chown -R appuser:appuser /app
