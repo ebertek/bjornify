@@ -58,21 +58,21 @@ Only the Discord application owner can use these commands:
 
 Follow the private instructions in Discord. The Web API and Connect playback use separate credentials.
 
-Server administrators can also authorize through the CLI:
+Server administrators use the unified `bjornify` CLI:
 
 ```bash
-docker exec -it bjornify python /app/spotify_auth.py authorize
-docker exec -it bjornify python /app/connect_playback_auth.py authorize
+docker exec bjornify bjornify --help
+docker exec bjornify bjornify spotify diagnostics
+docker exec bjornify bjornify connect status
+docker exec bjornify bjornify sonos devices
+docker exec -it bjornify bjornify spotify authorize
+docker exec -it bjornify bjornify connect authorize
 ```
 
-To inspect Spotify's available devices and current playback from the container:
-
-```bash
-docker exec bjornify python /app/spotify_auth.py diagnostics
-docker exec bjornify python /app/spotify_auth.py diagnostics --full
-```
-
-The default output omits device IDs; `--full` prints the original API responses and should be kept private.
+Use `spotify diagnostics --full` to see unmodified Spotify API responses,
+including private device IDs. Use `sonos devices --full` to include room
+addresses. Keep full diagnostics private. Internal token-pipe subcommands
+continue to refuse terminal output.
 
 The Web API CLI flow can use `http://127.0.0.1:3000` as its registered redirect URI. For Connect playback, the CLI displays a pairing code for [Spotify Pair](https://spotify.com/pair).
 
@@ -87,6 +87,12 @@ Optional environment variables:
 - `LOG_OUTPUT`, `LOG_FORMAT`: Logging destinations and format.
 
 The Connect queue fallback requires a playing, ungrouped Sonos room and won't retry an uncertain queue write. Spotify's private Connect interface may change without notice.
+
+When running under a numeric Compose `user: "UID:GID"`, Björnify
+automatically resolves an otherwise unnamed UID/GID inside the container.
+Setting environment variables named `PUID`/`PGID` alone does not change
+Docker's process user. Bind-mounted `logs` and `secrets` still need writable
+filesystem permissions for the chosen numeric IDs.
 
 ## Home Assistant (optional)
 

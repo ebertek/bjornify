@@ -234,9 +234,9 @@ def authorize_interactively():
     )
 
 
-def main():
-    """Run only when explicitly invoked from a terminal by the owner."""
-    args = sys.argv[1:]
+def main(argv=None):
+    """Run only explicitly requested operations, including via the unified CLI."""
+    args = sys.argv[1:] if argv is None else argv
     if args not in (["authorize"], ["diagnostics"], ["diagnostics", "--full"]):
         print(
             f"Usage: {AUTHORIZE_COMMAND} OR {DIAGNOSTICS_COMMAND} [--full]",

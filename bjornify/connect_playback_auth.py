@@ -270,9 +270,10 @@ def print_client_id():
     print(PLAYBACK_CLIENT_ID)
 
 
-def main():
+def main(argv=None):
     """Only explicit operations are supported; no ambient auth changes."""
-    if len(sys.argv) != 2:
+    args = sys.argv[1:] if argv is None else argv
+    if len(args) != 1:
         print(
             "Usage: connect_playback_auth.py authorize|status|client-id|pipe-token|pipe-dual"
         )
@@ -284,7 +285,7 @@ def main():
         "pipe-token": pipe_token,
         "pipe-dual": dual_tokens,
     }
-    operation = commands.get(sys.argv[1])
+    operation = commands.get(args[0])
     if operation is None:
         print("Unknown operation.", file=sys.stderr)
         return 2
