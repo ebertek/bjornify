@@ -49,3 +49,13 @@ jobs:
         run: |
           docker run --rm --entrypoint /usr/bin/test bjornify:connect-ci -x /usr/local/bin/bjornify-connect
           docker run --rm --entrypoint /usr/bin/test bjornify:connect-ci -f /app/connect_playback_auth.py
+      - name: Verify CLI, clean runtime layout, and arbitrary UID name resolution
+        run: |
+          docker run --rm --entrypoint /usr/local/bin/bjornify bjornify:connect-ci --help
+          docker run --rm --entrypoint /usr/bin/test bjornify:connect-ci ! -e /app/Dockerfile
+          docker run --rm --entrypoint /usr/bin/test bjornify:connect-ci ! -e /app/requirements.txt
+          docker run --rm --user 23456:23456 --entrypoint /bin/bash bjornify:connect-ci -ec '
+            /app/wrapper.sh >/dev/null 2>&1 || true
+            test "$(whoami)" = bjornify
+            test "$(id -gn)" = bjornify
+          '
