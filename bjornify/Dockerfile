@@ -56,19 +56,16 @@ ENV PYTHONUNBUFFERED=1
 # Disable pip cache.
 ENV PIP_NO_CACHE_DIR=1
 
+# Preserve the original non-root user's home for numeric UID execution.
+ENV HOME=/app
+
 # Set working directory.
 WORKDIR /app
 
-# Create a non-privileged user that the app will run under.
+# Use a numeric, non-root default identity. Docker Compose may override
+# it with a runtime UID:GID; NSS wrapper supplies that identity's display name.
+# Do not create a separate appuser that is never used in such deployments.
 ARG UID=10001
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/app" \
-    --shell "/sbin/nologin" \
-    --no-create-home \
-    --uid "${UID}" \
-    appuser
 
 # Download dependencies as a separate step to take advantage of Docker's caching.
 # Leverage a cache mount to /root/.cache/pip to speed up subsequent builds.
@@ -85,16 +82,18 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 # Copy runtime code only. Do not ship the source Dockerfile, pip
 # requirements, or local build metadata into the running container.
-COPY bjornify/*.py ./
-COPY bjornify/wrapper.sh ./
+# Runtime code is immutable to the unprivileged process, even when Compose
+# selects an arbitrary UID/GID. Copy with deterministic root ownership/modes.
+COPY --chown=0:0 --chmod=0644 bjornify/*.py ./
+COPY --chown=0:0 --chmod=0755 bjornify/wrapper.sh ./
 COPY --from=connect-build /connect/target/release/bjornify-connect /usr/local/bin/bjornify-connect
 
-# The CLI is one command, backed by the single /app/cli.py entry point.
-RUN chmod +x wrapper.sh && \
-    printf '%s\n' '#!/bin/sh' 'exec python /app/cli.py "$@"' > /usr/local/bin/bjornify && \
-    chmod +x /usr/local/bin/bjornify && \
-    mkdir -p /app/logs /app/secrets /tmp/bjornify-identity && \
-    chown -R appuser:appuser /app && \
+# Only logs and secrets need writable directories. Never chown source code.
+RUN printf '%s\n' '#!/bin/sh' 'exec python /app/cli.py "$@"' > /usr/local/bin/bjornify && \
+    chmod 0755 /usr/local/bin/bjornify && \
+    install -d -m 0750 -o "${UID}" -g "${UID}" /app/logs && \
+    install -d -m 0700 -o "${UID}" -g "${UID}" /app/secrets && \
+    mkdir -p /tmp/bjornify-identity && \
     cp /etc/passwd /tmp/bjornify-identity/passwd && \
     cp /etc/group /tmp/bjornify-identity/group && \
     chmod 0644 /tmp/bjornify-identity/passwd /tmp/bjornify-identity/group && \
@@ -107,10 +106,10 @@ ENV LD_PRELOAD=libnss_wrapper.so \
     NSS_WRAPPER_PASSWD=/tmp/bjornify-identity/passwd \
     NSS_WRAPPER_GROUP=/tmp/bjornify-identity/group
 
-# Switch to the non-privileged user to run the application.
-# The named user is created earlier in this image; its UID is build-time configurable.
+# Run non-root even when Compose does not specify a user. The startup
+# wrapper creates a matching NSS identity for both default and overridden UIDs.
 # hadolint ignore=DL3066
-USER appuser
+USER ${UID}:${UID}
 
 # Healthcheck.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD ["/app/wrapper.sh", "healthcheck"]

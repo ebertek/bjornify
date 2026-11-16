@@ -54,12 +54,37 @@ jobs:
           docker run --rm --entrypoint /usr/local/bin/bjornify bjornify:connect-ci --help
           docker run --rm --entrypoint /usr/bin/test bjornify:connect-ci ! -e /app/Dockerfile
           docker run --rm --entrypoint /usr/bin/test bjornify:connect-ci ! -e /app/requirements.txt
+          # Keep the application immutable while allowing only private state paths
+          # to be written by the default unprivileged UID.
+          docker run --rm --entrypoint /bin/bash bjornify:connect-ci -ec '
+            test "$(id -u)" -eq 10001
+            test "$(id -g)" -eq 10001
+            ! getent passwd appuser >/dev/null
+            test "$(stat -c "%u:%g %a" /app)" = "0:0 755"
+            test "$(stat -c "%u:%g %a" /app/bjornify.py)" = "0:0 644"
+            test "$(stat -c "%u:%g %a" /app/wrapper.sh)" = "0:0 755"
+            test "$(stat -c "%u:%g %a" /usr/local/bin/bjornify)" = "0:0 755"
+            test "$(stat -c "%u:%g %a" /app/logs)" = "10001:10001 750"
+            test "$(stat -c "%u:%g %a" /app/secrets)" = "10001:10001 700"
+            test ! -w /app
+            test ! -w /app/bjornify.py
+            test -w /app/logs
+            test -w /app/secrets
+            /app/wrapper.sh >/tmp/default-startup.log 2>&1 || true
+            ! grep -q NWRAP_ERROR /tmp/default-startup.log
+            test "$(whoami)" = bjornify
+            test "$(id -gn)" = bjornify
+          '
+          # Arbitrary Compose numeric UID/GID values still work; source is
+          # readable but not writable, and NSS resolves the effective user.
           bootstrap_output="$(mktemp)"
           docker run --rm --user 23456:23456 --entrypoint /bin/bash bjornify:connect-ci -ec '
             /app/wrapper.sh >/tmp/bootstrap.log 2>&1 || true
             ! grep -q NWRAP_ERROR /tmp/bootstrap.log
             test "$(whoami)" = bjornify
             test "$(id -gn)" = bjornify
+            test -r /app/bjornify.py
+            test ! -w /app/bjornify.py
           ' >"$bootstrap_output" 2>&1 || {
             cat "$bootstrap_output"
             rm -f "$bootstrap_output"
@@ -71,3 +96,10 @@ jobs:
             exit 1
           fi
           rm -f "$bootstrap_output"
+          # Preserve already defined groups when Compose changes only the UID.
+          docker run --rm --user 23456:100 --entrypoint /bin/bash bjornify:connect-ci -ec '
+            /app/wrapper.sh >/tmp/group-startup.log 2>&1 || true
+            ! grep -q NWRAP_ERROR /tmp/group-startup.log
+            test "$(whoami)" = bjornify
+            test "$(id -gn)" = users
+          '
