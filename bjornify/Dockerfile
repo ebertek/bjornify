@@ -98,7 +98,7 @@ RUN chmod +x wrapper.sh && \
 
 # These are paths to runtime lookup files, NOT passwords or credentials.
 # Keep them in ENV so docker exec sees the same NSS view as the bot.
-#trivy:ignore:DS-0031 -- false positive: passwd/group file paths, not secrets
+#trivy:ignore:DS-0031
 ENV LD_PRELOAD=libnss_wrapper.so \
     NSS_WRAPPER_PASSWD=/tmp/bjornify-identity/passwd \
     NSS_WRAPPER_GROUP=/tmp/bjornify-identity/group
