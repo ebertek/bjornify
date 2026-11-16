@@ -19,6 +19,7 @@ details from an earlier chat, branch, or deployment are still accurate.
 ## Source map
 
 - `bjornify/bjornify.py`: Discord bot, commands, queue orchestration.
+- `bjornify/cli.py`: single user-facing CLI entry point (`docker exec bjornify bjornify ...`); route to auth and diagnostics modules without duplicating implementations.
 - `bjornify/hass.py`: optional Home Assistant conversation bot.
 - `bjornify/spotify_auth.py`: personal Spotify Web API OAuth and CLI.
 - `bjornify/spotify_discord_auth.py`: owner-only Web API OAuth via HTTPS
@@ -36,12 +37,13 @@ details from an earlier chat, branch, or deployment are still accurate.
   preflight checks.
 - `spotify-connect/Cargo.toml`: Rust dependencies.
 - `bjornify/Dockerfile`: multi-stage production image with the Rust binary.
-- `bjornify/wrapper.sh`: starts the main bot and optional HA bot, healthcheck.
+- `bjornify/wrapper.sh`: starts the main bot and optional HA bot, healthcheck. Also initializes private NSS lookup files for an arbitrary numeric Docker runtime UID/GID.
 - `tests/`: mocked tests; `.github/workflows/`: lint, Rust/Docker validation,
   and GHCR publishing; `.github/renovate.json`: dependency-update policy.
 
 ## Authorization and secrets
 
+- Keep the unified CLI as the documented administrator interface. Preserve the legacy module entry points needed by internal token pipes; never emit tokens to a TTY.
 - Maintain **two independent OAuth grants**. Personal Spotify Web API OAuth
   uses `/app/secrets/spotipy_token.cache`, `/spotify connect` in Discord,
   and `python /app/spotify_auth.py authorize` in the CLI.
@@ -102,7 +104,7 @@ docker build -f bjornify/Dockerfile -t bjornify:local .
   both Discord command styles, OAuth flows, Sonos identity checks, and
   uncertain queue outcomes. Never require live Spotify, Discord, Sonos, or
   real credentials for CI tests.
-- The Docker build context is the **repository root**, not `bjornify/`.
+- The Docker build context is the **repository root**, not `bjornify/`. The final image copies only runtime `.py` files and `wrapper.sh`, not source Dockerfiles or pip requirements. `libnss-wrapper` supplies a display name for arbitrary effective UIDs/GIDs; it does not change filesystem permissions.
   The production image includes `bjornify/connect_playback_auth.py` and builds
   the Rust binary from `spotify-connect/`. Validate both when editing them.
 - The Rust dependency `vergen = "=9.0.6"` is intentionally pinned for the
