@@ -61,6 +61,41 @@ log() {
 	printf "[%s] %s\n" "$level" "$msg"
 }
 
+# NSS lookup records for numeric UIDs/GIDs supplied by Docker Compose.
+# They change only the displayed user/group names, not kernel permissions.
+setup_runtime_identity() {
+    local uid gid identity_dir
+    uid="$(id -u)"
+    gid="$(id -g)"
+    identity_dir="${NSS_WRAPPER_PASSWD%/*}"
+
+    if [ ! -d "$identity_dir" ]; then
+        (umask 077; mkdir -m 700 "$identity_dir") || {
+            log WARNING "Could not initialize runtime username lookup"
+            return 0
+        }
+    fi
+    if [ ! -O "$identity_dir" ]; then
+        log WARNING "Runtime identity directory belongs to another user"
+        return 0
+    fi
+
+    (
+        umask 077
+        cp /etc/passwd "$NSS_WRAPPER_PASSWD.tmp"
+        if ! awk -F: -v uid="$uid" '$3 == uid { found=1 } END { exit !found }' /etc/passwd; then
+            printf 'bjornify:x:%s:%s:Bjornify:/app:/bin/bash\n' "$uid" "$gid" >> "$NSS_WRAPPER_PASSWD.tmp"
+        fi
+        mv "$NSS_WRAPPER_PASSWD.tmp" "$NSS_WRAPPER_PASSWD"
+
+        cp /etc/group "$NSS_WRAPPER_GROUP.tmp"
+        if ! awk -F: -v gid="$gid" '$3 == gid { found=1 } END { exit !found }' /etc/group; then
+            printf 'bjornify:x:%s:\n' "$gid" >> "$NSS_WRAPPER_GROUP.tmp"
+        fi
+        mv "$NSS_WRAPPER_GROUP.tmp" "$NSS_WRAPPER_GROUP"
+    ) || log WARNING "Could not write runtime username lookup"
+}
+
 PID_FILE="/tmp/bjornify.pid"
 
 # Healthcheck: verify that at least one child PID is still alive
@@ -91,6 +126,8 @@ if [ "$1" = "healthcheck" ]; then
 	log CRITICAL "No tracked processes are running"
 	exit 1
 fi
+
+setup_runtime_identity
 
 # Forward signals to child processes
 trap 'log INFO "Received SIGINT"; kill -SIGINT "${pids[@]}"' SIGINT
