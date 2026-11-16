@@ -147,6 +147,6 @@ jobs:
               test -w /app/logs
               test -w /app/secrets
               touch /app/logs/smoke-test /app/secrets/smoke-test
-              python -c "import socket; s=socket.socket(); s.bind((\x27\x27,8765)); s.close()"
+              python -c "import socket; s=socket.socket(); s.bind((str(),8765)); s.close()"
               python /app/cli.py --help >/dev/null
             '
