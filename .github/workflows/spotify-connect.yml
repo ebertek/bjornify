@@ -54,6 +54,17 @@ jobs:
           docker run --rm --entrypoint /usr/local/bin/bjornify bjornify:connect-ci --help
           docker run --rm --entrypoint /usr/bin/test bjornify:connect-ci ! -e /app/Dockerfile
           docker run --rm --entrypoint /usr/bin/test bjornify:connect-ci ! -e /app/requirements.txt
+          # No extra appuser exists; the numeric image default must be non-root.
+          docker run --rm --entrypoint /bin/bash bjornify:connect-ci -ec '
+            test "$(id -u)" -eq 10001
+            test "$(id -g)" -eq 10001
+            ! getent passwd appuser >/dev/null
+            test "$(stat -c %u /app/bjornify.py)" -eq 10001
+            /app/wrapper.sh >/tmp/default-startup.log 2>&1 || true
+            ! grep -q NWRAP_ERROR /tmp/default-startup.log
+            test "$(whoami)" = bjornify
+            test "$(id -gn)" = bjornify
+          '
           bootstrap_output="$(mktemp)"
           docker run --rm --user 23456:23456 --entrypoint /bin/bash bjornify:connect-ci -ec '
             /app/wrapper.sh >/tmp/bootstrap.log 2>&1 || true
@@ -63,6 +74,13 @@ jobs:
           ' >"$bootstrap_output" 2>&1 || {
             cat "$bootstrap_output"
             rm -f "$bootstrap_output"
+          # Retain existing group names when Compose overrides only the UID.
+          docker run --rm --user 23456:100 --entrypoint /bin/bash bjornify:connect-ci -ec '
+            /app/wrapper.sh >/tmp/group-startup.log 2>&1 || true
+            ! grep -q NWRAP_ERROR /tmp/group-startup.log
+            test "$(whoami)" = bjornify
+            test "$(id -gn)" = users
+          '
             exit 1
           }
           if grep -q NWRAP_ERROR "$bootstrap_output"; then
