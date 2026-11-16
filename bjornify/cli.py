@@ -10,6 +10,7 @@ import json
 import sys
 
 import connect_playback_auth
+import requests
 import soco
 import spotify_auth
 
@@ -18,7 +19,7 @@ def sonos_devices(full=False):
     """Discover Sonos rooms with a small read-only, privacy-conscious report."""
     try:
         speakers = soco.discover(timeout=3) or set()
-    except (OSError, soco.exceptions.SoCoException):
+    except (OSError, requests.RequestException, soco.exceptions.SoCoException):
         print("Sonos discovery failed.", file=sys.stderr)
         return 1
 
@@ -34,7 +35,7 @@ def sonos_devices(full=False):
             if full:
                 room["ip_address"] = speaker.ip_address
             rooms.append(room)
-        except (OSError, ValueError, soco.exceptions.SoCoException):
+        except (OSError, ValueError, requests.RequestException, soco.exceptions.SoCoException):
             # A single unreachable room must not hide the other discovered ones.
             rooms.append({"name": "unavailable", "state": "unreachable"})
 
@@ -65,12 +66,6 @@ def build_parser():
     connect_commands.add_parser("authorize", help="Interactive playback pairing")
     connect_commands.add_parser("status", help="Playback grant status (no tokens)")
     connect_commands.add_parser("client-id", help="Public Spotify client ID")
-    connect_commands.add_parser(
-        "pipe-token", help="Private token pipe (never use in a terminal)"
-    )
-    connect_commands.add_parser(
-        "pipe-dual", help="Private dual-token pipe (never use in a terminal)"
-    )
 
     sonos = groups.add_parser("sonos", help="Sonos discovery")
     sonos_commands = sonos.add_subparsers(dest="command", required=True)
