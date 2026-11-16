@@ -56,6 +56,9 @@ ENV PYTHONUNBUFFERED=1
 # Disable pip cache.
 ENV PIP_NO_CACHE_DIR=1
 
+# Preserve the original non-root user's home for numeric UID execution.
+ENV HOME=/app
+
 # Set working directory.
 WORKDIR /app
 
