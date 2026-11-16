@@ -65,6 +65,15 @@ docker exec -it bjornify python /app/spotify_auth.py authorize
 docker exec -it bjornify python /app/connect_playback_auth.py authorize
 ```
 
+To inspect Spotify's available devices and current playback from the container:
+
+```bash
+docker exec bjornify python /app/spotify_auth.py diagnostics
+docker exec bjornify python /app/spotify_auth.py diagnostics --full
+```
+
+The default output omits device IDs; `--full` prints the original API responses and should be kept private.
+
 The Web API CLI flow can use `http://127.0.0.1:3000` as its registered redirect URI. For Connect playback, the CLI displays a pairing code for [Spotify Pair](https://spotify.com/pair).
 
 ## Configuration
