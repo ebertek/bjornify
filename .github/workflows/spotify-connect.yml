@@ -54,8 +54,20 @@ jobs:
           docker run --rm --entrypoint /usr/local/bin/bjornify bjornify:connect-ci --help
           docker run --rm --entrypoint /usr/bin/test bjornify:connect-ci ! -e /app/Dockerfile
           docker run --rm --entrypoint /usr/bin/test bjornify:connect-ci ! -e /app/requirements.txt
+          bootstrap_output="$(mktemp)"
           docker run --rm --user 23456:23456 --entrypoint /bin/bash bjornify:connect-ci -ec '
-            /app/wrapper.sh >/dev/null 2>&1 || true
+            /app/wrapper.sh >/tmp/bootstrap.log 2>&1 || true
+            ! grep -q NWRAP_ERROR /tmp/bootstrap.log
             test "$(whoami)" = bjornify
             test "$(id -gn)" = bjornify
-          '
+          ' >"$bootstrap_output" 2>&1 || {
+            cat "$bootstrap_output"
+            rm -f "$bootstrap_output"
+            exit 1
+          }
+          if grep -q NWRAP_ERROR "$bootstrap_output"; then
+            cat "$bootstrap_output"
+            rm -f "$bootstrap_output"
+            exit 1
+          fi
+          rm -f "$bootstrap_output"
