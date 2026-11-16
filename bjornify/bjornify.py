@@ -828,8 +828,7 @@ def player_add_track(
             was_paused = playback_results.get("is_playing") is False
             if was_paused:
                 # No new URI/context: keep the paused song on this device.
-                device = playback_results.get("device") or {}
-                device_id = device.get("id")
+                device_id = (playback_results.get("device") or {}).get("id")
                 resume_kwargs = {"device_id": device_id} if device_id else {}
                 try:
                     spotify_request(spotify.start_playback, **resume_kwargs)
