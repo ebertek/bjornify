@@ -33,7 +33,9 @@ class SpotifyAuthTests(unittest.TestCase):
             cache_handler=CacheFileHandler(cache_path=str(cache_file)),
         )
 
-    def test_api_client_never_automatically_retries_429_or_writes(self):  # pylint: disable=protected-access
+    def test_api_client_never_automatically_retries_429_or_writes(
+        self,
+    ):  # pylint: disable=protected-access
         """urllib3 must preserve 429 responses and not replay playback writes."""
         with patch.object(spotify_auth, "make_auth_manager", return_value=MagicMock()):
             client = spotify_auth.make_spotify_client()
