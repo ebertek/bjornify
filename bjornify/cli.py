@@ -35,7 +35,12 @@ def sonos_devices(full=False):
             if full:
                 room["ip_address"] = speaker.ip_address
             rooms.append(room)
-        except (OSError, ValueError, requests.RequestException, soco.exceptions.SoCoException):
+        except (
+            OSError,
+            ValueError,
+            requests.RequestException,
+            soco.exceptions.SoCoException,
+        ):
             # A single unreachable room must not hide the other discovered ones.
             rooms.append({"name": "unavailable", "state": "unreachable"})
 
