@@ -104,7 +104,7 @@ docker build -f bjornify/Dockerfile -t bjornify:local .
   both Discord command styles, OAuth flows, Sonos identity checks, and
   uncertain queue outcomes. Never require live Spotify, Discord, Sonos, or
   real credentials for CI tests.
-- The Docker build context is the **repository root**, not `bjornify/`. The final image copies only runtime `.py` files and `wrapper.sh`, not source Dockerfiles or pip requirements. `libnss-wrapper` supplies a display name for arbitrary effective UIDs/GIDs; it does not change filesystem permissions.
+- The Docker build context is the **repository root**, not `bjornify/`. The final image copies only runtime `.py` files and `wrapper.sh`, not source Dockerfiles or pip requirements. The image runs as numeric non-root UID:GID 10001:10001 by default (or a Compose user override), without a baked-in appuser account. `libnss-wrapper` supplies the `bjornify` display name for the effective runtime UID and preserves existing GID names; it does not change filesystem permissions.
   The production image includes `bjornify/connect_playback_auth.py` and builds
   the Rust binary from `spotify-connect/`. Validate both when editing them.
 - The Rust dependency `vergen = "=9.0.6"` is intentionally pinned for the
