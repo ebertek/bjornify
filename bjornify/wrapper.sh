@@ -64,12 +64,12 @@ log() {
 # NSS lookup records for numeric UIDs/GIDs supplied by Docker Compose.
 # They change only the displayed user/group names, not kernel permissions.
 setup_runtime_identity() {
-	local uid gid identity_dir key real effective saved rest
+	local uid gid identity_dir key effective
 	# /tmp is an empty tmpfs with read_only: true. Avoid id(1) here:
 	# it performs NSS lookups before the runtime passwd/group files exist.
 	uid="$EUID"
 	gid=""
-	while read -r key real effective saved rest; do
+	while read -r key _ effective _; do
 		if [ "$key" = "Gid:" ]; then
 			gid="$effective"
 			break
