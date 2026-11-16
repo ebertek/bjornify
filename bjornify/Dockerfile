@@ -20,6 +20,16 @@ RUN cargo build --release
 
 FROM python:${PYTHON_VERSION}-${DEBIAN}
 
+# libnss-wrapper resolves arbitrary Compose numeric UIDs in docker exec shells.
+# Set paths in the image so docker exec inherits the same NSS configuration.
+# hadolint ignore=DL3008
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    libnss-wrapper \
+    && rm -rf /var/lib/apt/lists/*
+ENV LD_PRELOAD=libnss_wrapper.so \
+    NSS_WRAPPER_PASSWD=/tmp/bjornify-identity/passwd \
+    NSS_WRAPPER_GROUP=/tmp/bjornify-identity/group
+
 # Accept version as build argument.
 ARG VERSION=dev
 ARG GITHUB_SHA
@@ -77,12 +87,15 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     echo "Resolving latest compatible dependencies for ${DEPENDENCY_REFRESH}" && \
     python -m pip install --root-user-action ignore -r requirements.txt
 
-# Copy only the runtime code. The build context is the repository root.
-COPY bjornify/ .
+# Copy runtime code only. Do not ship the source Dockerfile, pip
+# requirements, or local build metadata into the running container.
+COPY bjornify/*.py ./
+COPY bjornify/wrapper.sh ./
 COPY --from=connect-build /connect/target/release/bjornify-connect /usr/local/bin/bjornify-connect
 
-# Make entrypoint script executable and create required directories.
-RUN chmod +x wrapper.sh && \
+# The CLI is one command, backed by the single /app/cli.py entry point.
+RUN chmod +x wrapper.sh cli.py && \
+    ln -s /app/cli.py /usr/local/bin/bjornify && \
     mkdir -p /app/logs /app/secrets && \
     chown -R appuser:appuser /app
 
