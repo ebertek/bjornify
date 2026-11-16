@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Single administrator-facing CLI for Björnify.
 
 Keep credentials, Spotify API behavior, and Sonos discovery in their own
