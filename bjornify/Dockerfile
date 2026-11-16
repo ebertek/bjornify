@@ -26,10 +26,6 @@ FROM python:${PYTHON_VERSION}-${DEBIAN}
 RUN apt-get update && apt-get install --no-install-recommends -y \
     libnss-wrapper \
     && rm -rf /var/lib/apt/lists/*
-ENV LD_PRELOAD=libnss_wrapper.so \
-    NSS_WRAPPER_PASSWD=/tmp/bjornify-identity/passwd \
-    NSS_WRAPPER_GROUP=/tmp/bjornify-identity/group
-
 # Accept version as build argument.
 ARG VERSION=dev
 ARG GITHUB_SHA
@@ -94,10 +90,18 @@ COPY bjornify/wrapper.sh ./
 COPY --from=connect-build /connect/target/release/bjornify-connect /usr/local/bin/bjornify-connect
 
 # The CLI is one command, backed by the single /app/cli.py entry point.
-RUN chmod +x wrapper.sh cli.py && \
-    ln -s /app/cli.py /usr/local/bin/bjornify && \
+RUN chmod +x wrapper.sh && \
+    printf '%s\\n' '#!/bin/sh' 'exec python /app/cli.py "$@"' > /usr/local/bin/bjornify && \
+    chmod +x /usr/local/bin/bjornify && \
     mkdir -p /app/logs /app/secrets && \
     chown -R appuser:appuser /app
+
+# These are paths to runtime lookup files, NOT passwords or credentials.
+# Keep them in ENV so docker exec sees the same NSS view as the bot.
+#trivy:ignore:DS-0031 -- false positive: passwd/group file paths, not secrets
+ENV LD_PRELOAD=libnss_wrapper.so \
+    NSS_WRAPPER_PASSWD=/tmp/bjornify-identity/passwd \
+    NSS_WRAPPER_GROUP=/tmp/bjornify-identity/group
 
 # Switch to the non-privileged user to run the application.
 # The named user is created earlier in this image; its UID is build-time configurable.
