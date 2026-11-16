@@ -82,16 +82,18 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 # Copy runtime code only. Do not ship the source Dockerfile, pip
 # requirements, or local build metadata into the running container.
-COPY bjornify/*.py ./
-COPY bjornify/wrapper.sh ./
+# Runtime code is immutable to the unprivileged process, even when Compose
+# selects an arbitrary UID/GID. Copy with deterministic root ownership/modes.
+COPY --chown=0:0 --chmod=0644 bjornify/*.py ./
+COPY --chown=0:0 --chmod=0755 bjornify/wrapper.sh ./
 COPY --from=connect-build /connect/target/release/bjornify-connect /usr/local/bin/bjornify-connect
 
-# The CLI is one command, backed by the single /app/cli.py entry point.
-RUN chmod +x wrapper.sh && \
-    printf '%s\n' '#!/bin/sh' 'exec python /app/cli.py "$@"' > /usr/local/bin/bjornify && \
-    chmod +x /usr/local/bin/bjornify && \
-    mkdir -p /app/logs /app/secrets /tmp/bjornify-identity && \
-    chown -R "${UID}:${UID}" /app && \
+# Only logs and secrets need writable directories. Never chown source code.
+RUN printf '%s\n' '#!/bin/sh' 'exec python /app/cli.py "$@"' > /usr/local/bin/bjornify && \
+    chmod 0755 /usr/local/bin/bjornify && \
+    install -d -m 0750 -o "${UID}" -g "${UID}" /app/logs && \
+    install -d -m 0700 -o "${UID}" -g "${UID}" /app/secrets && \
+    mkdir -p /tmp/bjornify-identity && \
     cp /etc/passwd /tmp/bjornify-identity/passwd && \
     cp /etc/group /tmp/bjornify-identity/group && \
     chmod 0644 /tmp/bjornify-identity/passwd /tmp/bjornify-identity/group && \
