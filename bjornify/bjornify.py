@@ -10,6 +10,7 @@ import signal
 import sys
 import time
 from contextlib import suppress
+from threading import Lock
 
 import discord
 import soco
@@ -155,6 +156,99 @@ spotify = spotipy.Spotify(
 
 spotify_authorizations = SpotifyAuthorizations()
 spotify_playback_pairings = DiscordPlaybackPairings()
+
+# A recent verified session is a recovery hint, never proof of current playback.
+_LAST_PLAYBACK = None
+_LAST_PLAYBACK_LOCK = Lock()
+SESSION_HINT_TTL = 120
+
+
+def remember_playback(playback):
+    """Remember a verified device, including a paused snapshot."""
+    global _LAST_PLAYBACK  # pylint: disable=global-statement
+    device = (playback or {}).get("device") or {}
+    if not device.get("id") or not device.get("name"):
+        return
+    hint = {
+        "id": device["id"],
+        "name": device["name"],
+        "type": device.get("type"),
+        "restricted": bool(device.get("is_restricted")),
+        "is_playing": playback.get("is_playing"),
+        "seen_at": time.monotonic(),
+    }
+    with _LAST_PLAYBACK_LOCK:
+        _LAST_PLAYBACK = hint
+    _LOGGER.debug(
+        "Playback hint updated: name=%s type=%s restricted=%s state=%s",
+        hint["name"],
+        hint["type"],
+        hint["restricted"],
+        hint["is_playing"],
+    )
+
+
+def recent_playback_hint():
+    """Return a fresh snapshot of the last verified device, if any."""
+    with _LAST_PLAYBACK_LOCK:
+        hint = dict(_LAST_PLAYBACK) if _LAST_PLAYBACK else None
+    if hint is None:
+        return None
+    age = time.monotonic() - hint["seen_at"]
+    _LOGGER.debug(
+        "Playback hint lookup: name=%s type=%s age_seconds=%.1f "
+        "restricted=%s last_playing=%s",
+        hint["name"],
+        hint["type"],
+        age,
+        hint["restricted"],
+        hint["is_playing"],
+    )
+    return hint if age <= SESSION_HINT_TTL else None
+
+
+def recover_missing_session(action, method):
+    """Try one explicitly targeted command on a recent nonrestricted device."""
+    hint = recent_playback_hint()
+    if hint is None:
+        _LOGGER.info("Playback recovery action=%s result=no_recent_hint", action)
+        return "No active Spotify playback found."
+    if hint["restricted"]:
+        _LOGGER.info("Playback recovery action=%s result=restricted_hint", action)
+        return (
+            "Spotify cannot verify the paused restricted device. Resume it in Spotify."
+        )
+    devices = spotify_request(spotify.devices)
+    visible = next(
+        (
+            device
+            for device in (devices or {}).get("devices", [])
+            if device.get("id") == hint["id"]
+        ),
+        None,
+    )
+    _LOGGER.debug(
+        "Playback recovery action=%s cached_device=%s visible=%s",
+        action,
+        hint["name"],
+        visible is not None,
+    )
+    try:
+        spotify_request(method, device_id=hint["id"])
+    except spotipy.exceptions.SpotifyException as error:
+        _LOGGER.info(
+            "Playback recovery action=%s result=rejected http_status=%s",
+            action,
+            error.http_status,
+        )
+        return spotify_error_message(error)
+    _LOGGER.info(
+        "Playback recovery action=%s result=accepted device=%s visible=%s",
+        action,
+        hint["name"],
+        visible is not None,
+    )
+    return "✅"
 
 
 # Set up Discord
@@ -442,6 +536,7 @@ def current_playback_with_retry(action, attempts=3, interval=0.4):
             _playback_diagnostics(playback),
         )
         if playback is not None:
+            remember_playback(playback)
             return playback
         if attempt < attempts:
             time.sleep(interval)
@@ -582,7 +677,7 @@ def spotify_action_with_soco_fallback(
         playback = current_playback_with_retry(action_name)
         if playback is None:
             _LOGGER.info("Playback action=%s result=no_active_session", action_name)
-            return "No active Spotify playback found."
+            return recover_missing_session(action_name, spotify_action)
         _LOGGER.debug(
             "Playback action=%s path=spotify details=%s",
             action_name,
@@ -733,8 +828,7 @@ def player_add_track(
             was_paused = playback_results.get("is_playing") is False
             if was_paused:
                 # No new URI/context: keep the paused song on this device.
-                device = playback_results.get("device") or {}
-                device_id = device.get("id")
+                device_id = (playback_results.get("device") or {}).get("id")
                 resume_kwargs = {"device_id": device_id} if device_id else {}
                 try:
                     spotify_request(spotify.start_playback, **resume_kwargs)
@@ -796,6 +890,38 @@ def player_add_track(
             if was_paused:
                 return f"Queued: {queued} (resumed paused playback)"
             return f"Queued: {queued}"
+
+        # Spotify may hide paused sessions. Honor the !add request by
+        # starting its track on the last verified nonrestricted device.
+        hint = recent_playback_hint()
+        if hint is not None:
+            _LOGGER.info(
+                "Add recovery candidate=%s type=%s restricted=%s",
+                hint["name"],
+                hint["type"],
+                hint["restricted"],
+            )
+            if not hint["restricted"]:
+                try:
+                    spotify_request(
+                        spotify.start_playback, device_id=hint["id"], uris=[uri]
+                    )
+                except spotipy.exceptions.SpotifyException as error:
+                    _LOGGER.info(
+                        "Add recovery result=rejected device=%s http_status=%s",
+                        hint["name"],
+                        error.http_status,
+                    )
+                    if error.http_status not in (403, 404):
+                        raise
+                else:
+                    _LOGGER.info("Add recovery result=accepted device=%s", hint["name"])
+                    queued = f"{artist} - {name}" if artist and name else uri
+                    return f"Started playback: {queued}"
+            else:
+                _LOGGER.debug(
+                    "Add recovery skipping restricted cached device=%s", hint["name"]
+                )
 
         # GET /me/player/devices
         devices = spotify_request(spotify.devices)
@@ -918,6 +1044,8 @@ def get_now_playing_embed():  # pylint: disable=too-many-locals, too-many-statem
     # Try Spotify first
     try:
         playback = spotify_request(spotify.current_playback)
+        if playback is not None:
+            remember_playback(playback)
         if playback is None:
             _LOGGER.debug("Spotify returned no playback (None)")
             raise ValueError("No active Spotify playback")

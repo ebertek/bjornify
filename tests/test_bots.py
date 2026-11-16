@@ -82,10 +82,62 @@ class BotBehaviorTests(unittest.TestCase):  # pylint: disable=too-many-public-me
 
     def setUp(self):
         """Patch the global Spotify instance for each test independently."""
+        self.bjornify._LAST_PLAYBACK = None  # pylint: disable=protected-access
         self.spotify = MagicMock()
         self.spotify_patch = patch.object(self.bjornify, "spotify", self.spotify)
         self.spotify_patch.start()
         self.addCleanup(self.spotify_patch.stop)
+
+    def test_recent_paused_iphone_automatically_starts_requested_track(self):
+        """A vanished iPhone session must recover without starting Alexa."""
+        self.bjornify.remember_playback(
+            {
+                "is_playing": False,
+                "device": {"id": "iphone-test", "name": "iPhone", "type": "Smartphone"},
+            }
+        )
+        self.spotify.current_playback.return_value = None
+        with patch.object(self.bjornify.time, "sleep"):
+            response = self.bjornify.player_add_track("spotify:track:test")
+        self.assertEqual(response, "Started playback: spotify:track:test")
+        self.spotify.start_playback.assert_called_once_with(
+            device_id="iphone-test", uris=["spotify:track:test"]
+        )
+        self.spotify.add_to_queue.assert_not_called()
+
+    def test_next_targets_recent_iphone_when_snapshot_disappears(self):
+        """A missing playback snapshot can recover via explicit device ID."""
+        self.bjornify.remember_playback(
+            {
+                "is_playing": False,
+                "device": {"id": "iphone-test", "name": "iPhone", "type": "Smartphone"},
+            }
+        )
+        self.spotify.current_playback.return_value = None
+        self.spotify.devices.return_value = {"devices": []}
+        with patch.object(self.bjornify.time, "sleep"):
+            response = self.bjornify.player_skip_to_next()
+        self.assertEqual(response, "✅")
+        self.spotify.next_track.assert_called_once_with(device_id="iphone-test")
+
+    def test_restricted_cached_device_cannot_be_controlled_blindly(self):
+        """Restricted Sonos sessions require a fresh verified snapshot."""
+        self.bjornify.remember_playback(
+            {
+                "is_playing": False,
+                "device": {
+                    "id": "sonos-test",
+                    "name": "Sunroom",
+                    "type": "Speaker",
+                    "is_restricted": True,
+                },
+            }
+        )
+        self.spotify.current_playback.return_value = None
+        with patch.object(self.bjornify.time, "sleep"):
+            response = self.bjornify.player_skip_to_next()
+        self.assertIn("restricted", response)
+        self.spotify.next_track.assert_not_called()
 
     def test_playback_lookup_recovers_after_transient_missing_snapshot(self):
         """CarPlay may briefly disappear from the playback endpoint after pause."""
