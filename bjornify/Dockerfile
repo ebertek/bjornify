@@ -93,8 +93,12 @@ COPY --from=connect-build /connect/target/release/bjornify-connect /usr/local/bi
 RUN chmod +x wrapper.sh && \
     printf '%s\n' '#!/bin/sh' 'exec python /app/cli.py "$@"' > /usr/local/bin/bjornify && \
     chmod +x /usr/local/bin/bjornify && \
-    mkdir -p /app/logs /app/secrets && \
-    chown -R appuser:appuser /app
+    mkdir -p /app/logs /app/secrets /tmp/bjornify-identity && \
+    chown -R appuser:appuser /app && \
+    cp /etc/passwd /tmp/bjornify-identity/passwd && \
+    cp /etc/group /tmp/bjornify-identity/group && \
+    chmod 0644 /tmp/bjornify-identity/passwd /tmp/bjornify-identity/group && \
+    chmod 0777 /tmp/bjornify-identity
 
 # These are paths to runtime lookup files, NOT passwords or credentials.
 # Keep them in ENV so docker exec sees the same NSS view as the bot.
