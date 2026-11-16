@@ -7,8 +7,8 @@ import os
 import sys
 import tempfile
 import unittest
-from pathlib import Path
 from contextlib import redirect_stdout
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from spotipy.exceptions import SpotifyOauthError
@@ -37,7 +37,9 @@ class SpotifyAuthTests(unittest.TestCase):
         """urllib3 must preserve 429 responses and not replay playback writes."""
         with patch.object(spotify_auth, "make_auth_manager", return_value=MagicMock()):
             client = spotify_auth.make_spotify_client()
-        retry = client._session.get_adapter("https://").max_retries  # pylint: disable=protected-access
+        retry = client._session.get_adapter(
+            "https://"
+        ).max_retries  # pylint: disable=protected-access
         self.assertFalse(retry.respect_retry_after_header)
         self.assertNotIn(429, retry.status_forcelist)
         self.assertEqual(retry.allowed_methods, frozenset({"GET"}))
@@ -47,13 +49,15 @@ class SpotifyAuthTests(unittest.TestCase):
         """The normal diagnostics output is readable and identifier-free."""
         client = MagicMock()
         client.devices.return_value = {
-            "devices": [{
-                "id": "synthetic-private-id",
-                "name": "Test Phone",
-                "type": "Smartphone",
-                "is_active": True,
-                "is_restricted": False,
-            }]
+            "devices": [
+                {
+                    "id": "synthetic-private-id",
+                    "name": "Test Phone",
+                    "type": "Smartphone",
+                    "is_active": True,
+                    "is_restricted": False,
+                }
+            ]
         }
         client.current_playback.return_value = {
             "device": {"id": "synthetic-private-id", "name": "Test Phone"},
@@ -116,9 +120,10 @@ class SpotifyAuthTests(unittest.TestCase):
 
     def test_rejects_localhost_redirect(self):
         """Old localhost callback must not silently break new authorization."""
-        with patch.dict(
-            os.environ, {"SPOTIPY_REDIRECT_URI": "http://localhost:3000"}
-        ), self.assertRaisesRegex(ValueError, "no longer supported"):
+        with (
+            patch.dict(os.environ, {"SPOTIPY_REDIRECT_URI": "http://localhost:3000"}),
+            self.assertRaisesRegex(ValueError, "no longer supported"),
+        ):
             spotify_auth.redirect_uri_from_environment()
 
     def test_no_cache_never_prompts_in_background(self):
@@ -135,9 +140,10 @@ class SpotifyAuthTests(unittest.TestCase):
             cache.write_text('{"refresh_token": "expired"}')
             manager = self.make_manager(cache)
             error = SpotifyOauthError("expired", error="invalid_grant")
-            with patch.object(
-                SpotifyOAuth, "refresh_access_token", side_effect=error
-            ), self.assertRaises(spotify_auth.SpotifyAuthorizationRequired):
+            with (
+                patch.object(SpotifyOAuth, "refresh_access_token", side_effect=error),
+                self.assertRaises(spotify_auth.SpotifyAuthorizationRequired),
+            ):
                 manager.refresh_access_token("expired")
             self.assertFalse(cache.exists())
 
@@ -148,9 +154,10 @@ class SpotifyAuthTests(unittest.TestCase):
             cache.write_text('{"refresh_token": "valid"}')
             manager = self.make_manager(cache)
             error = SpotifyOauthError("server error", error="server_error")
-            with patch.object(
-                SpotifyOAuth, "refresh_access_token", side_effect=error
-            ), self.assertRaises(SpotifyOauthError):
+            with (
+                patch.object(SpotifyOAuth, "refresh_access_token", side_effect=error),
+                self.assertRaises(SpotifyOauthError),
+            ):
                 manager.refresh_access_token("valid")
             self.assertTrue(cache.exists())
 

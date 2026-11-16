@@ -5,8 +5,8 @@ inside the container to create or renew the six-month Spotify authorization.
 """
 
 import getpass
-import json
 import hmac
+import json
 import os
 import secrets
 import sys
@@ -17,8 +17,8 @@ import requests
 import spotipy
 from requests.adapters import HTTPAdapter
 from spotipy.exceptions import SpotifyException, SpotifyOauthError
-from urllib3.util.retry import Retry
 from spotipy.oauth2 import CacheFileHandler, SpotifyOAuth
+from urllib3.util.retry import Retry
 
 DEFAULT_REDIRECT_URI = "http://127.0.0.1:3000"
 TOKEN_CACHE_PATH = Path("/app/secrets/spotipy_token.cache")
@@ -164,9 +164,7 @@ def summarize_diagnostics(devices, playback):
             "device_type": device.get("type"),
             "is_playing": playback.get("is_playing"),
             "track": item.get("name"),
-            "artists": [
-                artist.get("name") for artist in item.get("artists") or []
-            ],
+            "artists": [artist.get("name") for artist in item.get("artists") or []],
             "progress_ms": playback.get("progress_ms"),
             "duration_ms": item.get("duration_ms"),
             "context_type": (playback.get("context") or {}).get("type"),

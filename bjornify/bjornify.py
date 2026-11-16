@@ -518,11 +518,7 @@ def spotify_request(method, *args, **kwargs):
             if error.http_status != 429 or error.reason == "QUOTA_EXCEEDED":
                 raise
             header = (error.headers or {}).get("Retry-After")
-            delay = (
-                max(1, int(header))
-                if str(header).isdecimal()
-                else 2**attempt
-            )
+            delay = max(1, int(header)) if str(header).isdecimal() else 2**attempt
             _record_spotify_cooldown(delay)
             _LOGGER.warning(
                 "Spotify HTTP 429: attempt=%d/3 retry_after_seconds=%d",
