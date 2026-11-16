@@ -78,8 +78,10 @@ setup_runtime_identity() {
 			return 0
 		}
 	fi
-	if [ ! -O "$identity_dir" ]; then
-		log WARNING "Runtime identity directory belongs to another user"
+	# The image seeds readable NSS files as root, but numeric Compose UIDs
+	# need write access to atomically replace them with their own records.
+	if [ ! -w "$identity_dir" ]; then
+		log WARNING "Runtime identity directory is not writable"
 		return 0
 	fi
 
