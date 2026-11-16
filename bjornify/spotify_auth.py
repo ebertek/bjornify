@@ -128,6 +128,7 @@ def make_spotify_client(auth_manager=None):
         allowed_methods=frozenset({"GET"}),
         status_forcelist=(500, 502, 503, 504),
         respect_retry_after_header=False,
+        raise_on_status=False,
         backoff_factor=0.4,
     )
     session.mount("https://", HTTPAdapter(max_retries=retry))
