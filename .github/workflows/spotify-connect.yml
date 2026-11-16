@@ -115,20 +115,24 @@ jobs:
             --entrypoint /bin/bash bjornify:connect-ci -ec '
               grep -Eq "^CapBnd:[[:space:]]+0+$" /proc/self/status
             '
-          docker run --rm --read-only \
+          readonly_output="$(docker run --rm --read-only \
             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=16m,mode=1777 \
             --entrypoint /bin/bash bjornify:connect-ci -ec '
               /app/wrapper.sh >/tmp/bootstrap.log 2>&1 || true
               ! grep -q NWRAP_ERROR /tmp/bootstrap.log
               test "$(whoami)" = bjornify
-              test -s /tmp/bjornify-identity/passwd
+              test -s /run/bjornify-identity/passwd
               test ! -w /app/bjornify.py
               test ! -w /app
               touch /tmp/tempfile-test
-            '
+            ' 2>&1)"
+          if grep -q NWRAP_ERROR <<<"$readonly_output"; then
+            printf '%s\n' "$readonly_output"
+            exit 1
+          fi
           # Combined test with arbitrary numeric user, persistent state
           # simulated using writable, correctly owned tmpfs mounts.
-          docker run --rm --read-only --cap-drop ALL \
+          hardened_output="$(docker run --rm --read-only --cap-drop ALL \
             --security-opt no-new-privileges:true \
             --user 23456:100 \
             --tmpfs /tmp:rw,nosuid,nodev,noexec,size=16m,mode=1777 \
@@ -149,4 +153,8 @@ jobs:
               touch /app/logs/smoke-test /app/secrets/smoke-test
               python -c "import socket; s=socket.socket(); s.bind((str(),8765)); s.close()"
               python /app/cli.py --help >/dev/null
-            '
+            ' 2>&1)"
+          if grep -q NWRAP_ERROR <<<"$hardened_output"; then
+            printf '%s\n' "$hardened_output"
+            exit 1
+          fi
