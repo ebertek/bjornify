@@ -93,18 +93,18 @@ RUN printf '%s\n' '#!/bin/sh' 'exec python /app/cli.py "$@"' > /usr/local/bin/bj
     chmod 0755 /usr/local/bin/bjornify && \
     install -d -m 0750 -o "${UID}" -g "${UID}" /app/logs && \
     install -d -m 0700 -o "${UID}" -g "${UID}" /app/secrets && \
-    mkdir -p /tmp/bjornify-identity && \
-    cp /etc/passwd /tmp/bjornify-identity/passwd && \
-    cp /etc/group /tmp/bjornify-identity/group && \
-    chmod 0644 /tmp/bjornify-identity/passwd /tmp/bjornify-identity/group && \
-    chmod 0777 /tmp/bjornify-identity
+    mkdir -p /run/bjornify-identity && \
+    cp /etc/passwd /run/bjornify-identity/passwd && \
+    cp /etc/group /run/bjornify-identity/group && \
+    chmod 0644 /run/bjornify-identity/passwd /run/bjornify-identity/group && \
+    chmod 0777 /run/bjornify-identity
 
 # These are paths to runtime lookup files, NOT passwords or credentials.
 # Keep them in ENV so docker exec sees the same NSS view as the bot.
 #trivy:ignore:DS-0031
 ENV LD_PRELOAD=libnss_wrapper.so \
-    NSS_WRAPPER_PASSWD=/tmp/bjornify-identity/passwd \
-    NSS_WRAPPER_GROUP=/tmp/bjornify-identity/group
+    NSS_WRAPPER_PASSWD=/run/bjornify-identity/passwd \
+    NSS_WRAPPER_GROUP=/run/bjornify-identity/group
 
 # Run non-root even when Compose does not specify a user. The startup
 # wrapper creates a matching NSS identity for both default and overridden UIDs.
@@ -114,8 +114,9 @@ USER ${UID}:${UID}
 # Healthcheck.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD ["/app/wrapper.sh", "healthcheck"]
 
-# Declare persistent volume for secrets.
-VOLUME ["/app/secrets"]
+# Copy-up seeds NSS data into its own writable volume even with a read-only
+# root filesystem and an empty /tmp tmpfs. No credentials are stored there.
+VOLUME ["/app/secrets", "/run/bjornify-identity"]
 
 # Run the application.
 ENTRYPOINT ["./wrapper.sh"]

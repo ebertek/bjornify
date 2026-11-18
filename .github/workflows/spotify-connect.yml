@@ -103,3 +103,58 @@ jobs:
             test "$(whoami)" = bjornify
             test "$(id -gn)" = users
           '
+
+      - name: Test no-new-privileges, dropped capabilities, and read-only rootfs
+        run: |
+          # Verify each protection independently.
+          docker run --rm --security-opt no-new-privileges:true \
+            --entrypoint /bin/bash bjornify:connect-ci -ec '
+              grep -Eq "^NoNewPrivs:[[:space:]]+1$" /proc/self/status
+            '
+          docker run --rm --cap-drop ALL \
+            --entrypoint /bin/bash bjornify:connect-ci -ec '
+              grep -Eq "^CapBnd:[[:space:]]+0+$" /proc/self/status
+            '
+          readonly_output="$(docker run --rm --read-only \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=16m,mode=1777 \
+            --entrypoint /bin/bash bjornify:connect-ci -ec '
+              /app/wrapper.sh >/tmp/bootstrap.log 2>&1 || true
+              ! grep -q NWRAP_ERROR /tmp/bootstrap.log
+              test "$(whoami)" = bjornify
+              test -s /run/bjornify-identity/passwd
+              test ! -w /app/bjornify.py
+              test ! -w /app
+              touch /tmp/tempfile-test
+            ' 2>&1)"
+          if grep -q NWRAP_ERROR <<<"$readonly_output"; then
+            printf '%s\n' "$readonly_output"
+            exit 1
+          fi
+          # Combined test with arbitrary numeric user, persistent state
+          # simulated using writable, correctly owned tmpfs mounts.
+          hardened_output="$(docker run --rm --read-only --cap-drop ALL \
+            --security-opt no-new-privileges:true \
+            --user 23456:100 \
+            --tmpfs /tmp:rw,nosuid,nodev,noexec,size=16m,mode=1777 \
+            --tmpfs /app/logs:rw,nosuid,nodev,noexec,uid=23456,gid=100,mode=0750 \
+            --tmpfs /app/secrets:rw,nosuid,nodev,noexec,uid=23456,gid=100,mode=0700 \
+            --entrypoint /bin/bash bjornify:connect-ci -ec '
+              /app/wrapper.sh >/tmp/bootstrap.log 2>&1 || true
+              ! grep -q NWRAP_ERROR /tmp/bootstrap.log
+              test "$(whoami)" = bjornify
+              test "$(id -u)" -eq 23456
+              test "$(id -gn)" = users
+              grep -Eq "^NoNewPrivs:[[:space:]]+1$" /proc/self/status
+              grep -Eq "^CapBnd:[[:space:]]+0+$" /proc/self/status
+              test ! -w /app
+              test ! -w /app/bjornify.py
+              test -w /app/logs
+              test -w /app/secrets
+              touch /app/logs/smoke-test /app/secrets/smoke-test
+              python -c "import socket; s=socket.socket(); s.bind((str(),8765)); s.close()"
+              python /app/cli.py --help >/dev/null
+            ' 2>&1)"
+          if grep -q NWRAP_ERROR <<<"$hardened_output"; then
+            printf '%s\n' "$hardened_output"
+            exit 1
+          fi

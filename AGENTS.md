@@ -114,6 +114,9 @@ docker build -f bjornify/Dockerfile -t bjornify:local .
   Bind-mounted data must be writable by the actual Compose UID/GID.
   `libnss-wrapper` provides the `bjornify` display name for the runtime UID
   and preserves known group names without changing filesystem permissions.
+  The image seeds a separate `/run/bjornify-identity` volume for NSS lookup
+  files, so an empty `/tmp` tmpfs does not hide them on read-only rootfs.
+  Bootstrap must avoid NSS lookups until the effective UID/GID is registered.
   The production image includes `bjornify/connect_playback_auth.py` and builds
   the Rust binary from `spotify-connect/`. Validate both when editing them.
 - The Rust dependency `vergen = "=9.0.6"` is intentionally pinned for the
